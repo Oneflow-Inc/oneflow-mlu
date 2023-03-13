@@ -294,6 +294,7 @@ list(APPEND oneflow_third_party_libs LLVMSupportWithHeader)
 include(op_schema)
 
 if(BUILD_MLU)
+  add_definitions(-DWITH_MLU)
   add_subdirectory(${PROJECT_SOURCE_DIR}/oneflow/cambricon)
 endif()
 

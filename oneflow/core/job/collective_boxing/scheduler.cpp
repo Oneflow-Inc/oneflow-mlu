@@ -21,9 +21,10 @@ limitations under the License.
 #include "oneflow/core/graph/boxing/collective_boxing_util.h"
 #include "oneflow/core/job/global_for.h"
 #include "oneflow/core/job/collective_boxing/nccl_executor_backend.h"
+#include "oneflow/cambricon/collective_boxing/cncl_executor_backend.h"
 #include "oneflow/core/job/plan.pb.h"
 #include "oneflow/core/job/resource_desc.h"
-#include "oneflow/core/device/cuda_util.h"
+#include "oneflow/core/ep/include/device_manager_registry.h"
 
 namespace oneflow {
 
@@ -120,21 +121,32 @@ void ExecutorImpl::Init(std::shared_ptr<RequestStore> request_store) {
   request_store_ = request_store;
   backends_.resize(Backend_ARRAYSIZE);
 #ifdef WITH_CUDA
-  int cuda_dev_count = 0;
-  cudaError_t err = cudaGetDeviceCount(&cuda_dev_count);
-  if (err != cudaErrorNoDevice && err != cudaErrorInsufficientDriver) { OF_CUDA_CHECK(err); }
+  size_t cuda_dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kCUDA);
   if (cuda_dev_count > 0) {
     std::unique_ptr<ExecutorBackend> nccl_backend = std::make_unique<NcclExecutorBackend>();
     nccl_backend->Init(request_store_);
     backends_.at(Backend::kBackendNCCL) = std::move(nccl_backend);
   }
 #endif
+
+#ifdef WITH_MLU
+  size_t mlu_dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kMLU);
+  if (mlu_dev_count > 0) {
+    std::unique_ptr<ExecutorBackend> cncl_backend = std::make_unique<CnclExecutorBackend>();
+    cncl_backend->Init(request_store_);
+    backends_.at(Backend::kBackendCNCL) = std::move(cncl_backend);
+  }
+#endif  // WITH_MLU
 }
 
 void ExecutorImpl::InitJob(int64_t job_id) {
 #ifdef WITH_CUDA
   if (backends_.at(Backend::kBackendNCCL)) { backends_.at(Backend::kBackendNCCL)->InitJob(job_id); }
 #endif
+
+#ifdef WITH_MLU
+  if (backends_.at(Backend::kBackendCNCL)) { backends_.at(Backend::kBackendCNCL)->InitJob(job_id); }
+#endif  // WITH_MLU
 }
 
 void ExecutorImpl::DeinitJob(int64_t job_id) {
@@ -143,6 +155,12 @@ void ExecutorImpl::DeinitJob(int64_t job_id) {
     backends_.at(Backend::kBackendNCCL)->DeinitJob(job_id);
   }
 #endif
+
+#ifdef WITH_MLU
+  if (backends_.at(Backend::kBackendCNCL)) {
+    backends_.at(Backend::kBackendCNCL)->DeinitJob(job_id);
+  }
+#endif  // WITH_MLU
 }
 
 GroupToken* ExecutorImpl::CreateGroupToken(const std::vector<RequestId>& group,
@@ -151,7 +169,13 @@ GroupToken* ExecutorImpl::CreateGroupToken(const std::vector<RequestId>& group,
 }
 
 void ExecutorImpl::DestroyGroupToken(GroupToken* group_token) {
+#ifdef WITH_CUDA
   backends_.at(Backend::kBackendNCCL)->DestroyGroupToken(group_token->backend_group_token());
+#endif  // WITH_CUDA
+
+#ifdef WITH_MLU
+  backends_.at(Backend::kBackendCNCL)->DestroyGroupToken(group_token->backend_group_token());
+#endif  // WITH_MLU
   delete group_token;
 }
 
