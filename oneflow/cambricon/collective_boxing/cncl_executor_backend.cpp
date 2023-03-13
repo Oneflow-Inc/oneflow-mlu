@@ -56,7 +56,7 @@ struct CopyParams {
 };
 
 constexpr int64_t kMultiCopyParamsMaxSize = 128;
-constexpr int64_t kMultiCopyAlignSize = 128; // MLU need align 128
+constexpr int64_t kMultiCopyAlignSize = 64; // MLU need align 64
 
 int64_t GetMultiCopyAlignedSize(int64_t size) {
   return ((size + kMultiCopyAlignSize - 1) / kMultiCopyAlignSize) * kMultiCopyAlignSize;
@@ -165,7 +165,7 @@ class CommGroup final {
     for (int32_t local_rank = 0; local_rank < local_ranks.size(); ++local_rank) {
       const int32_t global_rank = local_ranks.at(local_rank);
       const int32_t device_id = device_set.device(global_rank).device_id();
-      // OF_MLU_CHECK(cnrtSetDevice(device_id));
+      OF_MLU_CHECK(cnrtSetDevice(device_id));
       rank_vec_.emplace_back(device_id, global_rank, global_rank_count_, local_rank,
                              local_rank_count);
       rank_vec_.at(local_rank).InitRank(cncl_clique_id, global_rank_count_);
@@ -189,7 +189,10 @@ class StreamCtx {
   StreamCtx(int32_t device_id, size_t fusion_buffer_size)
       : device_id_(device_id), fusion_buffer_size_(fusion_buffer_size) {
     MluCurrentDeviceGuard guard(device_id_);
-    OF_MLU_CHECK(cnrtQueueCreate(&stream_));
+    int least_priority;
+    int greatest_priority;
+    OF_MLU_CHECK(cnrtDeviceGetQueuePriorityRange(&least_priority, &greatest_priority));
+    OF_MLU_CHECK(cnrtQueueCreateWithPriority(&stream_, 0, greatest_priority));
     void* data_ptr = (void*)fusion_buffer_;
     OF_MLU_CHECK(cnrtMalloc(&data_ptr, fusion_buffer_size_));
     cb_event_poller_ = std::thread(&StreamCtx::PollEvent, this);
@@ -219,7 +222,7 @@ class StreamCtx {
   void AddCallback(const std::function<void()>& callback) {
     MluCurrentDeviceGuard guard(device_id_);
     cnrtNotifier_t event;
-    OF_MLU_CHECK(cnrtNotifierCreateWithFlags(&event, 0));
+    OF_MLU_CHECK(cnrtNotifierCreateWithFlags(&event, CNRT_NOTIFIER_DEFAULT));
     OF_MLU_CHECK(cnrtPlaceNotifier(event, stream_));
     CHECK_EQ(cb_event_chan_.Send(std::make_pair(event, callback)), kChannelStatusSuccess);
   }
