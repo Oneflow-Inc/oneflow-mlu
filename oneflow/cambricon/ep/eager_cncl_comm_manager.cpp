@@ -17,6 +17,7 @@ limitations under the License.
 #include <string>
 #include "oneflow/core/control/ctrl_client.h"
 #include "oneflow/core/control/global_process_ctx.h"
+#include "oneflow/core/job/env_global_objects_scope.h"
 #include "oneflow/cambricon/ep/eager_cncl_comm_manager.h"
 #include "oneflow/core/job/id_manager.h"
 #include "oneflow/core/job/parallel_desc.h"
@@ -217,5 +218,15 @@ void EagerCnclCommMgr::CreateCommFromPlan(const Plan& plan) {
     device7stream2device_id2comm_[key][dev] = comm;
   }
 }
+
+REGISTER_CCL_MGR_CREATE_AND_DESTORY_FN(
+    []() -> Maybe<void> {
+      Singleton<EagerCnclCommMgr>::New();
+      return Maybe<void>::Ok();
+    },
+    []() -> Maybe<void> {
+      Singleton<EagerCnclCommMgr>::Delete();
+      return Maybe<void>::Ok();
+    });
 
 }  // namespace oneflow

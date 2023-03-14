@@ -19,19 +19,13 @@ namespace oneflow {
 
 namespace {
 
-Maybe<Symbol<Stream>> RawGetNcclDevice() {
-  return Stream::New(JUST(Device::New("cuda")), StreamType::kCcl);
-}
-
-Maybe<Symbol<Stream>> RawGetCpuTransportDevice() {
-  return Stream::New(JUST(Device::New("cpu")), StreamType::kCcl);
+Maybe<Symbol<Stream>> RawGetTransportDevice(Symbol<Device> device) {
+  return Stream::New(JUST(Device::New(device->type())), StreamType::kCcl);
 }
 
 }  // namespace
 
-decltype(GetNcclDevice) GetNcclDevice = DECORATE(&RawGetNcclDevice, ThreadLocal);
-decltype(GetCpuTransportDevice) GetCpuTransportDevice =
-    DECORATE(&RawGetCpuTransportDevice, ThreadLocal);
+decltype(GetTransportDevice) GetTransportDevice = DECORATE(&RawGetTransportDevice, ThreadLocal);
 
 Maybe<Symbol<Device>> DefaultGetOutputDeivce(user_op::DeviceAndStreamInferContext* ctx) {
   CHECK_GT_OR_RETURN(ctx->inputs().size(), 0);
