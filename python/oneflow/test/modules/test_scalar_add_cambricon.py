@@ -25,8 +25,9 @@ def _test_scalar_add_forward(test_case, shape, device):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=flow.float)
     y = np.random.randn()
     of_out = x + y
-    print(of_out)
     np_out = np.add(x.numpy(), y)
+    # print(of_out)
+    # print(np_out)
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 0.0001, 0.0001))
 
 
