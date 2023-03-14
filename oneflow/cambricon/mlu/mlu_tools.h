@@ -43,7 +43,7 @@ struct Shape2D {
 struct AddType{
   cnnlDataType_t input_dtype;
   cnnlDataType_t output_dtype;
-  cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
+  cnnlTensorLayout_t layout = CNNL_LAYOUT_NCHW;
 };
 
 void setTensorDesc2D(cnnlTensorDescriptor_t &desc,

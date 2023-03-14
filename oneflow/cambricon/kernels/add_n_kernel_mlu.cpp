@@ -16,6 +16,7 @@ limitations under the License.
 #include <cassert>
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.pb.h"
+#include "oneflow/core/common/throw.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -48,6 +49,7 @@ class MluAddNKernel final : public user_op::OpKernel {
     std::vector<const void*> input_dptrs_vec(in_num);
     Shape first_input_shape;
     ctx->Tensor4ArgNameAndIndex("in", 0)->shape_view().ToShape(&first_input_shape);
+    assert(first_input_shape.NumAxes() == 4);
     for (size_t i = 0; i < input_dptrs_vec.size(); ++i) {
       const auto* input_i_tensor = ctx->Tensor4ArgNameAndIndex("in", i);
       Shape input_i_shape;
@@ -55,7 +57,6 @@ class MluAddNKernel final : public user_op::OpKernel {
       CHECK_EQ(first_input_shape, input_i_shape);
       input_dptrs_vec[i] = input_i_tensor->dptr();
     }
-    assert(first_input_shape.NumAxes() == 4);
     Shape2D input_t;
     input_t.n = first_input_shape.At(0);
     input_t.h = first_input_shape.At(1);
@@ -77,6 +78,9 @@ class MluAddNKernel final : public user_op::OpKernel {
     }
     else if(GetDataType<T>::value == DataType::kFloat16){
       v = 1;
+    }
+    else{
+      UNIMPLEMENTED_THEN_THROW() << "";
     }
     datainfo.input_dtype = (cnnlDataType_t)v;;
     datainfo.output_dtype = (cnnlDataType_t)v;;
