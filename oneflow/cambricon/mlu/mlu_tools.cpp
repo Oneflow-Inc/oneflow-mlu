@@ -29,21 +29,4 @@ void setTensorDesc(cnnlTensorDescriptor_t &desc,
   CNNL_CHECK(cnnlSetTensorDescriptor(desc, layout, dtype, 4, dim));
 }
 
-cnnlDataType_t convertCamDataType(CamDataType type){
-  int v = 0;
-  if(type == kHALF){
-    v = 1;
-  }
-  else if(type == kFLOAT32){
-    v = 2;
-  }
-  else if(type == kINT8){
-    v = 3;
-  }
-  else if(type == kINT16){
-    v = 4;
-  }
-  return (cnnlDataType_t)v;
-}
-
 }  // namespace oneflow

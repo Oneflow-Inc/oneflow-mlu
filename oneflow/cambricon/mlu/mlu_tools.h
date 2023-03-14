@@ -32,8 +32,6 @@ limitations under the License.
 
 namespace oneflow {
 
-enum CamDataType { kHALF, kFLOAT32, kINT32, kINT16, kINT8 };
-
 struct Shape2D {
   int n = 0;
   int c = 0;
@@ -52,9 +50,6 @@ void setTensorDesc2D(cnnlTensorDescriptor_t &desc,
                      Shape2D shape,
                      cnnlDataType_t dtype,
                      cnnlTensorLayout_t layout);
-
-
-cnnlDataType_t convertCamDataType(CamDataType type);
 
 }  // namespace oneflow
 
