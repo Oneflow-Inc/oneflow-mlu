@@ -15,7 +15,7 @@ limitations under the License.
 */
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
-#include "oneflow/core/mlu/mlu_tools.h"
+#include "oneflow/cambricon/mlu/mlu_tools.h"
 
 namespace oneflow {
 

@@ -1,4 +1,4 @@
-#include "oneflow/core/mlu/mlu_tools.h"
+#include "oneflow/cambricon/mlu/mlu_tools.h"
 
 namespace oneflow {
 

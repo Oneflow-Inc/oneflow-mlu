@@ -26,7 +26,7 @@ limitations under the License.
 #include <cmath>
 #include <string>
 
-#include "oneflow/core/mlu/public.h"
+#include "oneflow/cambricon/mlu/public.h"
 #include "cnrt.h"
 #include "cnnl.h"
 

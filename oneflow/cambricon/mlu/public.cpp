@@ -14,7 +14,7 @@
 #include <limits>
 #include <cfloat>
 #include <chrono>
-#include "oneflow/core/mlu/public.h"
+#include "oneflow/cambricon/mlu/public.h"
 
 namespace oneflow {
 
