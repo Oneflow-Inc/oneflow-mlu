@@ -43,7 +43,7 @@ class TestAddCambriconModule(flow.unittest.TestCase):
         arg_dict["test_fun"] = [
             _test_add_forward,
         ]
-        arg_dict["shape"] = [(2, 3, 4, 5)]
+        arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
