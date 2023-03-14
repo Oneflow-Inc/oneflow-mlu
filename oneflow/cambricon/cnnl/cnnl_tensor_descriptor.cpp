@@ -15,7 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 
-#include <glog/logging.h>
+#include "oneflow/core/common/throw.h"
 
 // Modified from Cambricon catch for PyTorch.
 // https://github.com/Cambricon/catch/blob/main/torch_mlu/csrc/aten/cnnl/cnnlTensorDescriptors.cpp
@@ -96,7 +96,7 @@ void CnnlTensorDescriptor::set(const user_op::Tensor* t, cnnlTensorLayout_t layo
     convertShapeAndStride(shape_info, stride_info);
   } else if (layout == CNNL_LAYOUT_HWCN) {
     // HWCN is only used by depthwise conv now, and the dim is 4
-    CHECK_EQ(t_dim, 4) << "depthwise convolution input's dim must be 4!";
+    CHECK_EQ_OR_THROW(t_dim, 4) << "depthwise convolution input's dim must be 4";
     auto convertDepthWiseConvShapeStride = [](const int64_t* vec, std::vector<int>& target_vec) {
       target_vec[0] = static_cast<int>(vec[2]);
       target_vec[1] = static_cast<int>(vec[3]);
@@ -190,7 +190,7 @@ void CnnlTensorDescriptor::set_dim(const user_op::Tensor* t, int inputDim) {
   }
   std::vector<int> cur_size(t_dim);
   for (size_t i = 0; i < t_dim; ++i) { cur_size[i] = static_cast<int>(t->shape_view().At(i)); }
-  CHECK_EQ(inputDim, 4) << "inputDim need equal to 4";
+  CHECK_EQ_OR_THROW(inputDim, 4) << "inputDim need equal to 4.";
   std::vector<int> cnnl_shape_size(inputDim, 1);
   std::vector<int> cnnl_stride_size(inputDim, 1);
   for (size_t i = 0; i < inputDim; ++i) { cnnl_shape_size[i] = t_dim > i ? cur_size[i] : 1; }
@@ -213,7 +213,7 @@ void CnnlTensorDescriptor::set_dim(const user_op::Tensor* t) {
 }
 
 void CnnlSeqDataDescriptor::set(const user_op::Tensor* t) {
-  CHECK_EQ(t->shape_view().NumAxes(), 3) << "input's dim must be 3";
+  CHECK_EQ_OR_THROW(t->shape_view().NumAxes(), 3) << "input's dim must be 3.";
   auto layout = CNNL_SEQDATA_TNC;
   cnnlDataType_t dtype = ConvertToCnnlDataType(t->data_type());
   std::vector<int> dim_array(3, 1);  // TNC
@@ -228,7 +228,7 @@ void CnnlSeqDataDescriptor::set(const user_op::Tensor* t) {
 void CnnlSeqDataDescriptor::set(const user_op::Tensor* t, cnnlSeqDataLayout_t layout) {
   cnnlDataType_t data_type = ConvertToCnnlDataType(t->data_type());
   // t shape is NBTC
-  CHECK_EQ(t->shape_view().NumAxes(), 4) << "input's dim must be 4";
+  CHECK_EQ_OR_THROW(t->shape_view().NumAxes(), 4) << "input's dim must be 4.";
   std::vector<int> dim_array(4, 1);                        // NBTC
   dim_array[0] = static_cast<int>(t->shape_view().At(0));  // N
   dim_array[1] = static_cast<int>(t->shape_view().At(1));  // B

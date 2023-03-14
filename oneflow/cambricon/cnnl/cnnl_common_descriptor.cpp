@@ -15,7 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_common_descriptor.h"
 
-#include <glog/logging.h>
+#include "oneflow/core/common/throw.h"
 
 namespace oneflow {
 
@@ -27,7 +27,8 @@ namespace oneflow {
 //            N    C H W  -->   N    H W C
 //          C*H*W  1 W C  --> C*H*W  W C 1
 void convertShapeAndStride(std::vector<int>& shape_info, std::vector<int>& stride_info) {
-  CHECK_EQ(shape_info.size(), stride_info.size()) << "shape size need equal to stride size.";
+  CHECK_EQ_OR_THROW(shape_info.size(), stride_info.size())
+      << "shape size need equal to stride size.";
   const int dim = shape_info.size();
   std::vector<int> temp_shape_info(dim);
   std::vector<int> temp_stride_info(dim);

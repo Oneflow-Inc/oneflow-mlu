@@ -15,7 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_types.h"
 
-#include <glog/logging.h>
+#include "oneflow/core/common/throw.h"
 
 namespace oneflow {
 
@@ -35,7 +35,8 @@ cnnlDataType_t ConvertToCnnlDataType(DataType dtype) {
     case DataType::kUInt32: return CNNL_DTYPE_UINT32;
     case DataType::kUInt64: return CNNL_DTYPE_UINT64;
     default:
-      LOG(FATAL) << "Can not convert oneflow " << DataType_Name(dtype) << " to CNNL data type.";
+      THROW(RuntimeError) << "Can not convert oneflow " << DataType_Name(dtype)
+                          << " to CNNL data type.";
       return CNNL_DTYPE_INVALID;
   }
 }

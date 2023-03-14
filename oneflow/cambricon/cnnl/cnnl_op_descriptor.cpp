@@ -15,7 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 
-#include <glog/logging.h>
+#include "oneflow/core/common/throw.h"
 
 // Modified from Cambricon catch for PyTorch.
 // https://github.com/Cambricon/catch/blob/main/torch_mlu/csrc/aten/cnnl/cnnlOpDescriptors.cpp
@@ -70,7 +70,7 @@ void CnnlActivationDescriptor::set(cnnlActivationMode_t mode, cnnlNanPropagation
 
 void CnnlConvolutionDescriptor::set(int dim, int* stride, int* padding, int* dilation,
                                     int64_t groups, cnnlDataType_t dtype) {
-  CHECK_GT(dim, 2) << "Convolution input's dim must greater than 2!";
+  CHECK_GT_OR_THROW(dim, 2) << "Convolution input's dim must greater than 2.";
   int n = dim - 2;
   std::vector<int> padding_t(2 * n);
   std::vector<int> stride_t(n);
@@ -89,7 +89,7 @@ void CnnlConvolutionDescriptor::set(int dim, int* stride, int* padding, int* dil
 
 void CnnlDeconvolutionDescriptor::set(int dim, int* stride, int* padding, int* dilation,
                                       int64_t groups, cnnlDataType_t dtype) {
-  CHECK_GT(dim, 2) << "Convolution input's dim must greater than 2!";
+  CHECK_GT_OR_THROW(dim, 2) << "Convolution input's dim must greater than 2.";
   int n = dim - 2;
   std::vector<int> padding_t(2 * n);
   std::vector<int> stride_t(n);
