@@ -44,8 +44,6 @@ size_t epoch_elapsed();
     std::cout << _message.str() << "\n";                              \
   }
 
-std::string cnnlErrorString(cnnlStatus_t status);
-
 void cnnlCheck(cnnlStatus_t result, char const *const func, const char *const file, int const line);
 
 #define CNNL_CHECK(val) cnnlCheck((val), #val, __FILE__, __LINE__)
