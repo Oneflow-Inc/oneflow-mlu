@@ -38,7 +38,6 @@ class TestScalarAddCambriconModule(flow.unittest.TestCase):
             _test_scalar_add_forward,
         ]
         arg_dict["shape"] = [(2, 3)]
-        # arg_dict["device"] = ["cpu"]
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
