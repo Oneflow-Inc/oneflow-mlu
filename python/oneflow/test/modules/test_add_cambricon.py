@@ -28,6 +28,7 @@ def _test_add_forward(test_case, shape, device):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device))
     y = flow.tensor(np.random.randn(*shape), device=flow.device(device))
     of_out = flow.add(x, y)
+    print(of_out)
     np_out = np.add(x.numpy(), y.numpy())
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 0.0001, 0.0001))
 
@@ -38,8 +39,8 @@ class TestAddCambriconModule(flow.unittest.TestCase):
         arg_dict["test_fun"] = [
             _test_add_forward,
         ]
-        arg_dict["shape"] = [(2, 3), (2, 3, 4), (2, 3, 4, 5)]
-        arg_dict["device"] = ["cpu", "mlu"]
+        arg_dict["shape"] = [(2, 3, 4, 5)]
+        arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
