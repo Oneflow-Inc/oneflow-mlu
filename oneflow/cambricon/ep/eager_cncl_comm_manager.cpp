@@ -221,6 +221,8 @@ void EagerCnclCommMgr::CreateCommFromPlan(const Plan& plan) {
 
 REGISTER_CCL_MGR_CREATE_AND_DESTORY_FN(
     []() -> Maybe<void> {
+      CHECK(setenv("CNCL_LOG_LEVEL", "ERROR", 0)
+            == 0);  // setenv() function return zero on success, or -1 on error
       Singleton<EagerCnclCommMgr>::New();
       return Maybe<void>::Ok();
     },
