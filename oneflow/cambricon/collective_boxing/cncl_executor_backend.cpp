@@ -1,9 +1,12 @@
 /*
 Copyright 2020 The OneFlow Authors. All rights reserved.
+
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
 You may obtain a copy of the License at
+
     http://www.apache.org/licenses/LICENSE-2.0
+
 Unless required by applicable law or agreed to in writing, software
 distributed under the License is distributed on an "AS IS" BASIS,
 WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
@@ -21,10 +24,8 @@ limitations under the License.
 #include "oneflow/core/thread/thread_pool.h"
 #include "oneflow/cambricon/ep/mlu_util.h"
 
-
 #include <memory>
 #include <utility>
-
 
 namespace oneflow {
 
@@ -56,7 +57,7 @@ struct CopyParams {
 };
 
 constexpr int64_t kMultiCopyParamsMaxSize = 128;
-constexpr int64_t kMultiCopyAlignSize = 64; // MLU need align 64
+constexpr int64_t kMultiCopyAlignSize = 64;  // MLU need align 64
 
 int64_t GetMultiCopyAlignedSize(int64_t size) {
   return ((size + kMultiCopyAlignSize - 1) / kMultiCopyAlignSize) * kMultiCopyAlignSize;
@@ -81,8 +82,9 @@ void MultiCopy(cnrtQueue_t stream, const MultiCopyParams& multi_params) {
   if (multi_params.count <= 0) { return; }
   CHECK_LE(multi_params.count, kMultiCopyParamsMaxSize);
   for (int64_t i = 0; i < multi_params.count; ++i) {
-    OF_MLU_CHECK(cnrtMemcpyAsync(multi_params.params[i].dst, const_cast<void*>(multi_params.params[i].src),
-                                     multi_params.params[i].count, stream, cnrtMemcpyDevToDev));
+    OF_MLU_CHECK(cnrtMemcpyAsync(multi_params.params[i].dst,
+                                 const_cast<void*>(multi_params.params[i].src),
+                                 multi_params.params[i].count, stream, cnrtMemcpyDevToDev));
   }
   OF_MLU_CHECK(cnrtQueueSync(stream));
 }
@@ -120,7 +122,8 @@ class CommRank final {
     MluCurrentDeviceGuard guard(device_id_);
     int dev_list[kNumOfCommInCurProcess] = {device_id_};
     int rank_list[kNumOfCommInCurProcess] = {global_rank_};
-    OF_CNCL_CHECK(cnclInitComms(&cncl_comm_, kNumOfCommInCurProcess, dev_list, rank_list, global_rank_count, &clique_id));
+    OF_CNCL_CHECK(cnclInitComms(&cncl_comm_, kNumOfCommInCurProcess, dev_list, rank_list,
+                                global_rank_count, &clique_id));
   }
 
  private:
@@ -141,7 +144,7 @@ class CommGroup final {
   }
 
   void InitGroup(const DeviceSet& device_set, const std::string& unique_name) {
-    MluCurrentDeviceGuard guard ;
+    MluCurrentDeviceGuard guard;
     const int64_t this_machine_id = GlobalProcessCtx::Rank();
     global_rank_count_ = device_set.device_size();
     std::vector<int32_t> local_ranks;
@@ -313,55 +316,55 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
     const auto comm = comm_rank.cncl_comm();
     const StreamCtx* stream_ctx = device_id2stream_ctx.at(comm_rank.device_id()).get();
     OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
-    request_store->ForEachMutRequestEntryForIdsInJob(
-        request_ids, [&](RequestEntry* request_entry, int32_t i, const RequestId& request_id) {
-          const auto& op_desc = request_entry->desc().op_desc();
-          const std::shared_ptr<const RuntimeRequestInfo>& runtime_request_info =
-              request_entry->GetRuntimeRequest(local_rank);
-          const OpType op_type = op_desc.op_type();
-          const void* send_buff = runtime_request_info->send_buff;
-          void* recv_buff = runtime_request_info->recv_buff;
-          const int64_t elem_cnt = request_entry->elem_cnt();
-          const cnclDataType_t cncl_data_type = GetCnclDataType(op_desc.data_type());
-          const int32_t num_ranks = comm_group.global_rank_count();
-          if (op_type == OpType::kOpTypeAllReduce) {
-            OF_CNCL_CHECK(cnclAllReduce(send_buff, recv_buff, elem_cnt, cncl_data_type,
+    request_store->ForEachMutRequestEntryForIdsInJob(request_ids, [&](RequestEntry* request_entry,
+                                                                      int32_t i,
+                                                                      const RequestId& request_id) {
+      const auto& op_desc = request_entry->desc().op_desc();
+      const std::shared_ptr<const RuntimeRequestInfo>& runtime_request_info =
+          request_entry->GetRuntimeRequest(local_rank);
+      const OpType op_type = op_desc.op_type();
+      const void* send_buff = runtime_request_info->send_buff;
+      void* recv_buff = runtime_request_info->recv_buff;
+      const int64_t elem_cnt = request_entry->elem_cnt();
+      const cnclDataType_t cncl_data_type = GetCnclDataType(op_desc.data_type());
+      const int32_t num_ranks = comm_group.global_rank_count();
+      if (op_type == OpType::kOpTypeAllReduce) {
+        OF_CNCL_CHECK(cnclAllReduce(send_buff, recv_buff, elem_cnt, cncl_data_type,
+                                    GetCnclReduceOp(op_desc.reduce_method()), comm,
+                                    stream_ctx->stream()));
+      } else if (op_type == OpType::kOpTypeAllGather) {
+        CHECK_EQ(elem_cnt % num_ranks, 0);
+        OF_CNCL_CHECK(cnclAllGather(send_buff, recv_buff, elem_cnt / num_ranks, cncl_data_type,
+                                    comm, stream_ctx->stream()));
+      } else if (op_type == OpType::kOpTypeReduceScatter) {
+        CHECK_EQ(elem_cnt % num_ranks, 0);
+        OF_CNCL_CHECK(cnclReduceScatter(send_buff, recv_buff, elem_cnt / num_ranks, cncl_data_type,
                                         GetCnclReduceOp(op_desc.reduce_method()), comm,
                                         stream_ctx->stream()));
-          } else if (op_type == OpType::kOpTypeAllGather) {
-            CHECK_EQ(elem_cnt % num_ranks, 0);
-            OF_CNCL_CHECK(cnclAllGather(send_buff, recv_buff, elem_cnt / num_ranks, cncl_data_type,
-                                        comm, stream_ctx->stream()));
-          } else if (op_type == OpType::kOpTypeReduceScatter) {
-            CHECK_EQ(elem_cnt % num_ranks, 0);
-            OF_CNCL_CHECK(cnclReduceScatter(
-                send_buff, recv_buff, elem_cnt / num_ranks, cncl_data_type,
-                GetCnclReduceOp(op_desc.reduce_method()), comm, stream_ctx->stream()));
-          } else if (op_type == OpType::kOpTypeReduce) {
-            OF_CNCL_CHECK(cnclReduce(send_buff, recv_buff, elem_cnt, cncl_data_type,
-                                     GetCnclReduceOp(op_desc.reduce_method()), op_desc.root(), comm,
-                                     stream_ctx->stream()));
-          } else if (op_type == OpType::kOpTypeBroadcast) {
-            OF_CNCL_CHECK(cnclBroadcast(send_buff, recv_buff, elem_cnt, cncl_data_type,
-                                        op_desc.root(), comm, stream_ctx->stream()));
-          } else if (op_type == OpType::kOpTypeAll2All) {
-            const int64_t elem_per_rank = elem_cnt / num_ranks;
-            const int64_t elem_per_chunk = elem_per_rank / num_ranks;
-            const int64_t dtype_size = GetSizeOfDataType(op_desc.data_type());
-            const int64_t chunk_size = elem_per_chunk * dtype_size;
-            for (int64_t j = 0; j < num_ranks; ++j) {
-              OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
-                                         reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
-                                     elem_per_chunk, cncl_data_type, j, comm,
-                                     stream_ctx->stream()));
-              OF_CNCL_CHECK(cnclRecv(
-                  reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
-                  elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
-            }
-          } else {
-            UNIMPLEMENTED();
-          }
-        });
+      } else if (op_type == OpType::kOpTypeReduce) {
+        OF_CNCL_CHECK(cnclReduce(send_buff, recv_buff, elem_cnt, cncl_data_type,
+                                 GetCnclReduceOp(op_desc.reduce_method()), op_desc.root(), comm,
+                                 stream_ctx->stream()));
+      } else if (op_type == OpType::kOpTypeBroadcast) {
+        OF_CNCL_CHECK(cnclBroadcast(send_buff, recv_buff, elem_cnt, cncl_data_type, op_desc.root(),
+                                    comm, stream_ctx->stream()));
+      } else if (op_type == OpType::kOpTypeAll2All) {
+        const int64_t elem_per_rank = elem_cnt / num_ranks;
+        const int64_t elem_per_chunk = elem_per_rank / num_ranks;
+        const int64_t dtype_size = GetSizeOfDataType(op_desc.data_type());
+        const int64_t chunk_size = elem_per_chunk * dtype_size;
+        for (int64_t j = 0; j < num_ranks; ++j) {
+          OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
+                                     reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
+                                 elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+          OF_CNCL_CHECK(
+              cnclRecv(reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
+                       elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+      } else {
+        UNIMPLEMENTED();
+      }
+    });
   }
 }
 

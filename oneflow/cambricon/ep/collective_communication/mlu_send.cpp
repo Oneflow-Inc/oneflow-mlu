@@ -32,8 +32,9 @@ class MluSend final : public Send {
 
   void Launch(ep::Stream* stream, const void* in, size_t elem_cnt, int64_t dst) const override {
     const auto& comm_and_peer_rank = GetCnclCommAndPeerCnclRank(dst);
-    OF_CNCL_CHECK(cnclSend(const_cast<void*>(in), elem_cnt, cncl_datatype_, comm_and_peer_rank.second,
-                           comm_and_peer_rank.first, stream->As<ep::MluStream>()->mlu_stream()));
+    OF_CNCL_CHECK(cnclSend(const_cast<void*>(in), elem_cnt, cncl_datatype_,
+                           comm_and_peer_rank.second, comm_and_peer_rank.first,
+                           stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:

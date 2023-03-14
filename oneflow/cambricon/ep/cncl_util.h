@@ -23,10 +23,11 @@ limitations under the License.
 
 namespace oneflow {
 
-#define OF_CNCL_CHECK(condition)                                                                \
-  for (cnclResult_t _of_cncl_check_status = (condition); _of_cncl_check_status != cnclResult_t::CNCL_RET_SUCCESS;) \
-  LOG(FATAL) << "Check failed: " #condition " : " << cnclGetErrorStr(_of_cncl_check_status)  \
-             << " (" << _of_cncl_check_status << "). "                                          \
+#define OF_CNCL_CHECK(condition)                                                            \
+  for (cnclResult_t _of_cncl_check_status = (condition);                                    \
+       _of_cncl_check_status != cnclResult_t::CNCL_RET_SUCCESS;)                            \
+  LOG(FATAL) << "Check failed: " #condition " : " << cnclGetErrorStr(_of_cncl_check_status) \
+             << " (" << _of_cncl_check_status << "). "                                      \
              << "To see more detail, please run OneFlow with system variable CNCL_LOG_LEVEL=DEBUG"
 
 inline cnclDataType_t GetCnclDataType(const DataType& dt) {
@@ -52,7 +53,6 @@ inline cnclDataType_t GetCnclDataType(const DataType& dt) {
 std::string CnclCliqueIdToString(const cnclCliqueId& unique_id);
 
 void CnclCliqueIdFromString(const std::string& str, cnclCliqueId* unique_id);
-
 
 }  // namespace oneflow
 

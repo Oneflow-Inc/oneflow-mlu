@@ -65,8 +65,7 @@ void CreateCnclComm(cnclComm_t* comm, const int dev, const std::string& key,
   int rank = std::distance(device_vec.cbegin(), it);
   if (rank == 0) {
     OF_CNCL_CHECK(cnclGetCliqueId(&cncl_unique_id));
-    Singleton<CtrlClient>::Get()->PushKV(
-        key, CnclCliqueIdToString(cncl_unique_id));
+    Singleton<CtrlClient>::Get()->PushKV(key, CnclCliqueIdToString(cncl_unique_id));
   } else {
     Singleton<CtrlClient>::Get()->PullKV(key, [&cncl_unique_id](const std::string& val) {
       CnclCliqueIdFromString(val, &cncl_unique_id);
@@ -77,7 +76,8 @@ void CreateCnclComm(cnclComm_t* comm, const int dev, const std::string& key,
   VLOG(2) << " EagerCnclCommMgr::cnclCommInitRank device_vec.size() = " << device_vec.size()
           << ", cncl_unique_id = " << cnclCliqueId2String(cncl_unique_id) << ", rank = " << rank
           << ", key = {" << key << "}\n";
-  OF_CNCL_CHECK(cnclInitComms(comm, kNumOfCommInCurProcess, dev_list, rank_list, device_vec.size(), &cncl_unique_id));
+  OF_CNCL_CHECK(cnclInitComms(comm, kNumOfCommInCurProcess, dev_list, rank_list, device_vec.size(),
+                              &cncl_unique_id));
   VLOG(2) << " EagerCnclCommMgr::cnclCommInitRank succeed device_vec.size() = " << device_vec.size()
           << ", cncl_unique_id = " << cnclCliqueId2String(cncl_unique_id) << ", rank = " << rank
           << ", key = {" << key << "}\n";
@@ -105,9 +105,7 @@ EagerCnclCommMgr::~EagerCnclCommMgr() {
     }
   }
   for (auto& pair : device7stream2device_id2comm_) {
-    for (auto& device_id7comm : pair.second) {
-      OF_CNCL_CHECK(cnclFreeComm(device_id7comm.second));
-    }
+    for (auto& device_id7comm : pair.second) { OF_CNCL_CHECK(cnclFreeComm(device_id7comm.second)); }
   }
 }
 

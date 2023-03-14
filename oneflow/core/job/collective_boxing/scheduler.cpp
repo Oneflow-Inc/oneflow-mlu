@@ -121,7 +121,8 @@ void ExecutorImpl::Init(std::shared_ptr<RequestStore> request_store) {
   request_store_ = request_store;
   backends_.resize(Backend_ARRAYSIZE);
 #ifdef WITH_CUDA
-  size_t cuda_dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kCUDA);
+  size_t cuda_dev_count =
+      Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kCUDA);
   if (cuda_dev_count > 0) {
     std::unique_ptr<ExecutorBackend> nccl_backend = std::make_unique<NcclExecutorBackend>();
     nccl_backend->Init(request_store_);
@@ -130,7 +131,8 @@ void ExecutorImpl::Init(std::shared_ptr<RequestStore> request_store) {
 #endif
 
 #ifdef WITH_MLU
-  size_t mlu_dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kMLU);
+  size_t mlu_dev_count =
+      Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(DeviceType::kMLU);
   if (mlu_dev_count > 0) {
     std::unique_ptr<ExecutorBackend> cncl_backend = std::make_unique<CnclExecutorBackend>();
     cncl_backend->Init(request_store_);

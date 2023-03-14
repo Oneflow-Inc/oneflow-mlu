@@ -49,4 +49,3 @@ REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, AllGather, MluAllGather);
 }  // namespace ccl
 
 }  // namespace oneflow
-
