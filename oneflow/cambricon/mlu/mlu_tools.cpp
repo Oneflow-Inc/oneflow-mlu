@@ -2,7 +2,7 @@
 
 namespace oneflow {
 
-void setTensorDesc(cnnlTensorDescriptor_t &desc,
+void setTensorDesc2D(cnnlTensorDescriptor_t &desc,
                    Shape2D shape,
                    cnnlDataType_t dtype,
                    cnnlTensorLayout_t layout) {
