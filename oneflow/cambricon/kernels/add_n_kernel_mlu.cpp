@@ -78,9 +78,6 @@ class MluAddNKernel final : public user_op::OpKernel {
     else if(GetDataType<T>::value == DataType::kFloat16){
       v = 1;
     }
-    else{
-      UNIMPLEMENTED();
-    }
     datainfo.input_dtype = (cnnlDataType_t)v;;
     datainfo.output_dtype = (cnnlDataType_t)v;;
     setTensorDesc2D(add.input_desc, input_t, datainfo.input_dtype, datainfo.layout);
