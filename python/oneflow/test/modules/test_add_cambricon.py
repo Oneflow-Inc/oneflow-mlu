@@ -25,10 +25,9 @@ import oneflow.unittest
 
 
 def _test_add_forward(test_case, shape, device):
-    x = flow.tensor(np.random.randn(*shape), device=flow.device(device))
-    y = flow.tensor(np.random.randn(*shape), device=flow.device(device))
+    x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=flow.float32)
+    y = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=flow.float32)
     of_out = flow.add(x, y)
-    print(of_out)
     np_out = np.add(x.numpy(), y.numpy())
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 0.0001, 0.0001))
 

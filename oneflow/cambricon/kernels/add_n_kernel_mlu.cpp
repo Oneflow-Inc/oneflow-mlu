@@ -41,7 +41,6 @@ class MluAddNKernel final : public user_op::OpKernel {
  private:
   using user_op::OpKernel::Compute;
   void Compute(user_op::KernelComputeContext* ctx) const override {
-    std::cout << "enter cambricon add kernel" << std::endl;
     size_t in_num = ctx->inputs().size();
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     void* out_dptr = static_cast<void*>(out->mut_dptr());
