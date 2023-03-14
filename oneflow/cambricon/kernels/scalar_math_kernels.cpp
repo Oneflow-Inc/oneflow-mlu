@@ -13,8 +13,11 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include <memory>
+
 #include <cnnl.h>
 
+#include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/common/scalar.h"
 
@@ -25,26 +28,41 @@ enum class BinaryOpMLU {
   kMul,
 };
 
-#define CNNL_CHECK(val) cnnlCheck((val), #val, __FILE__, __LINE__)
+#define CNNL_CHECK(val) CHECK(CNNL_STATUS_SUCCESS == val)
 
-/*
-cnnlStatus_t CNNL_WIN_API cnnlTransform(cnnlHandle_t handle,
-                                        const void *alpha,
-                                        const cnnlTensorDescriptor_t input_desc,
-                                        const void *input,
-                                        const void *beta,
-                                        void *output);
-*/
-static void LaunchAddKernel(user_op::KernelComputeContext* ctx, Scalar src0, const void* src1_ptr, void* dst_ptr) {
-  const float alpha = 1.0;
-  const float beta = src0.Value<float>();
-  cnnlHandle_t handle;  // TODO
+static void CopyTensorShapeDimSize(const user_op::Tensor* in, std::vector<int>& dim) {
+  const auto shape = in->shape_view();
+  auto num_axes = shape.NumAxes();
+  dim.reserve(num_axes);
+  for (decltype(num_axes) i = 0; i < num_axes; ++i) {
+    dim.push_back(shape.At(i));
+  }
+}
+
+// TODO: support other data types
+static void LaunchAddKernel(user_op::KernelComputeContext* ctx, Scalar src0,
+    const user_op::Tensor* in, user_op::Tensor* out) {
+  using DType = float;
+  // create cnnlTensorDescriptor_t
   cnnlTensorDescriptor_t input_desc;
-  CHECK(CNNL_STATUS_SUCCESS == cnnlCreateTensorDescriptor(&input_desc));
-  // CHECK(CNNL_STATUS_SUCCESS == cnnlSetTensorDescriptor(desc, layout, dtype, 4, dim));
-  auto status = cnnlTransform(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-    &alpha, input_desc, src1_ptr, &beta, dst_ptr);
-  CHECK(CNNL_STATUS_SUCCESS == cnnlDestroyTensorDescriptor(input_desc));
+  CNNL_CHECK(cnnlCreateTensorDescriptor(&input_desc));
+  using UniquePtr =
+    std::unique_ptr<cnnlTensorDescriptor_t, void(*)(cnnlTensorDescriptor_t*)>;
+  auto p_input_desc = UniquePtr(&input_desc, [] (cnnlTensorDescriptor_t* desc) {
+    CNNL_CHECK(cnnlDestroyTensorDescriptor(*desc));
+  });
+  // set tensor descriptor
+  std::vector<int> dim;
+  CopyTensorShapeDimSize(in, dim);
+  // TODO(Jianhua Zheng): support data type mapping
+  CNNL_CHECK(cnnlSetTensorDescriptor(
+    input_desc, CNNL_LAYOUT_ARRAY, CNNL_DTYPE_FLOAT, dim.size(), dim.data()));
+  // call Transform
+  const DType alpha = 1;
+  const DType beta = src0.Value<DType>();
+  auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
+  CNNL_CHECK(cnnlTransform(
+    handle, &alpha, input_desc, in->dptr(), &beta, out->mut_dptr()));
 }
 
 // TODO: implement
@@ -82,11 +100,10 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
           && value.Value<double>() == 1.0;
       if ((is_add_sub_0 || is_mul_div_1) && in->dptr() == out->dptr()) { return; }
       if (op == BinaryOpMLU::kAdd) {
-        LaunchAddKernel(ctx, value, in->dptr(), out->mut_dptr());
+        LaunchAddKernel(ctx, value, in, out);
       } else if ( op == BinaryOpMLU::kMul) {
         LaunchMulKernel();
       }
-      // TODO: implement
     } else {
       // For 0-d Tensor
       return;
@@ -104,8 +121,8 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
   REGISTER_USER_KERNEL(op_name)                                                           \
       .SetCreateFn<ScalarMathKernelMLU<binary_op>>()                                      \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                     \
-                    && (user_op::HobDataType("in", 0) == user_op::HobDataType("out", 0)) \
-                    && (user_op::HobDataType("in", 0) == DataType::kFloat)) \
+                    && (user_op::HobDataType("in", 0) == user_op::HobDataType("out", 0))  \
+                    && (user_op::HobDataType("in", 0) == DataType::kFloat))               \
       .SetInplaceProposalFn(                                                              \
           [](const user_op::InferContext& ctx,                                            \
              const user_op::AddInplaceArgPair& AddInplaceArgPairFn) -> Maybe<void> {      \
