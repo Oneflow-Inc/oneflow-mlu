@@ -452,7 +452,7 @@ struct NcclExecutorBackend::Impl {
     request_store->ForEachMutRequestEntryInJob(
         job_id, [&](RequestEntry* request_entry, int32_t i, const RequestId& request_id) {
           const auto& request = request_entry->desc();
-          if (request.op_desc().backend() != Backend::kBackendNCCL) { return; }
+          if (request.op_desc().device_type() != DeviceType::kCUDA) { return; }
           if (!request_entry->HasRankOnThisNode()) { return; }
           const DeviceSet& device_set = request.device_set();
           if (device_set2stream_id2comm_group.count(device_set) > 0) { return; }
@@ -656,6 +656,8 @@ void NcclExecutorBackend::DestroyGroupToken(void* group_token) {
 }
 
 void NcclExecutorBackend::ExecuteGroup(void* group_token) { impl_->ExecuteGroup(group_token); }
+
+REGISTER_EXECUTOR_BACKEND(DeviceType::kCUDA, NcclExecutorBackend);
 
 }  // namespace collective
 
