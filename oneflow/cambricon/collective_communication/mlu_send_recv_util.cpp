@@ -13,10 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/cambricon/ep/collective_communication/mlu_send_recv_util.h"
+#include "oneflow/cambricon/collective_communication/mlu_send_recv_util.h"
 #include "oneflow/core/rpc/include/global_process_ctx.h"
 #include "oneflow/core/common/decorator.h"
-#include "oneflow/cambricon/ep/eager_cncl_comm_manager.h"
+#include "oneflow/cambricon/collective_communication/eager_cncl_comm_manager.h"
 
 namespace oneflow {
 

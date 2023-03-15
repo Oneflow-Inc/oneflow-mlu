@@ -13,9 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/cambricon/collective_boxing/cncl_executor_backend.h"
+#include "oneflow/cambricon/collective_communication/cncl_executor_backend.h"
 #include "oneflow/core/job/collective_boxing/request_store.h"
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 #include "oneflow/core/graph/boxing/collective_boxing_util.h"
 #include "oneflow/core/job/resource_desc.h"
 #include "oneflow/core/control/ctrl_client.h"

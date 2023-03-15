@@ -19,7 +19,7 @@ limitations under the License.
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/job/plan.pb.h"
 
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 
 namespace oneflow {
 

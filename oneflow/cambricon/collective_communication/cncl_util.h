@@ -13,8 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_CNCL_UTIL_H_
-#define ONEFLOW_CAMBRICON_EP_CNCL_UTIL_H_
+#ifndef ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_UTIL_H_
+#define ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_UTIL_H_
 
 #include <glog/logging.h>
 #include "oneflow/core/common/data_type.pb.h"
@@ -56,4 +56,4 @@ void CnclCliqueIdFromString(const std::string& str, cnclCliqueId* unique_id);
 
 }  // namespace oneflow
 
-#endif  // ONEFLOW_CAMBRICON_EP_CNCL_UTIL_H_
+#endif  // ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_UTIL_H_

@@ -13,14 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_MLU_COMMUNICATION_CONTEXT_H_
-#define ONEFLOW_CAMBRICON_EP_MLU_COMMUNICATION_CONTEXT_H_
+#ifndef ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_COMMUNICATION_CONTEXT_H_
+#define ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_COMMUNICATION_CONTEXT_H_
 
 #include "oneflow/user/kernels/collective_communication/include/communication_context.h"
 #include "oneflow/core/common/symbol.h"
 #include "oneflow/core/job/parallel_desc.h"
 
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 
 namespace oneflow {
 
@@ -45,4 +45,4 @@ class MluCommunicationContext : public CommunicationContext {
 
 }  // namespace oneflow
 
-#endif  // ONEFLOW_CAMBRICON_EP_MLU_COMMUNICATION_CONTEXT_H_
+#endif  // ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_COMMUNICATION_CONTEXT_H_

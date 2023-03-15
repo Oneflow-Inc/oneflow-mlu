@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/user/kernels/collective_communication/include/broadcast.h"
-#include "oneflow/cambricon/ep/collective_communication/mlu_communication_context.h"
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/cambricon/collective_communication/mlu_communication_context.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 
 namespace oneflow {

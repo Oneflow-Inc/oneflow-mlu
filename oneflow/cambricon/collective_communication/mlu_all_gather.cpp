@@ -13,56 +13,38 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/user/kernels/collective_communication/include/all_reduce.h"
-#include "oneflow/cambricon/ep/collective_communication/mlu_communication_context.h"
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/user/kernels/collective_communication/include/all_gather.h"
+#include "oneflow/cambricon/collective_communication/mlu_communication_context.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 
 namespace oneflow {
 
 namespace ccl {
 
-namespace {
-
-inline cnclReduceOp_t GetCnclReduceType(ReduceType reduce_type) {
-  switch (reduce_type) {
-#define CNCL_REDUCE_TYPE_CASE(dtype) \
-  case ReduceType::k##dtype: return cnclReduceOp_t::cncl##dtype
-    CNCL_REDUCE_TYPE_CASE(Sum);
-    CNCL_REDUCE_TYPE_CASE(Max);
-    default: PRINT_BUG_PROMPT_AND_ABORT();
-  }
-}
-
-}  // namespace
-
-class MluAllReduce final : public AllReduce {
+class MluAllGather final : public AllGather {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(MluAllReduce);
-  MluAllReduce() : cncl_datatype_(), cncl_reduce_op_() {}
-  ~MluAllReduce() = default;
+  OF_DISALLOW_COPY_AND_MOVE(MluAllGather);
+  MluAllGather() : cncl_datatype_() {}
+  ~MluAllGather() = default;
 
-  void Init(DataType datatype, ReduceType reduce_type) override {
-    this->cncl_datatype_ = GetCnclDataType(datatype);
-    this->cncl_reduce_op_ = GetCnclReduceType(reduce_type);
-  }
+  void Init(DataType datatype) override { this->cncl_datatype_ = GetCnclDataType(datatype); }
 
   void Launch(ep::Stream* stream, const void* in, void* out, size_t elem_cnt,
               const std::shared_ptr<CommunicationContext>& communication_ctx) const override {
     const auto& mlu_communication_ctx =
         std::dynamic_pointer_cast<MluCommunicationContext>(communication_ctx);
-    CHECK(mlu_communication_ctx);
-    OF_CNCL_CHECK(cnclAllReduce(in, out, elem_cnt, cncl_datatype_, cncl_reduce_op_,
+    CHECK(mlu_communication_ctx) << kOfBugIssueUploadPrompt;
+    OF_CNCL_CHECK(cnclAllGather(in, out, elem_cnt, cncl_datatype_,
                                 mlu_communication_ctx->cncl_comm(),
                                 stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:
   cnclDataType_t cncl_datatype_;
-  cnclReduceOp_t cncl_reduce_op_;
 };
 
-REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, AllReduce, MluAllReduce);
+REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, AllGather, MluAllGather);
 
 }  // namespace ccl
 

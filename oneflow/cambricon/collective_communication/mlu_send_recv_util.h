@@ -13,10 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_MLU_SEND_RECV_UTIL_H_
-#define ONEFLOW_CAMBRICON_EP_MLU_SEND_RECV_UTIL_H_
+#ifndef ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_SEND_RECV_UTIL_H_
+#define ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_SEND_RECV_UTIL_H_
 
-#include "oneflow/cambricon/ep/cncl_util.h"
+#include "oneflow/cambricon/collective_communication/cncl_util.h"
 
 namespace oneflow {
 
@@ -28,4 +28,4 @@ extern std::pair<cnclComm_t, int64_t> (*GetCnclCommAndPeerCnclRank)(int64_t peer
 
 }  // namespace oneflow
 
-#endif  // ONEFLOW_CAMBRICON_EP_MLU_SEND_RECV_UTIL_H_
+#endif  // ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_MLU_SEND_RECV_UTIL_H_

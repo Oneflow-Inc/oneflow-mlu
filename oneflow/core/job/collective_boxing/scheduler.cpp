@@ -21,7 +21,7 @@ limitations under the License.
 #include "oneflow/core/graph/boxing/collective_boxing_util.h"
 #include "oneflow/core/job/global_for.h"
 #include "oneflow/core/job/collective_boxing/nccl_executor_backend.h"
-#include "oneflow/cambricon/collective_boxing/cncl_executor_backend.h"
+#include "oneflow/cambricon/collective_communication/cncl_executor_backend.h"
 #include "oneflow/core/job/plan.pb.h"
 #include "oneflow/core/job/resource_desc.h"
 #include "oneflow/core/ep/include/device_manager_registry.h"

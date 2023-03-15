@@ -18,7 +18,7 @@ limitations under the License.
 #include "oneflow/core/control/ctrl_client.h"
 #include "oneflow/core/control/global_process_ctx.h"
 #include "oneflow/core/job/env_global_objects_scope.h"
-#include "oneflow/cambricon/ep/eager_cncl_comm_manager.h"
+#include "oneflow/cambricon/collective_communication/eager_cncl_comm_manager.h"
 #include "oneflow/core/job/id_manager.h"
 #include "oneflow/core/job/parallel_desc.h"
 #include "oneflow/core/operator/op_conf.pb.h"
