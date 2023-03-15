@@ -15,7 +15,6 @@ limitations under the License.
 */
 #include "cnnl.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/ep/mlu_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"

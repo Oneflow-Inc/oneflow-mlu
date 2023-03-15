@@ -48,7 +48,7 @@ class TestSoftmaxCambriconModule(flow.unittest.TestCase):
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
-            flow.float32,
+            flow.float32, flow.float16,
         ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
