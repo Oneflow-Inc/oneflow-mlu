@@ -13,41 +13,87 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include <memory>
-
-#include <cnnl.h>
 
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/ep/mlu_util.h"
-#include "oneflow/core/framework/framework.h"
 #include "oneflow/core/common/scalar.h"
+#include "oneflow/core/framework/framework.h"
 
 namespace oneflow {
 
 enum class BinaryOpMLU {
   kAdd,
   kMul,
+  kSub,
 };
 
-// TODO: support other data types
-// CNNL 1.15.2
-static void LaunchAddKernel(user_op::KernelComputeContext* ctx, Scalar src0,
-                            const user_op::Tensor* in, user_op::Tensor* out) {
-  CHECK(in->shape_view().NumAxes() <= CNNL_DIM_MAX)
-      << "The number of dimensions is no more than CNNL_DIM_MAX";
-  using DType = float;
-  CnnlTensorDescriptor input_desc;
-  input_desc.set(in);
-  const DType alpha = 1;
-  const DType beta = src0.Value<DType>();
-  auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
-  OF_CNNL_CHECK(
-      cnnlTransform(handle, &alpha, input_desc.desc(), in->dptr(), &beta, out->mut_dptr()));
+union Param {
+  int int_value;
+  float float_value;
+};
+
+struct TransformParams {
+  Param alpha;  // scaling factor of tensor input
+  Param beta;   // bias factor of tensor input
+};
+
+template<typename T, BinaryOpMLU op>
+T GetAlpha(Scalar value) {
+  switch (op) {
+    case BinaryOpMLU::kAdd: return T(1);
+    case BinaryOpMLU::kMul: return value.Value<T>();
+    case BinaryOpMLU::kSub: return 1;
+    default: THROW(RuntimeError) << "Invalid op in MLU LaunchMathKernel " << op;
+  }
+  return 0;  // eliminating compiler warnings
 }
 
-// TODO: implement
-static void LaunchMulKernel() {}
+template<typename T, BinaryOpMLU op>
+T GetBeta(Scalar value) {
+  switch (op) {
+    case BinaryOpMLU::kAdd: return value.Value<T>();
+    case BinaryOpMLU::kMul: return T(0);
+    case BinaryOpMLU::kSub: return -value.Value<T>();
+    default: THROW(RuntimeError) << "Invalid op in MLU LaunchMathKernel " << op;
+  }
+  return 0;  // eliminating compiler warnings
+}
+
+template<BinaryOpMLU op>
+void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params) {
+  // If the data type of tensors is float or half, the data type of alpha and beta should be
+  // `float*`. If the data type of tensors is int32, the data type of alpha and beta should be
+  // `int*`.
+  switch (data_type) {
+    case DataType::kFloat:
+    case DataType::kFloat16:
+      params.alpha.float_value = GetAlpha<float, op>(src0);
+      params.beta.float_value = GetBeta<float, op>(src0);
+      break;
+    case DataType::kInt32:
+      params.alpha.int_value = GetAlpha<int, op>(src0);
+      params.beta.int_value = GetBeta<int, op>(src0);
+      break;
+    default:
+      THROW(RuntimeError) << "MLU LaunchMathKernel does not support data type "
+                          << DataType_Name(data_type);
+  }
+}
+
+template<BinaryOpMLU op>
+static void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0,
+                             const user_op::Tensor* in, user_op::Tensor* out) {
+  CHECK(in->shape_view().NumAxes() <= CNNL_DIM_MAX)
+      << "The number of dimensions is no more than CNNL_DIM_MAX";
+  TransformParams params;
+  SetTransformParams<op>(in->data_type(), src0, params);
+  CnnlTensorDescriptor input_desc;
+  input_desc.set(in);
+  auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
+  OF_CNNL_CHECK(cnnlTransform(handle, &params.alpha, input_desc.desc(), in->dptr(), &params.beta,
+                              out->mut_dptr()));
+}
 
 template<BinaryOpMLU op>
 class ScalarMathKernelMLU final : public user_op::OpKernel {
@@ -74,11 +120,7 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
       // TODO(Jianhua Zheng): support kDiv
       const bool is_mul_div_1 = (op == BinaryOpMLU::kMul) && value.Value<double>() == 1.0;
       if ((is_add_sub_0 || is_mul_div_1) && in->dptr() == out->dptr()) { return; }
-      if (op == BinaryOpMLU::kAdd) {
-        LaunchAddKernel(ctx, value, in, out);
-      } else if (op == BinaryOpMLU::kMul) {
-        LaunchMulKernel();
-      }
+      LaunchMathKernel<op>(ctx, value, in, out);
     } else {
       // For 0-d Tensor
       return;
@@ -90,14 +132,17 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
 
 #define SCALAR_MATH_SEQ                                 \
   OF_PP_MAKE_TUPLE_SEQ("scalar_add", BinaryOpMLU::kAdd) \
-  OF_PP_MAKE_TUPLE_SEQ("scalar_mul", BinaryOpMLU::kMul)
+  OF_PP_MAKE_TUPLE_SEQ("scalar_mul", BinaryOpMLU::kMul) \
+  OF_PP_MAKE_TUPLE_SEQ("scalar_sub", BinaryOpMLU::kSub)
 
 #define REGISTER_UNARY_MATH_SCALAR_ELEMWISE_USER_KERNEL(op_name, binary_op)                 \
   REGISTER_USER_KERNEL(op_name)                                                             \
       .SetCreateFn<ScalarMathKernelMLU<binary_op>>()                                        \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                       \
                        && (user_op::HobDataType("in", 0) == user_op::HobDataType("out", 0)) \
-                       && (user_op::HobDataType("in", 0) == DataType::kFloat))              \
+                       && ((user_op::HobDataType("in", 0) == DataType::kFloat)              \
+                           || (user_op::HobDataType("in", 0) == DataType::kFloat16)         \
+                           || (user_op::HobDataType("in", 0) == DataType::kInt32)))         \
       .SetInplaceProposalFn(                                                                \
           [](const user_op::InferContext& ctx,                                              \
              const user_op::AddInplaceArgPair& AddInplaceArgPairFn) -> Maybe<void> {        \
