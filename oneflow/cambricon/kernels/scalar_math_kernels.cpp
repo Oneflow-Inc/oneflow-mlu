@@ -75,6 +75,8 @@ void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params
       params.alpha.int_value = GetAlpha<int, op>(src0);
       params.beta.int_value = GetBeta<int, op>(src0);
       break;
+    // The combinations of the data types for input tensor and output tensor must be half-half,
+    // float-float or int32-int32.
     default:
       THROW(RuntimeError) << "MLU LaunchMathKernel does not support data type "
                           << DataType_Name(data_type);
