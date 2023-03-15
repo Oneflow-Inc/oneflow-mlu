@@ -46,6 +46,7 @@ limitations under the License.
 #include "oneflow/core/ccl/ccl.h"
 #include "oneflow/core/common/constant.h"
 #include "oneflow/core/common/env_var/debug_mode.h"
+#include "oneflow/user/kernels/collective_communication/include/broadcast.h"
 
 namespace oneflow {
 namespace one {
@@ -528,7 +529,7 @@ class ToGlobalFunctor {
       tensor = JUST(GlobalToGlobal(x, parallel_desc, sbp_parallels, grad_sbp_parallels, copy));
     } else {
       DeviceType device_type = parallel_desc->device_type();
-      if (device_type == DeviceType::kCPU || device_type == DeviceType::kCUDA) {
+      if (ccl::IsBroadcastRegistered(device_type)) {
         tensor = JUST(
             LocalToGlobal(x, parallel_desc, sbp_parallels, local_to_global_op_, check_meta, copy));
       } else {
