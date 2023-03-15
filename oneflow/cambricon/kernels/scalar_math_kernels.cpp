@@ -117,8 +117,8 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
     }
     int64_t elem_cnt = out->shape_view().elem_cnt();
     if (elem_cnt != 0) {
-      // TODO(Jianhua Zheng): support kSub
-      const bool is_add_sub_0 = (op == BinaryOpMLU::kAdd) && value.Value<double>() == 0.0;
+      const bool is_add_sub_0 =
+          (op == BinaryOpMLU::kAdd || op == BinaryOpMLU::kSub) && value.Value<double>() == 0.0;
       // TODO(Jianhua Zheng): support kDiv
       const bool is_mul_div_1 = (op == BinaryOpMLU::kMul) && value.Value<double>() == 1.0;
       if ((is_add_sub_0 || is_mul_div_1) && in->dptr() == out->dptr()) { return; }
