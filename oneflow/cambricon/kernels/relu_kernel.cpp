@@ -35,8 +35,8 @@ class MluReluKernel final : public user_op::OpKernel {
   using user_op::OpKernel::Compute;
 
   void Compute(user_op::KernelComputeContext* ctx) const override {
-    const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
-    user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
+    const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
+    user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
 
     cnnlActivationMode_t mode = CNNL_ACTIVATION_RELU;
     cnnlNanPropagation_t relu_nan_opt = CNNL_NOT_PROPAGATE_NAN;
@@ -62,12 +62,9 @@ class MluReluKernel final : public user_op::OpKernel {
 #define REGISTER_RELU_MLU_KERNEL(dtype)                                              \
   REGISTER_USER_KERNEL("relu").SetCreateFn<MluReluKernel<dtype>>().SetIsMatchedHob( \
       (user_op::HobDeviceType() == DeviceType::kMLU)                                 \
-      && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
+      && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
 REGISTER_RELU_MLU_KERNEL(float)
 REGISTER_RELU_MLU_KERNEL(float16)
-REGISTER_RELU_MLU_KERNEL(int8_t)
-REGISTER_RELU_MLU_KERNEL(uint8_t)
-REGISTER_RELU_MLU_KERNEL(int32_t)
 
 }  // namespace oneflow
