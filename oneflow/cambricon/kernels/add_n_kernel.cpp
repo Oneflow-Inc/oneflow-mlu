@@ -54,15 +54,6 @@ class MluAddNKernel final : public user_op::OpKernel {
     std::vector<cnnlTensorDescriptor_t> input_descs_vec{in_num, input_desc.desc()};
     size_t addn_workspace_size = 0;
     void* addn_workspace = nullptr;
-    OF_CNNL_CHECK(cnnlGetAddNWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                          input_descs_vec.data(),
-                                          in_num,
-                                          output_desc.desc(),
-                                          &addn_workspace_size));
-    if (addn_workspace_size != 0) {
-      CNRT_CHECK(cnrtMalloc((void**)&addn_workspace, addn_workspace_size));
-      CNRT_CHECK(cnrtMemset(addn_workspace, 0, addn_workspace_size));
-    }
 
     OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                            input_descs_vec.data(), input_dptrs_vec.data(), in_num,
