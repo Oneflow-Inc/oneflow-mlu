@@ -38,7 +38,7 @@ def _get_diff(dtype):
     return 0.001 if dtype == flow.float16 else 0.0001
 
 
-def _test_scalar_mul_forward(test_case, shape, device, dtype):
+def _test_scalar_add_forward(test_case, shape, device, dtype):
     array, y = _get_data(shape, dtype)
     x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x + y
@@ -70,11 +70,11 @@ class TestScalarMathCambriconModule(flow.unittest.TestCase):
     def test_scalar_math(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            # _test_scalar_add_forward,
+            _test_scalar_add_forward,
             _test_scalar_mul_forward,
             _test_scalar_sub_forward,
         ]
-        arg_dict["shape"] = [(4, 8)]
+        arg_dict["shape"] = [(4,), (4, 8), (2, 4, 8), (2, 4, 8, 16)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [flow.float, flow.float16, flow.int]
         for arg in GenArgList(arg_dict):

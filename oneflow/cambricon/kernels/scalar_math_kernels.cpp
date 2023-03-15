@@ -22,6 +22,8 @@ limitations under the License.
 
 namespace oneflow {
 
+namespace {
+
 enum class BinaryOpMLU {
   kAdd,
   kMul,
@@ -74,37 +76,37 @@ struct Beta<BinaryOpMLU::kSub, T> {
   T operator()(Scalar value) { return -value.Value<T>(); }
 };
 
-template<BinaryOpMLU op>
-void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params) {
-  // If the data type of tensors is float or half, the data type of alpha and beta should be
-  // `float*`. If the data type of tensors is int32, the data type of alpha and beta should be
-  // `int*`.
-  switch (data_type) {
-    case DataType::kFloat:
-    case DataType::kFloat16:
-      params.alpha.float_value = Alpha<op, float>()(src0);
-      params.beta.float_value = Beta<op, float>()(src0);
-      break;
-    case DataType::kInt32:
-      params.alpha.int_value = Alpha<op, int>()(src0);
-      params.beta.int_value = Beta<op, int>()(src0);
-      break;
-    // The combinations of the data types for input tensor and output tensor must be half-half,
-    // float-float or int32-int32.
-    default:
-      THROW(RuntimeError) << "MLU LaunchMathKernel does not support data type "
-                          << DataType_Name(data_type);
-  }
+// If the data type of tensors is float or half, the data type of alpha and beta should be
+// `float*`. If the data type of tensors is int32, the data type of alpha and beta should be
+// `int*`.
+template<BinaryOpMLU op, typename T,
+         typename std::enable_if<std::is_floating_point<T>::value, int>::type = 0>
+void SetTransformParams(Scalar src0, TransformParams& params) {
+  params.alpha.float_value = Alpha<op, float>()(src0);
+  params.beta.float_value = Beta<op, float>()(src0);
 }
 
-template<BinaryOpMLU op>
-static void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0,
-                             const user_op::Tensor* in, user_op::Tensor* out) {
+template<BinaryOpMLU op, typename T,
+         typename std::enable_if<std::is_same<T, float16>::value, int>::type = 0>
+void SetTransformParams(Scalar src0, TransformParams& params) {
+  SetTransformParams<op, float>(src0, params);
+}
+
+template<BinaryOpMLU op, typename T,
+         typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
+void SetTransformParams(Scalar src0, TransformParams& params) {
+  params.alpha.int_value = Alpha<op, int32_t>()(src0);
+  params.beta.int_value = Beta<op, int32_t>()(src0);
+}
+
+template<BinaryOpMLU op, typename T>
+void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0, const user_op::Tensor* in,
+                      user_op::Tensor* out) {
   auto num_axes = in->shape_view().NumAxes();
   CHECK(num_axes <= CNNL_DIM_MAX) << "The number of dimensions is no more than CNNL_DIM_MAX ("
                                   << num_axes << " <= " << CNNL_DIM_MAX << ")";
   TransformParams params;
-  SetTransformParams<op>(in->data_type(), src0, params);
+  SetTransformParams<op, T>(src0, params);
   CnnlTensorDescriptor input_desc;
   input_desc.set(in);
   auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
@@ -112,7 +114,9 @@ static void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0,
                               out->mut_dptr()));
 }
 
-template<BinaryOpMLU op>
+}  // namespace
+
+template<BinaryOpMLU op, typename T>
 class ScalarMathKernelMLU final : public user_op::OpKernel {
  public:
   ScalarMathKernelMLU() = default;
@@ -137,7 +141,7 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
       // TODO(Jianhua Zheng): support kDiv
       const bool is_mul_div_1 = (op == BinaryOpMLU::kMul) && value.Value<double>() == 1.0;
       if ((is_add_sub_0 || is_mul_div_1) && in->dptr() == out->dptr()) { return; }
-      LaunchMathKernel<op>(ctx, value, in, out);
+      LaunchMathKernel<op, T>(ctx, value, in, out);
     } else {
       // For 0-d Tensor
       return;
@@ -149,7 +153,7 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
 
 #define REGISTER_SCALAR_MATH_USER_KERNEL(op_name, binary_op, dtype)                         \
   REGISTER_USER_KERNEL(op_name)                                                             \
-      .SetCreateFn<ScalarMathKernelMLU<binary_op>>()                                        \
+      .SetCreateFn<ScalarMathKernelMLU<binary_op, dtype>>()                                 \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                       \
                        && (user_op::HobDataType("in", 0) == user_op::HobDataType("out", 0)) \
                        && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value))     \
