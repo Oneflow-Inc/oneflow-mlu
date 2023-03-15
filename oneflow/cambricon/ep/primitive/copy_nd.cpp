@@ -43,7 +43,7 @@ class CopyNdImpl : public CopyNd {
     }
     cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
     CnnlTensorDescriptor input_desc, output_desc;
-    input_desc.set(num_dims, dst_dims, cnnl_data_type);
+    input_desc.set(num_dims, src_dims, cnnl_data_type);
     output_desc.set(num_dims, dst_dims, cnnl_data_type);
     OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
                                    src, begin.data(), end.data(), stride.data(), output_desc.desc(),
