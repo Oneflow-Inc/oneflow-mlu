@@ -26,11 +26,27 @@ import oneflow.unittest
 
 def _test_narrow_forward(test_case, shape, dim, start_length, device, dtype):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
+
     mlu_out = flow.narrow(x, dim=dim, start=start_length[0], length=start_length[1])
     cpu_out = flow.narrow(
         x.cpu(), dim=dim, start=start_length[0], length=start_length[1]
     )
     test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001))
+
+    class NarrowGraph(flow.nn.Graph):
+        def __init__(self):
+            super().__init__()
+
+        def build(self, x):
+            return flow.narrow(
+                x, dim=dim, start=start_length[0], length=start_length[1]
+            )
+
+    graph = NarrowGraph()
+    graph_out = graph(x)
+    test_case.assertTrue(
+        np.allclose(graph_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001)
+    )
 
 
 @flow.unittest.skip_unless_1n1d()

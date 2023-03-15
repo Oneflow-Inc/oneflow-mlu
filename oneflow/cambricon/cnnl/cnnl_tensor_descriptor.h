@@ -85,7 +85,14 @@ class CnnlTensorDescriptor : public CnnlDescriptor<cnnlTensorStruct, &cnnlCreate
            cnnlTensorLayout_t layout = CNNL_LAYOUT_ARRAY) {
     std::vector<int> shape_info(ndim, 1);
     std::vector<int> stride_info(ndim, 1);
-    for (int i = 0; i < ndim; ++i) { shape_info[i] = static_cast<int>(shape[i]); }
+    int value = 1;
+    for (size_t i = ndim - 1; i > 0; --i) {
+      shape_info[i] = static_cast<int>(shape[i]);
+      stride_info[i] = value;
+      value *= shape_info[i];
+    }
+    shape_info[0] = static_cast<int>(shape[0]);
+    stride_info[0] = value;
     OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(this->mut_desc(), layout, data_type, ndim,
                                             shape_info.data(), stride_info.data()));
   }
