@@ -24,31 +24,40 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def np_relu(x):
-    return np.where(x > 0, x, 0)
-
-def _test_relu_forward(test_case, shape, device, dtype):
-    arr = np.random.randn(*shape)
-    x = flow.tensor(
-        arr, device=flow.device(device), dtype=dtype
-    )
-    of_out = flow.relu(x)
-    np_out = np_relu(arr).astype(arr.dtype)
-    test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 0.001, 0.001))
+def _test_log_softmax_forward(test_case, shape, device, dtype):
+    x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
+    mlu_out = flow.log_softmax(x)
+    if dtype == flow.float16:
+        cpu_out = flow.log_softmax(x.cpu().float())
+        test_case.assertTrue(
+            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.001, 0.001)
+        )
+    else:
+        cpu_out = flow.log_softmax(x.cpu())
+        test_case.assertTrue(
+            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+        )
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestReluCambriconModule(flow.unittest.TestCase):
-    def test_relu(test_case):
+class TestLogSoftmaxCambriconModule(flow.unittest.TestCase):
+    def test_log_softmax(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_relu_forward,
+            _test_log_softmax_forward,
         ]
-        arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
+        # TODO(WangYi): add more shape after to_contiguous supported
+        arg_dict["shape"] = [
+            (2, 3,),
+        ]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [flow.float16, flow.float32]
+        arg_dict["dtype"] = [
+            flow.float32,
+            flow.float16,
+        ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
+
 
 if __name__ == "__main__":
     unittest.main()
