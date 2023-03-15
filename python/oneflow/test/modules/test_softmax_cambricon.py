@@ -26,9 +26,14 @@ import oneflow.unittest
 
 def _test_softmax_forward(test_case, shape, device, dtype):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    cpu_out = flow.softmax(x.cpu())
+
+    def np_softmax(x):
+        e_x = np.exp(x - x.max(axis=-1, keepdims=True))
+        return e_x / e_x.sum(axis=-1, keepdims=True)
+
+    np_out = np_softmax(x.cpu().numpy())
     mlu_out = flow.softmax(x)
-    test_case.assertTrue(np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001))
+    test_case.assertTrue(np.allclose(np_out, mlu_out.numpy(), 0.0001, 0.0001))
 
 
 @flow.unittest.skip_unless_1n1d()

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include <cstdint>
 #include "cnnl.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/ep/mlu_util.h"
@@ -63,11 +62,10 @@ class MluSoftmaxKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_SOFTMAX_MLU_KERNEL(dtype)                        \
-  REGISTER_USER_KERNEL("softmax")                                 \
-      .SetCreateFn<MluSoftmaxKernel<dtype>>()                      \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
-                       && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
+#define REGISTER_SOFTMAX_MLU_KERNEL(dtype)                                                \
+  REGISTER_USER_KERNEL("softmax").SetCreateFn<MluSoftmaxKernel<dtype>>().SetIsMatchedHob( \
+      (user_op::HobDeviceType() == DeviceType::kMLU)                                      \
+      && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
 
 REGISTER_SOFTMAX_MLU_KERNEL(float)
 REGISTER_SOFTMAX_MLU_KERNEL(float16)
