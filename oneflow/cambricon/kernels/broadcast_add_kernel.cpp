@@ -13,8 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/ep/mlu_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
@@ -50,16 +50,13 @@ class MluBroadCastAddNKernel final : public user_op::OpKernel {
     input_descs_vec.push_back(x_desc.desc());
     input_descs_vec.push_back(y_decs.desc());
     size_t addn_workspace_size = 0;
-    void* addn_workspace = nullptr;
     OF_CNNL_CHECK(cnnlGetAddNWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                           input_descs_vec.data(),
                                           in_num,
                                           z_desc.desc(),
                                           &addn_workspace_size));
-    if (addn_workspace_size != 0) {
-      CNRT_CHECK(cnrtMalloc((void**)&addn_workspace, addn_workspace_size));
-      CNRT_CHECK(cnrtMemset(addn_workspace, 0, addn_workspace_size));
-    }
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), addn_workspace_size);
+    void* addn_workspace = cnnl_workspace.dptr();
 
     OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                            input_descs_vec.data(), input_dptrs_vec.data(), in_num,
