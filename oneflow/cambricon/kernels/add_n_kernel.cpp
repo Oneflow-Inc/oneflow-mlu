@@ -13,7 +13,10 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include <cstdint>
 #include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/cambricon/ep/mlu_util.h"
+#include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
@@ -49,10 +52,21 @@ class MluAddNKernel final : public user_op::OpKernel {
     input_desc.set(in_0);
     output_desc.set(out);
     std::vector<cnnlTensorDescriptor_t> input_descs_vec{in_num, input_desc.desc()};
+    size_t addn_workspace_size = 0;
+    void* addn_workspace = nullptr;
+    OF_CNNL_CHECK(cnnlGetAddNWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                          input_descs_vec.data(),
+                                          in_num,
+                                          output_desc.desc(),
+                                          &addn_workspace_size));
+    if (addn_workspace_size != 0) {
+      CNRT_CHECK(cnrtMalloc((void**)&addn_workspace, addn_workspace_size));
+      CNRT_CHECK(cnrtMemset(addn_workspace, 0, addn_workspace_size));
+    }
 
-    OF_CNNL_CHECK(cnnlAddN(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+    OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                            input_descs_vec.data(), input_dptrs_vec.data(), in_num,
-                           output_desc.desc(), out->mut_dptr()));
+                           output_desc.desc(), out->mut_dptr(), addn_workspace, addn_workspace_size));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -64,5 +78,9 @@ class MluAddNKernel final : public user_op::OpKernel {
       && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
 
 REGISTER_ADDN_MLU_KERNEL(float)
+REGISTER_ADDN_MLU_KERNEL(float16)
+REGISTER_ADDN_MLU_KERNEL(int8_t)
+REGISTER_ADDN_MLU_KERNEL(uint8_t)
+REGISTER_ADDN_MLU_KERNEL(int32_t)
 
 }  // namespace oneflow
