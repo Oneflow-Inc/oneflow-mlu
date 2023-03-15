@@ -25,10 +25,10 @@ limitations under the License.
 namespace oneflow {
 
 template<typename T>
-class MluBroadCastDivKernel final : public user_op::OpKernel {
+class MluDivKernel final : public user_op::OpKernel {
  public:
-  MluBroadCastDivKernel() = default;
-  ~MluBroadCastDivKernel() = default;
+  MluDivKernel() = default;
+  ~MluDivKernel() = default;
 
  private:
   using user_op::OpKernel::Compute;
@@ -42,27 +42,31 @@ class MluBroadCastDivKernel final : public user_op::OpKernel {
     x_desc.set(x);
     y_decs.set(y);
     z_desc.set(z);
-    size_t div_workspace_size = 0;
-    void* div_workspace = nullptr;
+    size_t _div_workspace_size = 0;
+    OF_CNNL_CHECK(cnnlGetDivWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                          x_desc.desc(), y_decs.desc(), z_desc.desc(),
+                                          &_div_workspace_size));
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), _div_workspace_size);
+    void* _div_workspace = cnnl_workspace.dptr();
 
     OF_CNNL_CHECK(cnnlDiv_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                              CNNL_COMPUTATION_HIGH_PRECISION, x_desc.desc(), x->dptr(),
-                             y_decs.desc(), y->dptr(), div_workspace, div_workspace_size,
-                             z_desc.desc(), z->mut_dptr()));
+                             y_decs.desc(), y->dptr(), _div_workspace,
+                             _div_workspace_size, z_desc.desc(), z->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_DIV_MLU_KERNEL(dtype)                                                     \
-  REGISTER_USER_KERNEL("div").SetCreateFn<MluBroadCastDivKernel<dtype>>().SetIsMatchedHob( \
-      (user_op::HobDeviceType() == DeviceType::kMLU)                                       \
-      && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+#define REGISTER_DIV_MLU_KERNEL(name, dtype)                      \
+  REGISTER_USER_KERNEL(name)                               \
+      .SetCreateFn<MluDivKernel<dtype>>()                    \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
-REGISTER_DIV_MLU_KERNEL(float)
-REGISTER_DIV_MLU_KERNEL(float16)
-REGISTER_DIV_MLU_KERNEL(int8_t)
-REGISTER_DIV_MLU_KERNEL(uint8_t)
-REGISTER_DIV_MLU_KERNEL(int32_t)
+REGISTER_DIV_MLU_KERNEL("div" ,float)
+REGISTER_DIV_MLU_KERNEL("div", float16)
+REGISTER_DIV_MLU_KERNEL("broadcast_div" ,float)
+REGISTER_DIV_MLU_KERNEL("broadcast_div", float16)
 
 }  // namespace oneflow
