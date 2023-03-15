@@ -13,31 +13,32 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
-#define ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
+#ifndef ONEFLOW_CAMBRICON_CNNL_CNNL_WORKSPACE_H_
+#define ONEFLOW_CAMBRICON_CNNL_CNNL_WORKSPACE_H_
 
-#include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/core/ep/include/event.h"
+#include "oneflow/cambricon/ep/mlu_stream.h"
 
 namespace oneflow {
-namespace ep {
 
-class MluEvent : public Event {
+class CnnlWorkspace {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(MluEvent);
-  explicit MluEvent(unsigned int flags);
-  ~MluEvent() override;
+  CnnlWorkspace(ep::MluStream* stream, size_t workspace_size = 0);
+  ~CnnlWorkspace();
 
-  Maybe<bool> QueryDone() override;
-  Maybe<void> Sync() override;
+  void resize(size_t workspace_size);
 
-  cnrtNotifier_t mlu_event();
+  size_t size() const { return size_; }
+
+  void* dptr() { return workspace_dptr_; }
+  const void* dptr() const { return workspace_dptr_; }
 
  private:
-  cnrtNotifier_t mlu_event_;
+  ep::MluStream* mlu_stream_;
+  size_t size_;
+  size_t capacity_;
+  char* workspace_dptr_;
 };
 
-}  // namespace ep
 }  // namespace oneflow
 
-#endif  // ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
+#endif  // ONEFLOW_CAMBRICON_CNNL_CNNL_WORKSPACE_H_
