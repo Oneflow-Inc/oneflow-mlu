@@ -42,7 +42,7 @@ class TestNarrowCambriconModule(flow.unittest.TestCase):
         ]
         arg_dict["shape"] = [(3, 4, 5), (6, 7, 8)]
         arg_dict["dim"] = [0, 1, 2]
-        arg_dict["start_length"] = [(0, 2), (2, 1)]
+        arg_dict["start_length"] = [(0, 2), (2, 1), (1, 2)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,

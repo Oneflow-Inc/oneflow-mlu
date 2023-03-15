@@ -39,7 +39,7 @@ class CopyNdImpl : public CopyNd {
     std::vector<int> stride(num_dims, 1);
     for (int i = 0; i < num_dims; ++i) {
       begin[i] = static_cast<int>(src_pos[i]);
-      end[i] = static_cast<int>(extent[i]);
+      end[i] = begin[i] + static_cast<int>(extent[i]);
     }
     cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
     CnnlTensorDescriptor input_desc, output_desc;
