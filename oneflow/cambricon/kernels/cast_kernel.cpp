@@ -38,7 +38,6 @@ class MluCastKernel final : public user_op::OpKernel {
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     const DataType in_data_type = ctx->TensorDesc4ArgNameAndIndex("in", 0)->data_type();
     const DataType out_data_type = ctx->TensorDesc4ArgNameAndIndex("out", 0)->data_type();
-    
     cnnlCastDataType_t type;
     if(in_data_type == kFloat && out_data_type == kFloat16) {
         type = CNNL_CAST_FLOAT_TO_HALF;
@@ -56,7 +55,7 @@ class MluCastKernel final : public user_op::OpKernel {
         type = CNNL_CAST_HALF_TO_INT32;
     }else if(in_data_type == kFloat16 && out_data_type == kInt8){
         type = CNNL_CAST_HALF_TO_INT8;
-    }else if(in_data_type == kFloat16 && out_data_type == kUInt8){
+    }else if(in_data_type == kInt32 && out_data_type == kUInt8){
         type = CNNL_CAST_INT32_TO_INT8;
     }else if(in_data_type == kFloat16 && out_data_type == kBool){
         type = CNNL_CAST_HALF_TO_BOOL;
@@ -98,6 +97,8 @@ class MluCastKernel final : public user_op::OpKernel {
         type = CNNL_CAST_FLOAT_TO_INT64;
     }else if(in_data_type == kFloat16 && out_data_type == kInt64){
         type = CNNL_CAST_HALF_TO_INT64;
+    }else if(in_data_type == kInt32 && out_data_type == kFloat){
+        type = CNNL_CAST_INT32_TO_FLOAT;
     }
     else{
         UNIMPLEMENTED();
