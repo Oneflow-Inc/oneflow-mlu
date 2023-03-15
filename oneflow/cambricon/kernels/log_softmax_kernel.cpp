@@ -26,29 +26,6 @@ limitations under the License.
 
 namespace oneflow {
 
-std::vector<int64_t> modify_dims_based_on_layout(const std::vector<long>& dim,
-                                                 const std::string& memory_format) {
-  if (!dim.size()) { return dim; }
-  std::vector<int64_t> target_dim;
-  std::vector<int> dim_order;
-  // trans tensor/stride size to cnnl desc size/stride.
-  auto modify_dims_pos = [](const std::vector<int>& dim_order, const std::vector<int64_t>& input,
-                            std::vector<int64_t>& out) {
-    out.clear();
-    for (const auto& item : dim_order) { out.push_back(input[item]); }
-  };
-  if (memory_format == "ChannelsLast") {
-    dim_order = {0, 2, 3, 1};
-    modify_dims_pos(dim_order, dim, target_dim);
-  } else if (memory_format == "ChannelsLast3d") {
-    dim_order = {0, 2, 3, 4, 1};
-    modify_dims_pos(dim_order, dim, target_dim);
-  } else if (memory_format == "Contiguous") {
-    target_dim = dim;
-  }
-  return target_dim;
-};
-
 template<typename T>
 class MluLogSoftmaxKernel final : public user_op::OpKernel {
  public:
@@ -62,19 +39,25 @@ class MluLogSoftmaxKernel final : public user_op::OpKernel {
     user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("prob", 0);
     CnnlTensorDescriptor input_desc, output_desc;
+    int in_ndim = in->shape_view().NumAxes();
+    int batch_dims = in->shape_view().Count(0, in_ndim - 1);
+    int softmax_dim = in->shape_view().At(in_ndim - 1);
 
-    std::vector<int> addentional_dims_input = {1, static_cast<int>(in->shape_view().At(0)),
-                                               static_cast<int>(in->shape_view().At(1))};
-    std::vector<int> addentional_dims_output = {1, static_cast<int>(in->shape_view().At(0)),
-                                                static_cast<int>(in->shape_view().At(1))};
-
-    input_desc.set_additional_dim(in, addentional_dims_input);
-    output_desc.set_additional_dim(out, addentional_dims_output);
+    std::vector<int> addentional_dims_input = {batch_dims, 1, softmax_dim};
+    std::vector<int> addentional_dims_output = {batch_dims, 1, softmax_dim};
+    input_desc.set_reshape(in, addentional_dims_input);
+    output_desc.set_reshape(out, addentional_dims_output);
 
     OF_CNNL_CHECK(cnnlSoftmaxForward(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), cnnlSoftmaxAlgorithm_t::CNNL_SOFTMAX_LOG,
-        cnnlSoftmaxMode_t::CNNL_SOFTMAX_MODE_LOW_DIMENSION, nullptr, input_desc.desc(), in->dptr(),
-        NULL, output_desc.desc(), out->mut_dptr()));
+        /* handle    */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        /* algorithm */ cnnlSoftmaxAlgorithm_t::CNNL_SOFTMAX_LOG,
+        /* mode      */ cnnlSoftmaxMode_t::CNNL_SOFTMAX_MODE_LOW_DIMENSION,
+        /* alpha     */ nullptr,
+        /* x_desc    */ input_desc.desc(),
+        /* x         */ in->dptr(),
+        /* beta      */ NULL,
+        /* y_desc    */ output_desc.desc(),
+        /* y         */ out->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -88,8 +71,5 @@ class MluLogSoftmaxKernel final : public user_op::OpKernel {
 
 REGISTER_LOG_SOFTMAX_MLU_KERNEL(float)
 REGISTER_LOG_SOFTMAX_MLU_KERNEL(float16)
-// REGISTER_LOG_SOFTMAX_MLU_KERNEL(int8_t)
-// REGISTER_LOG_SOFTMAX_MLU_KERNEL(uint8_t)
-// REGISTER_LOG_SOFTMAX_MLU_KERNEL(int32_t)
 
 }  // namespace oneflow
