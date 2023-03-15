@@ -56,8 +56,9 @@ class MluAddNKernel final : public user_op::OpKernel {
     void* addn_workspace = nullptr;
 
     OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                           input_descs_vec.data(), input_dptrs_vec.data(), in_num,
-                           output_desc.desc(), out->mut_dptr(), addn_workspace, addn_workspace_size));
+                              input_descs_vec.data(), input_dptrs_vec.data(), in_num,
+                              output_desc.desc(), out->mut_dptr(), addn_workspace,
+                              addn_workspace_size));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
