@@ -38,27 +38,41 @@ struct TransformParams {
   Param beta;   // bias factor of tensor input
 };
 
-template<typename T, BinaryOpMLU op>
-T GetAlpha(Scalar value) {
-  switch (op) {
-    case BinaryOpMLU::kAdd: return T(1);
-    case BinaryOpMLU::kMul: return value.Value<T>();
-    case BinaryOpMLU::kSub: return 1;
-    default: THROW(RuntimeError) << "Invalid op in MLU LaunchMathKernel " << op;
-  }
-  return 0;  // eliminating compiler warnings
-}
+template<BinaryOpMLU, typename T>
+struct Alpha;
 
-template<typename T, BinaryOpMLU op>
-T GetBeta(Scalar value) {
-  switch (op) {
-    case BinaryOpMLU::kAdd: return value.Value<T>();
-    case BinaryOpMLU::kMul: return T(0);
-    case BinaryOpMLU::kSub: return -value.Value<T>();
-    default: THROW(RuntimeError) << "Invalid op in MLU LaunchMathKernel " << op;
-  }
-  return 0;  // eliminating compiler warnings
-}
+template<typename T>
+struct Alpha<BinaryOpMLU::kAdd, T> {
+  T operator()(Scalar value) { return T(1); }
+};
+
+template<typename T>
+struct Alpha<BinaryOpMLU::kMul, T> {
+  T operator()(Scalar value) { return value.Value<T>(); }
+};
+
+template<typename T>
+struct Alpha<BinaryOpMLU::kSub, T> {
+  T operator()(Scalar value) { return T(1); }
+};
+
+template<BinaryOpMLU, typename T>
+struct Beta;
+
+template<typename T>
+struct Beta<BinaryOpMLU::kAdd, T> {
+  T operator()(Scalar value) { return value.Value<T>(); }
+};
+
+template<typename T>
+struct Beta<BinaryOpMLU::kMul, T> {
+  T operator()(Scalar value) { return T(0); }
+};
+
+template<typename T>
+struct Beta<BinaryOpMLU::kSub, T> {
+  T operator()(Scalar value) { return -value.Value<T>(); }
+};
 
 template<BinaryOpMLU op>
 void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params) {
@@ -68,12 +82,12 @@ void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params
   switch (data_type) {
     case DataType::kFloat:
     case DataType::kFloat16:
-      params.alpha.float_value = GetAlpha<float, op>(src0);
-      params.beta.float_value = GetBeta<float, op>(src0);
+      params.alpha.float_value = Alpha<op, float>()(src0);
+      params.beta.float_value = Beta<op, float>()(src0);
       break;
     case DataType::kInt32:
-      params.alpha.int_value = GetAlpha<int, op>(src0);
-      params.beta.int_value = GetBeta<int, op>(src0);
+      params.alpha.int_value = Alpha<op, int>()(src0);
+      params.beta.int_value = Beta<op, int>()(src0);
       break;
     // The combinations of the data types for input tensor and output tensor must be half-half,
     // float-float or int32-int32.
@@ -133,19 +147,12 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define SCALAR_MATH_SEQ                                 \
-  OF_PP_MAKE_TUPLE_SEQ("scalar_add", BinaryOpMLU::kAdd) \
-  OF_PP_MAKE_TUPLE_SEQ("scalar_mul", BinaryOpMLU::kMul) \
-  OF_PP_MAKE_TUPLE_SEQ("scalar_sub", BinaryOpMLU::kSub)
-
-#define REGISTER_UNARY_MATH_SCALAR_ELEMWISE_USER_KERNEL(op_name, binary_op)                 \
+#define REGISTER_SCALAR_MATH_USER_KERNEL(op_name, binary_op, dtype)                         \
   REGISTER_USER_KERNEL(op_name)                                                             \
       .SetCreateFn<ScalarMathKernelMLU<binary_op>>()                                        \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                       \
                        && (user_op::HobDataType("in", 0) == user_op::HobDataType("out", 0)) \
-                       && ((user_op::HobDataType("in", 0) == DataType::kFloat)              \
-                           || (user_op::HobDataType("in", 0) == DataType::kFloat16)         \
-                           || (user_op::HobDataType("in", 0) == DataType::kInt32)))         \
+                       && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value))     \
       .SetInplaceProposalFn(                                                                \
           [](const user_op::InferContext& ctx,                                              \
              const user_op::AddInplaceArgPair& AddInplaceArgPairFn) -> Maybe<void> {        \
@@ -153,6 +160,14 @@ class ScalarMathKernelMLU final : public user_op::OpKernel {
             return Maybe<void>::Ok();                                                       \
           });
 
-OF_PP_FOR_EACH_TUPLE(REGISTER_UNARY_MATH_SCALAR_ELEMWISE_USER_KERNEL, SCALAR_MATH_SEQ)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_add", BinaryOpMLU::kAdd, float)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_add", BinaryOpMLU::kAdd, float16)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_add", BinaryOpMLU::kAdd, int32_t)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_mul", BinaryOpMLU::kMul, float)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_mul", BinaryOpMLU::kMul, float16)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_mul", BinaryOpMLU::kMul, int32_t)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_sub", BinaryOpMLU::kSub, float)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_sub", BinaryOpMLU::kSub, float16)
+REGISTER_SCALAR_MATH_USER_KERNEL("scalar_sub", BinaryOpMLU::kSub, int32_t)
 
 }  // namespace oneflow

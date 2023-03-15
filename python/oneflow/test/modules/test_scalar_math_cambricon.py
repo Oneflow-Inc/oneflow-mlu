@@ -43,8 +43,6 @@ def _test_scalar_mul_forward(test_case, shape, device, dtype):
     x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x + y
     np_out = array + y
-    # print(of_out)
-    # print(np_out)
     diff = _get_diff(dtype)
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, diff, diff))
 
@@ -54,8 +52,6 @@ def _test_scalar_mul_forward(test_case, shape, device, dtype):
     x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x * y
     np_out = array * y
-    # print(of_out)
-    # print(np_out)
     diff = _get_diff(dtype)
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, diff, diff))
 
@@ -64,9 +60,7 @@ def _test_scalar_sub_forward(test_case, shape, device, dtype):
     array, y = _get_data(shape, dtype)
     x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x - y
-    np_out = np.add(array, -y)
-    # print(of_out)
-    # print(np_out)
+    np_out = array - y
     diff = _get_diff(dtype)
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, diff, diff))
 
@@ -80,7 +74,7 @@ class TestScalarMathCambriconModule(flow.unittest.TestCase):
             _test_scalar_mul_forward,
             _test_scalar_sub_forward,
         ]
-        arg_dict["shape"] = [(2, 3)]
+        arg_dict["shape"] = [(4, 8)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [flow.float, flow.float16, flow.int]
         for arg in GenArgList(arg_dict):
