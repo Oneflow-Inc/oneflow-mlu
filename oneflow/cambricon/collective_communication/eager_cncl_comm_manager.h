@@ -13,8 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_EAGER_CNCL_COMM_MANAGER_H_
-#define ONEFLOW_CAMBRICON_EP_EAGER_CNCL_COMM_MANAGER_H_
+#ifndef ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_EAGER_CNCL_COMM_MANAGER_H_
+#define ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_EAGER_CNCL_COMM_MANAGER_H_
 
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/job/plan.pb.h"
@@ -94,4 +94,4 @@ static const std::string kSystemOpPrefix = "sys_op_";
       ::oneflow::UserKernelUnifiedCnclCommInitRegistry::Trigger(::oneflow::kSystemOpPrefix \
                                                                 + std::to_string(op_type_case))
 
-#endif  // ONEFLOW_CAMBRICON_EP_EAGER_CNCL_COMM_MANAGER_H_
+#endif  // ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_EAGER_CNCL_COMM_MANAGER_H_
