@@ -23,6 +23,7 @@ from oneflow.test_utils.test_util import GenArgList
 import oneflow as flow
 import oneflow.unittest
 
+
 def _get_data(shape, dtype):
     array = np.random.randn(*shape)
     y = np.random.randn()
@@ -39,9 +40,7 @@ def _get_diff(dtype):
 
 def _test_scalar_mul_forward(test_case, shape, device, dtype):
     array, y = _get_data(shape, dtype)
-    x = flow.tensor(
-        array, device=flow.device(device), dtype=dtype
-    )
+    x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x + y
     np_out = array + y
     # print(of_out)
@@ -52,9 +51,7 @@ def _test_scalar_mul_forward(test_case, shape, device, dtype):
 
 def _test_scalar_mul_forward(test_case, shape, device, dtype):
     array, y = _get_data(shape, dtype)
-    x = flow.tensor(
-        array, device=flow.device(device), dtype=dtype
-    )
+    x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x * y
     np_out = array * y
     # print(of_out)
@@ -65,9 +62,7 @@ def _test_scalar_mul_forward(test_case, shape, device, dtype):
 
 def _test_scalar_sub_forward(test_case, shape, device, dtype):
     array, y = _get_data(shape, dtype)
-    x = flow.tensor(
-        array, device=flow.device(device), dtype=dtype
-    )
+    x = flow.tensor(array, device=flow.device(device), dtype=dtype)
     of_out = x - y
     np_out = np.add(array, -y)
     # print(of_out)
