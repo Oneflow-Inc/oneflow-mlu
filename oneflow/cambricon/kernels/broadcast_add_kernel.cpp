@@ -46,30 +46,30 @@ class MluBroadCastAddNKernel final : public user_op::OpKernel {
     x_desc.set(x);
     y_decs.set(y);
     z_desc.set(z);
-    std::vector <cnnlTensorDescriptor_t> input_descs_vec;
+    std::vector<cnnlTensorDescriptor_t> input_descs_vec;
     input_descs_vec.push_back(x_desc.desc());
     input_descs_vec.push_back(y_decs.desc());
-    size_t addn_workspace_size = 0;
+    size_t broadcast_add_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAddNWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                          input_descs_vec.data(),
-                                          in_num,
-                                          z_desc.desc(),
-                                          &addn_workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), addn_workspace_size);
-    void* addn_workspace = cnnl_workspace.dptr();
+                                           input_descs_vec.data(), in_num, z_desc.desc(),
+                                           &broadcast_add_workspace_size));
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), broadcast_add_workspace_size);
+    void* broadcast_add_workspace = cnnl_workspace.dptr();
 
     OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                           input_descs_vec.data(), input_dptrs_vec.data(), in_num,
-                           z_desc.desc(), z->mut_dptr(), addn_workspace, addn_workspace_size));
+                              input_descs_vec.data(), input_dptrs_vec.data(), in_num, z_desc.desc(),
+                              z->mut_dptr(), broadcast_add_workspace,
+                              broadcast_add_workspace_size));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_BROADCAST_ADD_MLU_KERNEL(dtype)                                              \
-  REGISTER_USER_KERNEL("broadcast_add").SetCreateFn<MluBroadCastAddNKernel<dtype>>().SetIsMatchedHob( \
-      (user_op::HobDeviceType() == DeviceType::kMLU)                                 \
-      && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+#define REGISTER_BROADCAST_ADD_MLU_KERNEL(dtype)                      \
+  REGISTER_USER_KERNEL("broadcast_add")                               \
+      .SetCreateFn<MluBroadCastAddNKernel<dtype>>()                   \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
 REGISTER_BROADCAST_ADD_MLU_KERNEL(float)
 REGISTER_BROADCAST_ADD_MLU_KERNEL(float16)
