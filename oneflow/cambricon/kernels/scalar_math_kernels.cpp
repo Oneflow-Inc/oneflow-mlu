@@ -86,8 +86,9 @@ void SetTransformParams(DataType data_type, Scalar src0, TransformParams& params
 template<BinaryOpMLU op>
 static void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0,
                              const user_op::Tensor* in, user_op::Tensor* out) {
-  CHECK(in->shape_view().NumAxes() <= CNNL_DIM_MAX)
-      << "The number of dimensions is no more than CNNL_DIM_MAX";
+  auto num_axes = in->shape_view().NumAxes();
+  CHECK(num_axes <= CNNL_DIM_MAX) << "The number of dimensions is no more than CNNL_DIM_MAX ("
+                                  << num_axes << " <= " << CNNL_DIM_MAX << ")";
   TransformParams params;
   SetTransformParams<op>(in->data_type(), src0, params);
   CnnlTensorDescriptor input_desc;
