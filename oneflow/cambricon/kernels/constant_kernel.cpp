@@ -36,10 +36,10 @@ class MluConstantKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("out", 0);
     bool is_floating_value = ctx->Attr<bool>("is_floating_value");
-    double floating_value = 0.0;
+    float floating_value = 0.0;
     int integer_value = 0;
     if (is_floating_value) {
-      floating_value = ctx->Attr<double>("floating_value");
+      floating_value = static_cast<float>(ctx->Attr<double>("floating_value"));
     }
     else{
       integer_value = ctx->Attr<int64_t>("integer_value");
@@ -50,7 +50,6 @@ class MluConstantKernel final : public user_op::OpKernel {
     CnnlTensorDescriptor out_decs;
     out_decs.set(out_tensor);
     if (is_floating_value){
-      std::cout << "enter here" << std::endl;
       OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, floating_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));
     }else{
       OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, integer_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));

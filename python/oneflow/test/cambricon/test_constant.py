@@ -24,8 +24,13 @@ import oneflow.unittest
 from oneflow.test_utils.test_util import GenArgList
 
 def _test_different_dtype(test_case, shape, dtype):
-    y1 = flow.ones(shape, device=flow.device('mlu'), dtype=dtype)
-    y2 = flow.ones(shape, device='cpu', dtype=dtype)
+    # y1 = flow.ones(shape, device=flow.device('mlu'), dtype=dtype)
+    # y2 = flow.ones(shape, device='cpu', dtype=dtype)
+    # print(y1.numpy())
+    # print(y2.numpy())
+    # test_case.assertTrue(np.array_equal(y1.numpy(), y2.numpy()))
+    y1 = flow.full(shape, 2.0, device=flow.device('mlu'), dtype=dtype)
+    y2 = flow.full(shape, 2.0, device='cpu', dtype=dtype)
     print(y1.numpy())
     print(y2.numpy())
     test_case.assertTrue(np.array_equal(y1.numpy(), y2.numpy()))
