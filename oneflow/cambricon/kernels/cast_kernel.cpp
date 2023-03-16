@@ -24,6 +24,36 @@ limitations under the License.
 
 namespace oneflow {
 
+std::map<std::pair<DataType, DataType>, cnnlCastDataType_t> cast_dtype_table = { {{kFloat, kFloat16}, CNNL_CAST_FLOAT_TO_HALF}, 
+                                                                {{kFloat, kInt32}, CNNL_CAST_FLOAT_TO_INT32},
+                                                                {{kFloat, kInt8}, CNNL_CAST_FLOAT_TO_INT8},
+                                                                {{kFloat, kUInt8}, CNNL_CAST_FLOAT_TO_UINT8},
+                                                                {{kFloat16, kFloat}, CNNL_CAST_HALF_TO_FLOAT},
+                                                                {{kFloat16, kInt32}, CNNL_CAST_HALF_TO_INT32},
+                                                                {{kFloat16, kInt8}, CNNL_CAST_HALF_TO_INT8},
+                                                                {{kInt32, kInt8}, CNNL_CAST_INT32_TO_INT8}, 
+                                                                {{kFloat16, kBool}, CNNL_CAST_HALF_TO_BOOL},
+                                                                {{kInt8, kFloat}, CNNL_CAST_INT8_TO_FLOAT},
+                                                                {{kInt8, kFloat16}, CNNL_CAST_INT8_TO_HALF},
+                                                                {{kInt8, kInt32}, CNNL_CAST_INT8_TO_INT32},
+                                                                {{kUInt8, kFloat}, CNNL_CAST_UINT8_TO_FLOAT},
+                                                                {{kUInt8, kFloat16}, CNNL_CAST_UINT8_TO_HALF},
+                                                                {{kBool, kFloat}, CNNL_CAST_BOOL_TO_FLOAT}, 
+                                                                {{kBool, kFloat16}, CNNL_CAST_BOOL_TO_HALF},
+                                                                {{kBool, kInt32}, CNNL_CAST_BOOL_TO_INT32},
+                                                                {{kUInt8, kInt32}, CNNL_CAST_UINT8_TO_INT32},
+                                                                {{kInt32, kInt64}, CNNL_CAST_INT32_TO_INT64},
+                                                                {{kInt64, kInt32}, CNNL_CAST_INT64_TO_INT32},
+                                                                {{kInt32, kBool}, CNNL_CAST_INT32_TO_BOOL},
+                                                                {{kUInt8, kInt64}, CNNL_CAST_UINT8_TO_INT64}, 
+                                                                {{kUInt64, kUInt32}, CNNL_CAST_UINT64_TO_UINT32},
+                                                                {{kInt64, kUInt32}, CNNL_CAST_INT64_TO_UINT32},
+                                                                {{kInt64, kFloat}, CNNL_CAST_INT64_TO_FLOAT},
+                                                                {{kInt64, kFloat16}, CNNL_CAST_INT64_TO_HALF},
+                                                                {{kFloat, kInt64}, CNNL_CAST_FLOAT_TO_INT64},
+                                                                {{kFloat16, kInt64}, CNNL_CAST_HALF_TO_INT64},
+                                                                {{kInt32, kFloat}, CNNL_CAST_INT32_TO_FLOAT},};
+
 template<typename T>
 class MluCastKernel final : public user_op::OpKernel {
  public:
@@ -38,72 +68,10 @@ class MluCastKernel final : public user_op::OpKernel {
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     const DataType in_data_type = ctx->TensorDesc4ArgNameAndIndex("in", 0)->data_type();
     const DataType out_data_type = ctx->TensorDesc4ArgNameAndIndex("out", 0)->data_type();
-    
-    std::map<std::pair<DataType, DataType>, cnnlCastDataType_t> m;
-    m.insert(std::make_pair(std::make_pair(kFloat, kFloat16), 
-                        CNNL_CAST_FLOAT_TO_HALF));
-    m.insert(std::make_pair(std::make_pair(kFloat, kInt32), 
-                            CNNL_CAST_FLOAT_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kFloat, kInt8), 
-                            CNNL_CAST_FLOAT_TO_INT8));
-    m.insert(std::make_pair(std::make_pair(kFloat, kUInt8), 
-                            CNNL_CAST_FLOAT_TO_UINT8));
-    m.insert(std::make_pair(std::make_pair(kFloat, kBool), 
-                            CNNL_CAST_FLOAT_TO_BOOL));
-    m.insert(std::make_pair(std::make_pair(kFloat16, kFloat), 
-                            CNNL_CAST_HALF_TO_FLOAT));
-    m.insert(std::make_pair(std::make_pair(kFloat16, kInt32), 
-                            CNNL_CAST_HALF_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kFloat16, kInt8), 
-                            CNNL_CAST_HALF_TO_INT8));
-    m.insert(std::make_pair(std::make_pair(kInt32, kInt8), 
-                            CNNL_CAST_INT32_TO_INT8));
-    m.insert(std::make_pair(std::make_pair(kFloat16, kBool), 
-                            CNNL_CAST_HALF_TO_BOOL));
-    m.insert(std::make_pair(std::make_pair(kInt8, kFloat), 
-                            CNNL_CAST_INT8_TO_FLOAT));
-    m.insert(std::make_pair(std::make_pair(kInt8, kFloat16), 
-                        CNNL_CAST_INT8_TO_HALF));
-    m.insert(std::make_pair(std::make_pair(kInt8, kInt32), 
-                            CNNL_CAST_INT8_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kUInt8, kFloat), 
-                            CNNL_CAST_UINT8_TO_FLOAT));
-    m.insert(std::make_pair(std::make_pair(kUInt8, kFloat16), 
-                            CNNL_CAST_UINT8_TO_HALF));
-    m.insert(std::make_pair(std::make_pair(kBool, kFloat), 
-                            CNNL_CAST_BOOL_TO_FLOAT));
-    m.insert(std::make_pair(std::make_pair(kBool, kFloat16), 
-                            CNNL_CAST_BOOL_TO_HALF));
-    m.insert(std::make_pair(std::make_pair(kBool, kInt32), 
-                            CNNL_CAST_BOOL_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kUInt8, kInt32), 
-                            CNNL_CAST_UINT8_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kInt32, kInt64), 
-                        CNNL_CAST_INT32_TO_INT64));
-    m.insert(std::make_pair(std::make_pair(kInt64, kInt32), 
-                            CNNL_CAST_INT64_TO_INT32));
-    m.insert(std::make_pair(std::make_pair(kInt32, kBool), 
-                            CNNL_CAST_INT32_TO_BOOL));
-    m.insert(std::make_pair(std::make_pair(kUInt8, kInt64), 
-                            CNNL_CAST_UINT8_TO_INT64));
-    m.insert(std::make_pair(std::make_pair(kUInt64, kUInt32), 
-                        CNNL_CAST_UINT64_TO_UINT32));
-    m.insert(std::make_pair(std::make_pair(kInt64, kUInt32), 
-                            CNNL_CAST_INT64_TO_UINT32));
-    m.insert(std::make_pair(std::make_pair(kInt64, kFloat), 
-                            CNNL_CAST_INT64_TO_FLOAT));
-    m.insert(std::make_pair(std::make_pair(kInt64, kFloat16), 
-                            CNNL_CAST_INT64_TO_HALF));
-    m.insert(std::make_pair(std::make_pair(kFloat, kInt64), 
-                            CNNL_CAST_FLOAT_TO_INT64));
-    m.insert(std::make_pair(std::make_pair(kFloat16, kInt64), 
-                            CNNL_CAST_HALF_TO_INT64));
-    m.insert(std::make_pair(std::make_pair(kInt32, kFloat), 
-                            CNNL_CAST_INT32_TO_FLOAT));
 
     cnnlCastDataType_t type;
-    auto it = m.find(std::make_pair(in_data_type, out_data_type));
-    if (it != m.end()) {
+    auto it = cast_dtype_table.find(std::make_pair(in_data_type, out_data_type));
+    if (it != cast_dtype_table.end()) {
         type = it->second;
     } else {
         UNIMPLEMENTED();
