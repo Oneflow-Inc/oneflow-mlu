@@ -31,7 +31,6 @@ def _test_nll_loss_forward(test_case, shape, reduction, device, dtype):
     N = x.nelement() // x.shape[-1]
     target = flow.randint(0, C, (N,), dtype=flow.int).to(flow.device(device))
 
-    # TODO(WangYi): mlu nllloss must accept non-empty weight
     weight = random.choice(
         [
             None,
