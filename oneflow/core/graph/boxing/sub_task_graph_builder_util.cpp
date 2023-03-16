@@ -29,6 +29,12 @@ bool SubTskGphBuilderUtil::IsDeviceTypeCPUOrMLU(const ParallelDesc& parallel_des
          || parallel_desc.device_type() == DeviceType::kMLU;
 }
 
+bool SubTskGphBuilderUtil::IsDeviceTypeCPUOr(const ParallelDesc& parallel_desc,
+                                             DeviceType device_type) {
+  return parallel_desc.device_type() == DeviceType::kCPU
+         || parallel_desc.device_type() == device_type;
+}
+
 bool SubTskGphBuilderUtil::HasEmptySliceIfSplit(int64_t parallel_num,
                                                 const SbpParallel& sbp_parallel,
                                                 const BlobDesc& blob_desc) {

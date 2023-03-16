@@ -31,6 +31,7 @@ struct SubTskGphBuilderUtil {
 
   static bool IsDeviceTypeCPUOrCUDA(const ParallelDesc& parallel_desc);
   static bool IsDeviceTypeCPUOrMLU(const ParallelDesc& parallel_desc);
+  static bool IsDeviceTypeCPUOr(const ParallelDesc& parallel_desc, DeviceType device_type);
   static bool HasEmptySliceIfSplit(int64_t parallel_num, const SbpParallel& sbp_parallel,
                                    const BlobDesc& blob_desc);
   static bool IsOnSameCUDADevice(const TaskNode* lhs, const TaskNode* rhs);
