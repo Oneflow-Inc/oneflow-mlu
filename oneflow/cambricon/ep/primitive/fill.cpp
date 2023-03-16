@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/core/ep/include/primitive/fill.h"
 #include "oneflow/core/ep/cpu/primitive/type_seq.h"
 #include "oneflow/core/common/scalar.h"
+#include "oneflow/cambricon/ep/primitive/type_seq.h"
 
 namespace oneflow {
 
@@ -26,56 +27,6 @@ namespace ep {
 namespace primitive {
 
 namespace {
-
-template<typename T>
-struct cnnl_data_type_helper {
-  static const cnnlDataType_t value = CNNL_DTYPE_INVALID;  //默认值
-};
-
-template<>
-struct cnnl_data_type_helper<bool> {
-  static const cnnlDataType_t value = CNNL_DTYPE_BOOL;
-};
-
-template<>
-struct cnnl_data_type_helper<float> {
-  static const cnnlDataType_t value = CNNL_DTYPE_FLOAT;
-};
-
-template<>
-struct cnnl_data_type_helper<float16> {
-  static const cnnlDataType_t value = CNNL_DTYPE_HALF;
-};
-
-template<>
-struct cnnl_data_type_helper<int8_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_INT8;
-};
-
-template<>
-struct cnnl_data_type_helper<uint8_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_UINT8;
-};
-
-template<>
-struct cnnl_data_type_helper<int32_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_INT32;
-};
-
-template<>
-struct cnnl_data_type_helper<uint32_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_UINT32;
-};
-
-template<>
-struct cnnl_data_type_helper<int64_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_INT64;
-};
-
-template<>
-struct cnnl_data_type_helper<uint64_t> {
-  static const cnnlDataType_t value = CNNL_DTYPE_UINT64;
-};
 
 template<typename T>
 T GetValue(Scalar value) {
@@ -97,7 +48,7 @@ class FillImpl : public Fill {
   void Launch(Stream* stream, void* dst, Scalar value, size_t count) override {
     T dst_value = GetValue<T>(value);
     CnnlTensorDescriptor out_decs;
-    cnnlDataType_t cnnl_data_type = cnnl_data_type_helper<T>::value;
+    cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(GetDataType<T>::value);
     int64_t out_dims[1];
     out_dims[0] = count;
     out_decs.set(1, out_dims, cnnl_data_type);
