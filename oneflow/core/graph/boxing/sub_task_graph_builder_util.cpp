@@ -19,16 +19,6 @@ limitations under the License.
 
 namespace oneflow {
 
-bool SubTskGphBuilderUtil::IsDeviceTypeCPUOrCUDA(const ParallelDesc& parallel_desc) {
-  return parallel_desc.device_type() == DeviceType::kCPU
-         || parallel_desc.device_type() == DeviceType::kCUDA;
-}
-
-bool SubTskGphBuilderUtil::IsDeviceTypeCPUOrMLU(const ParallelDesc& parallel_desc) {
-  return parallel_desc.device_type() == DeviceType::kCPU
-         || parallel_desc.device_type() == DeviceType::kMLU;
-}
-
 bool SubTskGphBuilderUtil::IsDeviceTypeCPUOr(const ParallelDesc& parallel_desc,
                                              DeviceType device_type) {
   return parallel_desc.device_type() == DeviceType::kCPU
