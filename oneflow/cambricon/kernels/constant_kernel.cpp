@@ -50,6 +50,7 @@ class MluConstantKernel final : public user_op::OpKernel {
     CnnlTensorDescriptor out_decs;
     out_decs.set(out_tensor);
     if (is_floating_value){
+      std::cout << "enter here" << std::endl;
       OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, floating_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));
     }else{
       OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, integer_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));
