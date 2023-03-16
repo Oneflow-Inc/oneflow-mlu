@@ -85,10 +85,10 @@ class MluNLLKernel final : public user_op::OpKernel {
         /* ignore_index   */ ignore_index,
         /* w_desc         */ weight_desc.desc(),
         /* filter         */ weight_dptr,
-        // /* tf_desc        */ out_weight_desc.desc(),
-        // /* total_filter   */ out_weight->mut_dptr(),
-        /* tf_desc        */ nullptr,
-        /* total_filter   */ nullptr,
+        /* tf_desc        */ out_weight_desc.desc(),
+        /* total_filter   */ out_weight->mut_dptr(),
+        // /* tf_desc        */ nullptr,
+        // /* total_filter   */ nullptr,
         /* y_desc         */ output_desc.desc(),
         /* y              */ output->mut_dptr()));
   }

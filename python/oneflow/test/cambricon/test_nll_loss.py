@@ -15,6 +15,7 @@ limitations under the License.
 """
 
 import unittest
+import random
 from collections import OrderedDict
 
 import numpy as np
@@ -24,15 +25,35 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_nll_loss_forward(test_case, shape, device, dtype):
+def _test_nll_loss_forward(test_case, shape, reduction, device, dtype):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
     C = x.shape[-1]
     N = x.nelement() // x.shape[-1]
     target = flow.randint(0, C, (N,), dtype=flow.int).to(flow.device(device))
 
-    nll = flow.nn.NLLLoss()
+    # TODO(WangYi): mlu nllloss must accept non-empty weight
+    weight = random.choice(
+        [
+            # None,
+            flow.randn(C, dtype=dtype).to(flow.device(device)),
+        ]
+    )
+
+    nll = flow.nn.NLLLoss(weight=weight, reduction=reduction)
     mlu_out = nll(x, target)
-    cpu_out = nll(x.cpu(), target.cpu())
+
+    if dtype == flow.float16:
+        nll = flow.nn.NLLLoss(weight=weight.cpu().float(), reduction=reduction)
+        cpu_out = nll(x.cpu().float(), target.cpu())
+        test_case.assertTrue(
+            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+        )
+    else:
+        nll = flow.nn.NLLLoss(weight=weight.cpu(), reduction=reduction)
+        cpu_out = nll(x.cpu(), target.cpu())
+        test_case.assertTrue(
+            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+        )
 
 
 @flow.unittest.skip_unless_1n1d()
@@ -45,6 +66,12 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         # TODO(WangYi): add more shape after to_contiguous supported
         arg_dict["shape"] = [
             (2, 3,),
+        ]
+        # TODO(Wangyi): reduce sum not supported, so only test none
+        arg_dict["reduction"] = [
+            # "mean",
+            # "sum",
+            "none",
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
