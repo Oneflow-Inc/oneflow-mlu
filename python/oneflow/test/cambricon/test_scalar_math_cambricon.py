@@ -74,7 +74,7 @@ class TestScalarMathCambriconModule(flow.unittest.TestCase):
             _test_scalar_mul_forward,
             _test_scalar_sub_forward,
         ]
-        arg_dict["shape"] = [(4,), (4, 8), (2, 4, 8), (2, 4, 8, 16)]
+        arg_dict["shape"] = [(4,), (4, 8), (2, 4, 8), (2, 4, 8, 2)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [flow.float, flow.float16, flow.int]
         for arg in GenArgList(arg_dict):

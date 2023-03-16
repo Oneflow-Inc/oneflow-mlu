@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/scalar.h"
 #include "oneflow/core/framework/framework.h"
 
@@ -79,21 +80,13 @@ struct Beta<BinaryOpMLU::kSub, T> {
 // If the data type of tensors is float or half, the data type of alpha and beta should be
 // `float*`. If the data type of tensors is int32, the data type of alpha and beta should be
 // `int*`.
-template<BinaryOpMLU op, typename T,
-         typename std::enable_if<std::is_floating_point<T>::value, int>::type = 0>
+template<BinaryOpMLU op, typename T, typename std::enable_if<IsFloating<T>::value>::type* = nullptr>
 void SetTransformParams(Scalar src0, TransformParams& params) {
   params.alpha.float_value = Alpha<op, float>()(src0);
   params.beta.float_value = Beta<op, float>()(src0);
 }
 
-template<BinaryOpMLU op, typename T,
-         typename std::enable_if<std::is_same<T, float16>::value, int>::type = 0>
-void SetTransformParams(Scalar src0, TransformParams& params) {
-  SetTransformParams<op, float>(src0, params);
-}
-
-template<BinaryOpMLU op, typename T,
-         typename std::enable_if<std::is_integral<T>::value, int>::type = 0>
+template<BinaryOpMLU op, typename T, typename std::enable_if<IsIntegral<T>::value>::type* = nullptr>
 void SetTransformParams(Scalar src0, TransformParams& params) {
   params.alpha.int_value = Alpha<op, int32_t>()(src0);
   params.beta.int_value = Beta<op, int32_t>()(src0);
