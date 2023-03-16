@@ -35,10 +35,10 @@ def test_broadcast_add_forward():
     )
     default_dtype_list = [flow.float32, flow.float16]
     dtypes = {
-        flow.add: [flow.int8, flow.uint8, flow.int32,] + default_dtype_list,
+        flow.add: [flow.int8, flow.uint8, flow.int32] + default_dtype_list,
         flow.div: default_dtype_list,
         flow.mul: default_dtype_list,
     }
-    for op, shapes in itertools.product(dtypes.keys(), shape_pairs,):
+    for op, shapes in itertools.product(dtypes.keys(), shape_pairs):
         for dtype in dtypes[op]:
             _test_broadcast_forward(op, *shapes, dtype)
