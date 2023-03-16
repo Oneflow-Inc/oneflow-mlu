@@ -13,7 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include <cstdint>
+#include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/cambricon/common/mlu_util.h"
+#include "oneflow/core/common/data_type.h"
+#include "oneflow/core/common/data_type.pb.h"
+#include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
+#include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 
 namespace oneflow {
 
@@ -29,36 +38,47 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
     user_op::Tensor* mean = ctx->Tensor4ArgNameAndIndex("mean", 0);
-    user_op::Tensor* mean = ctx->Tensor4ArgNameAndIndex("inv_variance", 0);
-    const T* gamma_ptr = nullptr;
-    const T* beta_ptr = nullptr;
+    user_op::Tensor* inv_variance = ctx->Tensor4ArgNameAndIndex("inv_variance", 0);
+    const int64_t begin_norm_axis = ctx->Attr<int64_t>("begin_norm_axis");
+    user_op::Tensor* gamma = nullptr;
+    user_op::Tensor* beta = nullptr;
+    const float eps = ctx->Attr<double>("epsilon");
+    const int64_t num_instances = mean->shape_view().elem_cnt();
+    const int64_t norm_size = in->shape_view().elem_cnt() / num_instances;
     if (ctx->has_input("gamma", 0)) {
-      const user_op::Tensor* gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
-      gamma_ptr = gamma->dptr<T>();
+      gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
       CHECK_EQ(gamma->shape_view().elem_cnt(), norm_size);
     }
-    if (ctx->has_input("beta", 0)) { beta_ptr = ctx->Tensor4ArgNameAndIndex("beta", 0)->dptr<T>(); }
+    if (ctx->has_input("beta", 0)) { beta = ctx->Tensor4ArgNameAndIndex("beta", 0); }
+
+    CnnlTensorDescriptor input_desc, output_desc, mean_rstd_desc, filter_bias_desc;
+    input_desc.set(in);
+    output_desc.set(out);
+    mean_rstd_desc.set(mean);
+    mean_rstd_desc.set(inv_variance);
+    filter_bias_desc.set(gamma);
+    filter_bias_desc.set(beta);
+
+    size_t tmp_buffer_size = 0;
+    OF_CNNL_CHECK(cnnlGetLayerNormOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                                  begin_norm_axis, input_desc.desc(),
+                                                  &tmp_buffer_size));
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_buffer_size);
+    OF_CNNL_CHECK(cnnlLayerNormForward(
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), in->dptr<T>(),
+        begin_norm_axis, filter_bias_desc.desc(), gamma, beta, eps, cnnl_workspace.dptr(),
+        tmp_buffer_size, output_desc.desc(), out->mut_dptr<T>(), mean_rstd_desc.desc(),
+        mean->mut_dptr<T>(), inv_variance->mut_dptr<T>()));
   };
 };
 
-#define REGISTER_LAYER_NORM_MLU_KERNEL(dtype)                                          \
-  REGISTER_USER_KERNEL("layer_norm")                                                   \
-      .SetCreateFn<LayerNormMluKernel<dtype>>()                                        \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                  \
-                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value)) \
-      .SetInferTmpSizeFn([](user_op::InferContext* ctx) {\
-const int64_t begin_norm_axis = ctx->Attr<int64_t>("begin_norm_axis");\
-const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);\
-CnnlTensorDescriptor input_desc;\
-input_desc.set(in);\
-size_t tmp_buffer_size = 0;\
-OF_CNNL_CHECK(cnnlGetLayerNormOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),\
-                                              begin_norm_axis, input_desc, &tmp_buffer_size));\
-return tmp_buffer_size;
+#define REGISTER_LAYER_NORM_MLU_KERNEL(dtype)                         \
+  REGISTER_USER_KERNEL("layer_norm")                                  \
+      .SetCreateFn<LayerNormMluKernel<dtype>>()                       \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+
+REGISTER_LAYER_NORM_MLU_KERNEL(float)
+REGISTER_LAYER_NORM_MLU_KERNEL(float16)
+
 }  // namespace oneflow
-  );
-
-  REGISTER_LAYER_NORM_MLU_KERNEL(float)
-  REGISTER_LAYER_NORM_MLU_KERNEL(float16)
-
-  }  // namespace oneflow
