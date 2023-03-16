@@ -38,69 +38,74 @@ class MluCastKernel final : public user_op::OpKernel {
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     const DataType in_data_type = ctx->TensorDesc4ArgNameAndIndex("in", 0)->data_type();
     const DataType out_data_type = ctx->TensorDesc4ArgNameAndIndex("out", 0)->data_type();
+    
+    std::map<std::pair<DataType, DataType>, cnnlCastDataType_t> m;
+    m.insert(std::make_pair(std::make_pair(kFloat, kFloat16), 
+                        CNNL_CAST_FLOAT_TO_HALF));
+    m.insert(std::make_pair(std::make_pair(kFloat, kInt32), 
+                            CNNL_CAST_FLOAT_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kFloat, kInt8), 
+                            CNNL_CAST_FLOAT_TO_INT8));
+    m.insert(std::make_pair(std::make_pair(kFloat, kUInt8), 
+                            CNNL_CAST_FLOAT_TO_UINT8));
+    m.insert(std::make_pair(std::make_pair(kFloat, kBool), 
+                            CNNL_CAST_FLOAT_TO_BOOL));
+    m.insert(std::make_pair(std::make_pair(kFloat16, kFloat), 
+                            CNNL_CAST_HALF_TO_FLOAT));
+    m.insert(std::make_pair(std::make_pair(kFloat16, kInt32), 
+                            CNNL_CAST_HALF_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kFloat16, kInt8), 
+                            CNNL_CAST_HALF_TO_INT8));
+    m.insert(std::make_pair(std::make_pair(kInt32, kInt8), 
+                            CNNL_CAST_INT32_TO_INT8));
+    m.insert(std::make_pair(std::make_pair(kFloat16, kBool), 
+                            CNNL_CAST_HALF_TO_BOOL));
+    m.insert(std::make_pair(std::make_pair(kInt8, kFloat), 
+                            CNNL_CAST_INT8_TO_FLOAT));
+    m.insert(std::make_pair(std::make_pair(kInt8, kFloat16), 
+                        CNNL_CAST_INT8_TO_HALF));
+    m.insert(std::make_pair(std::make_pair(kInt8, kInt32), 
+                            CNNL_CAST_INT8_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kUInt8, kFloat), 
+                            CNNL_CAST_UINT8_TO_FLOAT));
+    m.insert(std::make_pair(std::make_pair(kUInt8, kFloat16), 
+                            CNNL_CAST_UINT8_TO_HALF));
+    m.insert(std::make_pair(std::make_pair(kBool, kFloat), 
+                            CNNL_CAST_BOOL_TO_FLOAT));
+    m.insert(std::make_pair(std::make_pair(kBool, kFloat16), 
+                            CNNL_CAST_BOOL_TO_HALF));
+    m.insert(std::make_pair(std::make_pair(kBool, kInt32), 
+                            CNNL_CAST_BOOL_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kUInt8, kInt32), 
+                            CNNL_CAST_UINT8_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kInt32, kInt64), 
+                        CNNL_CAST_INT32_TO_INT64));
+    m.insert(std::make_pair(std::make_pair(kInt64, kInt32), 
+                            CNNL_CAST_INT64_TO_INT32));
+    m.insert(std::make_pair(std::make_pair(kInt32, kBool), 
+                            CNNL_CAST_INT32_TO_BOOL));
+    m.insert(std::make_pair(std::make_pair(kUInt8, kInt64), 
+                            CNNL_CAST_UINT8_TO_INT64));
+    m.insert(std::make_pair(std::make_pair(kUInt64, kUInt32), 
+                        CNNL_CAST_UINT64_TO_UINT32));
+    m.insert(std::make_pair(std::make_pair(kInt64, kUInt32), 
+                            CNNL_CAST_INT64_TO_UINT32));
+    m.insert(std::make_pair(std::make_pair(kInt64, kFloat), 
+                            CNNL_CAST_INT64_TO_FLOAT));
+    m.insert(std::make_pair(std::make_pair(kInt64, kFloat16), 
+                            CNNL_CAST_INT64_TO_HALF));
+    m.insert(std::make_pair(std::make_pair(kFloat, kInt64), 
+                            CNNL_CAST_FLOAT_TO_INT64));
+    m.insert(std::make_pair(std::make_pair(kFloat16, kInt64), 
+                            CNNL_CAST_HALF_TO_INT64));
+    m.insert(std::make_pair(std::make_pair(kInt32, kFloat), 
+                            CNNL_CAST_INT32_TO_FLOAT));
+
     cnnlCastDataType_t type;
-    if(in_data_type == kFloat && out_data_type == kFloat16) {
-        type = CNNL_CAST_FLOAT_TO_HALF;
-    }else if(in_data_type == kFloat && out_data_type == kInt32){
-        type = CNNL_CAST_FLOAT_TO_INT32;
-    }else if(in_data_type == kFloat && out_data_type == kInt8){
-        type = CNNL_CAST_FLOAT_TO_INT8;
-    }else if(in_data_type == kFloat && out_data_type == kUInt8){
-        type = CNNL_CAST_FLOAT_TO_UINT8;
-    }else if(in_data_type == kFloat && out_data_type == kBool){
-        type = CNNL_CAST_FLOAT_TO_BOOL;
-    }else if(in_data_type == kFloat16 && out_data_type == kFloat){
-        type = CNNL_CAST_HALF_TO_FLOAT;
-    }else if(in_data_type == kFloat16 && out_data_type == kInt32){
-        type = CNNL_CAST_HALF_TO_INT32;
-    }else if(in_data_type == kFloat16 && out_data_type == kInt8){
-        type = CNNL_CAST_HALF_TO_INT8;
-    }else if(in_data_type == kInt32 && out_data_type == kUInt8){
-        type = CNNL_CAST_INT32_TO_INT8;
-    }else if(in_data_type == kFloat16 && out_data_type == kBool){
-        type = CNNL_CAST_HALF_TO_BOOL;
-    }else if(in_data_type == kInt8 && out_data_type == kFloat){
-        type = CNNL_CAST_INT8_TO_FLOAT;
-    }else if(in_data_type == kInt8 && out_data_type == kFloat16){
-        type = CNNL_CAST_INT8_TO_HALF;
-    }else if(in_data_type == kInt8 && out_data_type == kInt32){
-        type = CNNL_CAST_INT8_TO_INT32;
-    }else if(in_data_type == kUInt8 && out_data_type == kFloat){
-        type = CNNL_CAST_UINT8_TO_FLOAT;
-    }else if(in_data_type == kUInt8 && out_data_type == kFloat16){
-        type = CNNL_CAST_UINT8_TO_HALF;
-    }else if(in_data_type == kBool && out_data_type == kFloat){
-        type = CNNL_CAST_BOOL_TO_FLOAT;
-    }else if(in_data_type == kBool && out_data_type == kFloat16){
-        type = CNNL_CAST_BOOL_TO_HALF;
-    }else if(in_data_type == kBool && out_data_type == kInt32){
-        type = CNNL_CAST_BOOL_TO_INT32;
-    }else if(in_data_type == kUInt8 && out_data_type == kInt32){
-        type = CNNL_CAST_UINT8_TO_INT32;
-    }else if(in_data_type == kInt32 && out_data_type == kInt64){
-        type = CNNL_CAST_INT32_TO_INT64;
-    }else if(in_data_type == kInt64 && out_data_type == kInt32){
-        type = CNNL_CAST_INT64_TO_INT32;
-    }else if(in_data_type == kInt32 && out_data_type == kBool){
-        type = CNNL_CAST_INT32_TO_BOOL;
-    }else if(in_data_type == kUInt8 && out_data_type == kInt64){
-        type = CNNL_CAST_UINT8_TO_INT64;
-    }else if(in_data_type == kUInt64 && out_data_type == kUInt32){
-        type = CNNL_CAST_UINT64_TO_UINT32;
-    }else if(in_data_type == kInt64 && out_data_type == kUInt32){
-        type = CNNL_CAST_INT64_TO_UINT32;
-    }else if(in_data_type == kInt64 && out_data_type == kFloat){
-        type = CNNL_CAST_INT64_TO_FLOAT;
-    }else if(in_data_type == kInt64 && out_data_type == kFloat16){
-        type = CNNL_CAST_INT64_TO_HALF;
-    }else if(in_data_type == kFloat && out_data_type == kInt64){
-        type = CNNL_CAST_FLOAT_TO_INT64;
-    }else if(in_data_type == kFloat16 && out_data_type == kInt64){
-        type = CNNL_CAST_HALF_TO_INT64;
-    }else if(in_data_type == kInt32 && out_data_type == kFloat){
-        type = CNNL_CAST_INT32_TO_FLOAT;
-    }
-    else{
+    auto it = m.find(std::make_pair(in_data_type, out_data_type));
+    if (it != m.end()) {
+        type = it->second;
+    } else {
         UNIMPLEMENTED();
     }
 
