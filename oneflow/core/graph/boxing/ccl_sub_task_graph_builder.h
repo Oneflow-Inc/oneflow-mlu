@@ -130,11 +130,11 @@ class CclReduceSubTskGphBuilder final : public SubTskGphBuilder {
   DeviceType device_type_;
 };
 
-class CclScatterThenNcclAllGatherSubTskGphBuilder final : public SubTskGphBuilder {
+class CclScatterThenAllGatherSubTskGphBuilder final : public SubTskGphBuilder {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(CclScatterThenNcclAllGatherSubTskGphBuilder);
-  CclScatterThenNcclAllGatherSubTskGphBuilder(DeviceType device_type) : device_type_(device_type) {}
-  ~CclScatterThenNcclAllGatherSubTskGphBuilder() override = default;
+  OF_DISALLOW_COPY_AND_MOVE(CclScatterThenAllGatherSubTskGphBuilder);
+  CclScatterThenAllGatherSubTskGphBuilder(DeviceType device_type) : device_type_(device_type) {}
+  ~CclScatterThenAllGatherSubTskGphBuilder() override = default;
 
   Maybe<SubTskGphBuilderStatus> Build(
       SubTskGphBuilderCtx* ctx, const std::vector<TaskNode*>& sorted_in_tasks,

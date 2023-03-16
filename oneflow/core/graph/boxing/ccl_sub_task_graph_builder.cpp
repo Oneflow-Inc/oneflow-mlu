@@ -301,7 +301,7 @@ Maybe<SubTskGphBuilderStatus> CclReduceSubTskGphBuilder::Build(
   }
 }
 
-Maybe<SubTskGphBuilderStatus> CclScatterThenNcclAllGatherSubTskGphBuilder::Build(
+Maybe<SubTskGphBuilderStatus> CclScatterThenAllGatherSubTskGphBuilder::Build(
     SubTskGphBuilderCtx* ctx, const std::vector<TaskNode*>& sorted_in_tasks,
     std::vector<TaskNode*>* sorted_out_tasks,
     std::vector<std::vector<TaskNode*>>* sorted_ctrl_tasks, const ParallelDesc& in_parallel_desc,
@@ -346,7 +346,7 @@ Maybe<SubTskGphBuilderStatus> CclScatterThenNcclAllGatherSubTskGphBuilder::Build
       ctx->task_graph()->ConnectWithLbi(slice_node_proxy, collective_node, lbi);
       sorted_out_tasks->emplace_back(collective_node);
     }
-    return TRY(BuildSubTskGphBuilderStatus("BoxingScatterThenCclAllGatherSubTskGphBuilder", ""));
+    return TRY(BuildSubTskGphBuilderStatus("BoxingCclScatterThenAllGatherSubTskGphBuilder", ""));
   } else {
     return Error::BoxingNotSupportedError();
   }
