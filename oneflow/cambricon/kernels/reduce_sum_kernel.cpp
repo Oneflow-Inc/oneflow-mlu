@@ -32,12 +32,11 @@ class ReduceKernel final : public user_op::OpKernel {
 
  private:
   void Compute(user_op::KernelComputeContext* ctx) const override {
-    // see:https://github.com/Oneflow-Inc/oneflow_cambricon/blob/83ca200669761b8abce5ebd9ae0325525171b568/oneflow/user/kernels/instance_norm_kernel_cambricon.cpp
     const user_op::Tensor* input = ctx->Tensor4ArgNameAndIndex("input_tensor", 0);
     user_op::Tensor* output = ctx->Tensor4ArgNameAndIndex("output_tensor", 0);
     user_op::Tensor* tmp_buffer = ctx->Tensor4ArgNameAndIndex("tmp_buffer", 0);
     const auto& axis = ctx->Attr<std::vector<int32_t>>("axis");
-    // TODO: input->shape_view().elem_cnt() == 0
+    // TODO: if(input->shape_view().elem_cnt() == 0)
 
     cnnlReduceDescriptor_t reduce_desc;
     OF_CNNL_CHECK(cnnlCreateReduceDescriptor(&reduce_desc));
