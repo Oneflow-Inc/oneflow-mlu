@@ -39,23 +39,25 @@ class MluConstantKernel final : public user_op::OpKernel {
     T value;
     if (is_floating_value) {
       value = static_cast<T>(ctx->Attr<double>("floating_value"));
-    }
-    else{
+    } else {
       value = static_cast<T>(ctx->Attr<int64_t>("integer_value"));
     }
-    
+
     CnnlTensorDescriptor out_decs;
     out_decs.set(out_tensor);
-    OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, &value, out_decs.desc(), out_tensor->mut_dptr()));
+    OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                              CNNL_POINTER_MODE_HOST, &value, out_decs.desc(),
+                              out_tensor->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_FILL_MLU_KERNEL(dtype)                                             \
-  REGISTER_USER_KERNEL("constant").SetCreateFn<MluConstantKernel<dtype>>().SetIsMatchedHob( \
-      (user_op::HobDeviceType() == DeviceType::kMLU)                                \
-      && (user_op::HobDataType("out", 0) == GetDataType<dtype>::value));
+#define REGISTER_FILL_MLU_KERNEL(dtype)                               \
+  REGISTER_USER_KERNEL("constant")                                    \
+      .SetCreateFn<MluConstantKernel<dtype>>()                        \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+                       && (user_op::HobDataType("out", 0) == GetDataType<dtype>::value));
 
 REGISTER_FILL_MLU_KERNEL(float)
 REGISTER_FILL_MLU_KERNEL(float16)
