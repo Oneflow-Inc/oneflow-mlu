@@ -29,7 +29,9 @@ def _test_div_forward(test_case, shape, device, dtype):
     y = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
     of_out = flow.div(x, y)
     cpu_out = flow.div(x.to("cpu"), y.to("cpu"))
-    test_case.assertTrue(np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True))
+    test_case.assertTrue(
+        np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True)
+    )
 
 
 def _test_broadcast_div_forward(test_case, shape1, shape2, device, dtype):
@@ -42,7 +44,9 @@ def _test_broadcast_div_forward(test_case, shape1, shape2, device, dtype):
         )
         of_out = flow.div(x, y)
         cpu_out = flow.div(x.to("cpu"), y.to("cpu"))
-        test_case.assertTrue(np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True))
+        test_case.assertTrue(
+            np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True)
+        )
 
 
 @flow.unittest.skip_unless_1n1d()
@@ -54,7 +58,13 @@ class TestDivCambriconModule(flow.unittest.TestCase):
         ]
         arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [flow.float32, flow.float16, flow.int8, flow.uint8, flow.int32]
+        arg_dict["dtype"] = [
+            flow.float32,
+            flow.float16,
+            flow.int8,
+            flow.uint8,
+            flow.int32,
+        ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
@@ -66,7 +76,13 @@ class TestDivCambriconModule(flow.unittest.TestCase):
         arg_dict["shape1"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
         arg_dict["shape2"] = [(1,), (2, 1), (2, 1, 4), (2, 1, 1, 5)]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [flow.float32, flow.float16, flow.int8, flow.uint8, flow.int32]
+        arg_dict["dtype"] = [
+            flow.float32,
+            flow.float16,
+            flow.int8,
+            flow.uint8,
+            flow.int32,
+        ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
