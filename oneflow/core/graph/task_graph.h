@@ -134,7 +134,7 @@ using CreateSubTskGphBuilderFn = std::function<std::unique_ptr<HierarchicalSubTs
 Maybe<void> RegisterCreateSubTskGphBuilderFn(const CreateSubTskGphBuilderFn& fn);
 
 #define REGISTER_CREATE_SUB_TASK_GRAPH_BUILDER_FN(fn) \
-  COMMAND(CHECK_JUST(RegisterCreateHierarchicalSubTskGphBuilderFn(fn)))
+  COMMAND(CHECK_JUST(RegisterCreateSubTskGphBuilderFn(fn)))
 
 }  // namespace oneflow
 
