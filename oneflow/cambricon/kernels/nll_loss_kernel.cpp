@@ -36,6 +36,7 @@ class MluNLLKernel final : public user_op::OpKernel {
  private:
   using user_op::OpKernel::Compute;
 
+  // TODO(Wangyi): support reduction mode in each kernel
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* input = ctx->Tensor4ArgNameAndIndex("input", 0);
     const user_op::Tensor* target = ctx->Tensor4ArgNameAndIndex("target", 0);
@@ -66,7 +67,7 @@ class MluNLLKernel final : public user_op::OpKernel {
       weight_dptr = weight->dptr();
     }
 
-    size_t workspace_size = 1000;
+    size_t workspace_size = -1;
     OF_CNNL_CHECK(cnnlGetNlllossWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                               input_desc.desc(), &workspace_size));
     CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
@@ -80,7 +81,7 @@ class MluNLLKernel final : public user_op::OpKernel {
         /* x_desc         */ input_desc.desc(),
         /* x              */ input->dptr(),
         /* t_desc         */ target_desc.desc(),
-        /* target         */ target->dptr(),
+        /* target         */ target->dptr<K>(),
         /* ignore_index   */ ignore_index,
         /* w_desc         */ weight_desc.desc(),
         /* filter         */ weight_dptr,
@@ -103,6 +104,7 @@ class MluNLLKernel final : public user_op::OpKernel {
           && (user_op::HobDataType("input", 0) == GetDataType<input_dtype>::value) \
           && (user_op::HobDataType("target", 0) == GetDataType<target_dtype>::value));
 
+// target only supports int32
 REGISTER_NLL_MLU_KERNEL(float, int32_t)
 REGISTER_NLL_MLU_KERNEL(float16, int32_t)
 
