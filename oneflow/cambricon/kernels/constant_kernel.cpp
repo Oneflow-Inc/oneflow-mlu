@@ -44,15 +44,13 @@ class MluConstantKernel final : public user_op::OpKernel {
     else{
       integer_value = ctx->Attr<int64_t>("integer_value");
     }
-    void *floating_value_ptr = &floating_value;
-    void *integer_value_ptr = &integer_value;
     
     CnnlTensorDescriptor out_decs;
     out_decs.set(out_tensor);
     if (is_floating_value){
-      OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, floating_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));
+      OF_CNNL_CHECK(cnnlFill(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), floating_value, out_decs.desc(), out_tensor->mut_dptr()));
     }else{
-      OF_CNNL_CHECK(cnnlFill_v3(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST, integer_value_ptr, out_decs.desc(), out_tensor->mut_dptr()));
+      OF_CNNL_CHECK(cnnlFill(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), integer_value, out_decs.desc(), out_tensor->mut_dptr()));
     }
   }
 
