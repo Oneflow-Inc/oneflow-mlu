@@ -24,24 +24,33 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_div_forward(test_case, shape, device, dtype):
+def _test_contiguous_forward(test_case, device, dtype):
+    shape = [2, 3]
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    y = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    of_out = flow.div(x, y)
-    cpu_out = flow.div(x.to("cpu"), y.to("cpu"))
-    test_case.assertTrue(
-        np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True)
-    )
+    y = x.permute(1, 0)
+    test_case.assertTrue(not y.is_contiguous())
+    z = y.contiguous()
+    test_case.assertTrue(z.is_contiguous())
+    z_cpu = x.cpu().permute(1, 0).contiguous()
+    test_case.assertTrue(np.allclose(z.cpu().numpy(), z_cpu.numpy()))
+
+    shape = [2, 3, 4]
+    x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
+    y = x.permute(1, 2, 0)
+    test_case.assertTrue(not y.is_contiguous())
+    z = y.contiguous()
+    test_case.assertTrue(z.is_contiguous())
+    z_cpu = x.cpu().permute(1, 2, 0).contiguous()
+    test_case.assertTrue(np.allclose(z.cpu().numpy(), z_cpu.numpy()))
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestDivCambriconModule(flow.unittest.TestCase):
-    def test_div(test_case):
+class TestContiguousCambriconModule(flow.unittest.TestCase):
+    def test_contiguous(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_div_forward,
+            _test_contiguous_forward,
         ]
-        arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
@@ -52,12 +61,6 @@ class TestDivCambriconModule(flow.unittest.TestCase):
         ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
-
-    def test_0_size_div(test_case):
-        x = flow.tensor(1.0, device=flow.device("mlu"), dtype=flow.float32)
-        y = flow.tensor(2.0, device=flow.device("mlu"), dtype=flow.float32)
-        z = x + y
-        test_case.assertTrue(np.allclose(z.numpy(), [3.0], 0.0001, 0.0001))
 
 
 if __name__ == "__main__":

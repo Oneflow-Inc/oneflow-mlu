@@ -24,24 +24,41 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_div_forward(test_case, shape, device, dtype):
+def _test_narrow_forward(test_case, shape, dim, start_length, device, dtype):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    y = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    of_out = flow.div(x, y)
-    cpu_out = flow.div(x.to("cpu"), y.to("cpu"))
+
+    mlu_out = flow.narrow(x, dim=dim, start=start_length[0], length=start_length[1])
+    cpu_out = flow.narrow(
+        x.cpu(), dim=dim, start=start_length[0], length=start_length[1]
+    )
+    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001))
+
+    class NarrowGraph(flow.nn.Graph):
+        def __init__(self):
+            super().__init__()
+
+        def build(self, x):
+            return flow.narrow(
+                x, dim=dim, start=start_length[0], length=start_length[1]
+            )
+
+    graph = NarrowGraph()
+    graph_out = graph(x)
     test_case.assertTrue(
-        np.allclose(of_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001, equal_nan=True)
+        np.allclose(graph_out.numpy(), cpu_out.numpy(), 0.0001, 0.0001)
     )
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestDivCambriconModule(flow.unittest.TestCase):
-    def test_div(test_case):
+class TestNarrowCambriconModule(flow.unittest.TestCase):
+    def test_narrow(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_div_forward,
+            _test_narrow_forward,
         ]
-        arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
+        arg_dict["shape"] = [(3, 4, 5), (6, 7, 8)]
+        arg_dict["dim"] = [0, 1, 2]
+        arg_dict["start_length"] = [(0, 2), (2, 1), (1, 2)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
@@ -52,12 +69,6 @@ class TestDivCambriconModule(flow.unittest.TestCase):
         ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
-
-    def test_0_size_div(test_case):
-        x = flow.tensor(1.0, device=flow.device("mlu"), dtype=flow.float32)
-        y = flow.tensor(2.0, device=flow.device("mlu"), dtype=flow.float32)
-        z = x + y
-        test_case.assertTrue(np.allclose(z.numpy(), [3.0], 0.0001, 0.0001))
 
 
 if __name__ == "__main__":
