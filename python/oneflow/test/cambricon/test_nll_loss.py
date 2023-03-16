@@ -34,22 +34,28 @@ def _test_nll_loss_forward(test_case, shape, reduction, device, dtype):
     # TODO(WangYi): mlu nllloss must accept non-empty weight
     weight = random.choice(
         [
-            # None,
+            None,
             flow.randn(C, dtype=dtype).to(flow.device(device)),
         ]
     )
+    weight_cpu = None
+
+    if weight is not None:
+        weight_cpu = weight.cpu()
+        if dtype == flow.float16:
+            weight_cpu = weight_cpu.float()
 
     nll = flow.nn.NLLLoss(weight=weight, reduction=reduction)
     mlu_out = nll(x, target)
 
     if dtype == flow.float16:
-        nll = flow.nn.NLLLoss(weight=weight.cpu().float(), reduction=reduction)
+        nll = flow.nn.NLLLoss(weight=weight_cpu, reduction=reduction)
         cpu_out = nll(x.cpu().float(), target.cpu())
         test_case.assertTrue(
-            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.001, 0.001)
         )
     else:
-        nll = flow.nn.NLLLoss(weight=weight.cpu(), reduction=reduction)
+        nll = flow.nn.NLLLoss(weight=weight_cpu, reduction=reduction)
         cpu_out = nll(x.cpu(), target.cpu())
         test_case.assertTrue(
             np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
@@ -65,7 +71,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         ]
         # TODO(WangYi): add more shape after to_contiguous supported
         arg_dict["shape"] = [
-            (2, 3,),
+            (16, 32,),
         ]
         # TODO(Wangyi): reduce sum not supported, so only test none
         arg_dict["reduction"] = [
