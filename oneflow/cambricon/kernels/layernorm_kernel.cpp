@@ -55,14 +55,14 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     const int64_t norm_size = in->shape_view().elem_cnt() / num_instances;
     if (ctx->has_input("gamma", 0)) {
       auto gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
-      filter_bias_desc.set(gamma,  ConvertToCnnlDataType(data_type));
+      filter_bias_desc.set(gamma, ConvertToCnnlDataType(data_type));
       gamma_dptr = gamma->dptr();
 
       CHECK_EQ(gamma->shape_view().elem_cnt(), norm_size);
     }
     if (ctx->has_input("beta", 0)) {
       auto beta = ctx->Tensor4ArgNameAndIndex("beta", 0);
-      filter_bias_desc.set(beta,  ConvertToCnnlDataType(data_type));
+      filter_bias_desc.set(beta, ConvertToCnnlDataType(data_type));
       beta_dptr = beta->dptr();
     }
 
