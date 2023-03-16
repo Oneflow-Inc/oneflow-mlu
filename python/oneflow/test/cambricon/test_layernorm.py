@@ -26,8 +26,8 @@ import oneflow.unittest
 
 def layernorm_ref(X, gamma, beta, normalized_shape, eps):
     X=X.float().cpu()
-    gamma=gamma.cpu()
-    beta=beta.cpu()
+    gamma=gamma.float().cpu()
+    beta=beta.float().cpu()
     feature_size = np.prod(normalized_shape)
     X_view = X.view(-1, feature_size)
     mean = X_view.mean(dim=-1, keepdim=True)
@@ -36,8 +36,7 @@ def layernorm_ref(X, gamma, beta, normalized_shape, eps):
     Y = Y * gamma.view(-1) + beta.view(-1)
     return Y.view(*X.size())
 
-def _test_layernorm_forward(test_case, device, dtype):
-    normalized_shape = [256, 256, 144]
+def _test_layernorm_forward(test_case, normalized_shape, device, dtype):
     layer_norm = flow.nn.LayerNorm(normalized_shape).to(device).to(dtype)
     X = flow.rand(2, *normalized_shape, dtype=dtype)
     Y_ref = layernorm_ref(X, layer_norm.weight.data, layer_norm.bias.data,
@@ -55,9 +54,9 @@ class TestlayernormCambriconModule(flow.unittest.TestCase):
         arg_dict["test_fun"] = [
             _test_layernorm_forward,
         ]
-        
+        arg_dict["normalized_shape"] = [ [256, 256],  [256, 256, 144],  [512, 256], [512, 256, 144]]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [flow.float32]
+        arg_dict["dtype"] = [flow.float16,flow.float32]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 

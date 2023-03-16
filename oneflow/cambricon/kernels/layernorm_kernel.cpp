@@ -40,38 +40,43 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     user_op::Tensor* mean = ctx->Tensor4ArgNameAndIndex("mean", 0);
     user_op::Tensor* inv_variance = ctx->Tensor4ArgNameAndIndex("inv_variance", 0);
     const int64_t begin_norm_axis = ctx->Attr<int64_t>("begin_norm_axis");
-    user_op::Tensor* gamma = nullptr;
-    user_op::Tensor* beta = nullptr;
-    
+    const DataType data_type = in->data_type();
+    CnnlTensorDescriptor input_desc, output_desc, mean_rstd_desc, filter_bias_desc;
+    input_desc.set(in, ConvertToCnnlDataType(data_type));
+    output_desc.set(out, ConvertToCnnlDataType(data_type));
+    mean_rstd_desc.set(mean, ConvertToCnnlDataType(data_type));
+    mean_rstd_desc.set(inv_variance, ConvertToCnnlDataType(data_type));
 
+    const void* gamma_dptr = nullptr;
+    const void* beta_dptr = nullptr;
 
-    const float eps = ctx->Attr<double>("epsilon");
+    const double eps = ctx->Attr<double>("epsilon");
     const int64_t num_instances = mean->shape_view().elem_cnt();
     const int64_t norm_size = in->shape_view().elem_cnt() / num_instances;
     if (ctx->has_input("gamma", 0)) {
-      gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
+      auto gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
+      filter_bias_desc.set(gamma,  ConvertToCnnlDataType(data_type));
+      gamma_dptr = gamma->dptr();
+
       CHECK_EQ(gamma->shape_view().elem_cnt(), norm_size);
     }
-    if (ctx->has_input("beta", 0)) { beta = ctx->Tensor4ArgNameAndIndex("beta", 0); }
-
-    CnnlTensorDescriptor input_desc, output_desc, mean_rstd_desc, filter_bias_desc;
-    input_desc.set(in);
-    output_desc.set(out);
-    mean_rstd_desc.set(mean);
-    mean_rstd_desc.set(inv_variance);
-    filter_bias_desc.set(gamma);
-    filter_bias_desc.set(beta);
+    if (ctx->has_input("beta", 0)) {
+      auto beta = ctx->Tensor4ArgNameAndIndex("beta", 0);
+      filter_bias_desc.set(beta,  ConvertToCnnlDataType(data_type));
+      beta_dptr = beta->dptr();
+    }
 
     size_t tmp_buffer_size = 0;
     OF_CNNL_CHECK(cnnlGetLayerNormOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                                   begin_norm_axis, input_desc.desc(),
                                                   &tmp_buffer_size));
     CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_buffer_size);
+
     OF_CNNL_CHECK(cnnlLayerNormForward(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), in->dptr<T>(),
-        begin_norm_axis, filter_bias_desc.desc(), gamma->dptr(), beta->dptr(), eps, cnnl_workspace.dptr(),
-        tmp_buffer_size, output_desc.desc(), out->mut_dptr<T>(), mean_rstd_desc.desc(),
-        mean->mut_dptr<T>(), inv_variance->mut_dptr<T>()));
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), in->dptr(),
+        begin_norm_axis, filter_bias_desc.desc(), gamma_dptr, beta_dptr, eps, cnnl_workspace.dptr(),
+        tmp_buffer_size, output_desc.desc(), out->mut_dptr(), mean_rstd_desc.desc(),
+        mean->mut_dptr(), inv_variance->mut_dptr()));
   };
 };
 
