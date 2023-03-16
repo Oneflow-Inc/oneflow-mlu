@@ -26,7 +26,7 @@ def _test_broadcast_forward(op, shape1, shape2, dtype):
     x = x.to("mlu")
     y = y.to("mlu")
     mlu_out_numpy = op(x, y).numpy()
-    assert np.allclose(cpu_out_numpy, mlu_out_numpy, 1e-4,1e-4)
+    assert np.allclose(cpu_out_numpy, mlu_out_numpy, 1e-4, 1e-4)
 
 
 def test_broadcast_add_forward():
