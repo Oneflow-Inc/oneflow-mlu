@@ -16,7 +16,6 @@ limitations under the License.
 #ifndef ONEFLOW_CAMBRICON_CNNL_CNNL_TYPES_H_
 #define ONEFLOW_CAMBRICON_CNNL_CNNL_TYPES_H_
 
-#include <tuple>
 #include "oneflow/core/common/data_type.h"
 #include "cnnl.h"
 
