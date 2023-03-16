@@ -45,10 +45,7 @@ def _test_layernorm_forward(test_case, device, dtype):
     
     Y = layer_norm(X.to(device))
     
-    print(Y)
-    print('*'*100)
-    print(Y_ref)
-    
+   
     test_case.assertTrue(np.allclose(Y.numpy(), Y_ref, 0.001, 0.001))
     
 @flow.unittest.skip_unless_1n1d()

@@ -42,6 +42,9 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     const int64_t begin_norm_axis = ctx->Attr<int64_t>("begin_norm_axis");
     user_op::Tensor* gamma = nullptr;
     user_op::Tensor* beta = nullptr;
+    
+
+
     const float eps = ctx->Attr<double>("epsilon");
     const int64_t num_instances = mean->shape_view().elem_cnt();
     const int64_t norm_size = in->shape_view().elem_cnt() / num_instances;
@@ -66,7 +69,7 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_buffer_size);
     OF_CNNL_CHECK(cnnlLayerNormForward(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), in->dptr<T>(),
-        begin_norm_axis, filter_bias_desc.desc(), gamma, beta, eps, cnnl_workspace.dptr(),
+        begin_norm_axis, filter_bias_desc.desc(), gamma->dptr(), beta->dptr(), eps, cnnl_workspace.dptr(),
         tmp_buffer_size, output_desc.desc(), out->mut_dptr<T>(), mean_rstd_desc.desc(),
         mean->mut_dptr<T>(), inv_variance->mut_dptr<T>()));
   };
