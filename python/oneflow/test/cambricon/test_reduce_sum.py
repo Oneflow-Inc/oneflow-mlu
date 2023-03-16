@@ -70,6 +70,5 @@ class TestSumModule(flow.unittest.TestCase):
             _test_sum_impl(test_case, *arg)
 
 
-
 if __name__ == "__main__":
     unittest.main()

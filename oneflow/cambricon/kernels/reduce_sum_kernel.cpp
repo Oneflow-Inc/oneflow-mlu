@@ -24,7 +24,6 @@ limitations under the License.
 
 namespace oneflow {
 
-
 template<DeviceType device_type, typename T, typename K>
 class ReduceKernel final : public user_op::OpKernel {
  public:
@@ -48,23 +47,20 @@ class ReduceKernel final : public user_op::OpKernel {
 
     int axis_num = axis.size();
     int reduce_axis[axis_num];
-    for(int i=0; i< axis_num; ++i){
-        reduce_axis[i] = axis.at(i);
-    }
+    for (int i = 0; i < axis_num; ++i) { reduce_axis[i] = axis.at(i); }
     auto input_dtype = ConvertToCnnlDataType(input->data_type());
-    OF_CNNL_CHECK(cnnlSetReduceDescriptor(reduce_desc, reduce_axis, axis_num, CNNL_REDUCE_ADD, input_dtype,
-                                       CNNL_NOT_PROPAGATE_NAN, CNNL_REDUCE_NO_INDICES,
-                                       CNNL_32BIT_INDICES));
+    OF_CNNL_CHECK(cnnlSetReduceDescriptor(reduce_desc, reduce_axis, axis_num, CNNL_REDUCE_ADD,
+                                          input_dtype, CNNL_NOT_PROPAGATE_NAN,
+                                          CNNL_REDUCE_NO_INDICES, CNNL_32BIT_INDICES));
 
-    OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), reduce_desc, nullptr, 0, nullptr, 
-                          input_desc.desc(), input->dptr(), 0, nullptr, nullptr,
-                          output_desc.desc(), output->mut_dptr()));
+    OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), reduce_desc,
+                             nullptr, 0, nullptr, input_desc.desc(), input->dptr(), 0, nullptr,
+                             nullptr, output_desc.desc(), output->mut_dptr()));
 
     OF_CNNL_CHECK(cnnlDestroyReduceDescriptor(reduce_desc));
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
-
 
 #define REGISTER_REDUCE_MLU_KERNEL(op_name, device, dtype)                                         \
   REGISTER_USER_KERNEL(op_name)                                                                    \
@@ -86,7 +82,7 @@ class ReduceKernel final : public user_op::OpKernel {
   REGISTER_REDUCE_SUM_KERNELS(device, int8_t)         \
   REGISTER_REDUCE_SUM_KERNELS(device, uint8_t)        \
   REGISTER_REDUCE_SUM_KERNELS(device, int32_t)        \
-  REGISTER_REDUCE_SUM_KERNELS(device, int64_t)        
+  REGISTER_REDUCE_SUM_KERNELS(device, int64_t)
 
 REGISTER_REDUCE_SUM_KERNELS_BY_DEVICE(DeviceType::kMLU)
 
