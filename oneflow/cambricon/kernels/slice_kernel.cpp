@@ -61,7 +61,7 @@ class SliceContext final {
       // split_axis can only be push once
       CHECK_OR_RETURN(!IsAxisPushed(split_axis))
           << "split_axis " << split_axis << " has been pushed to SliceContext";
-      CHECK_GE_OR_RETURN(split_axis, 0) << "split_axis >= 0 or equal to SPLIT_AXIS_FOR_NON_SPLIT";
+      CHECK_GE_OR_RETURN(split_axis, 0) << "split_axis should be greater than or equal to 0";
 
       axis_bitset_ |= ((uint32_t)1 << split_axis);  // NOLINT
     }
@@ -73,7 +73,7 @@ class SliceContext final {
 
   bool IsAxisPushed(int64_t split_axis) const {
     if (split_axis == SPLIT_AXIS_FOR_NON_SPLIT) { return false; }
-    CHECK_GE(split_axis, 0) << "split_axis >= 0 or equal to SPLIT_AXIS_FOR_NON_SPLIT";
+    CHECK_GE(split_axis, 0) << "split_axis should be greater than or equal to 0";
     return (axis_bitset_ & ((uint32_t)1 << split_axis)) != 0;  // NOLINT
   }
 
