@@ -32,6 +32,17 @@ def _test_reshape_forward(test_case, shape, device, dtype):
     cpu_out = flow.reshape(x2, shape=shape)
     test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out, 0.0001, 0.0001))
 
+    class ReshapeGraph(flow.nn.Graph):
+        def __init__(self):
+            super().__init__()
+
+        def build(self, x):
+            return flow.reshape(x, shape=shape)
+
+    graph = ReshapeGraph()
+    graph_out = graph(x1)
+    test_case.assertTrue(np.allclose(graph_out.numpy(), cpu_out, 0.0001, 0.0001))
+
 
 @flow.unittest.skip_unless_1n1d()
 class TestReshapeCambriconModule(flow.unittest.TestCase):
