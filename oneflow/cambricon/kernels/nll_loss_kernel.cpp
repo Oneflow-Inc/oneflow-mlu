@@ -66,32 +66,33 @@ class MluNLLKernel final : public user_op::OpKernel {
       weight = ctx->Tensor4ArgNameAndIndex("weight", 0);
       weight_desc.set(weight);
       weight_dptr = weight->mut_dptr();
-    } else {
-      // for input without weight cases
-      // TODO(WangYi): impl too ugly, refine it
-      size_t workspace_size_for_weight = sizeof(T) * C;
-      CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(),
-                                              workspace_size_for_weight);
-      weight_dptr = cnnl_workspace_for_weight.dptr();
-      const int dim_size[] = {static_cast<int>(C)};
-      const int stride_size[] = {1};
-      OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&weight_desc_t));
-      OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(
-          /* desc       */ weight_desc_t,
-          /* layout     */ CNNL_LAYOUT_ARRAY,
-          /* dtype      */ ConvertToCnnlDataType(input->data_type()),
-          /* dimNb      */ 1,
-          /* dimSize    */ dim_size,
-          /* dimStride  */ stride_size));
+    };
+    //  else {
+    //   // for input without weight cases
+    //   // TODO(WangYi): impl too ugly, refine it
+    //   size_t workspace_size_for_weight = sizeof(T) * C;
+    //   CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(),
+    //                                           workspace_size_for_weight);
+    //   weight_dptr = cnnl_workspace_for_weight.dptr();
+    //   const int dim_size[] = {static_cast<int>(C)};
+    //   const int stride_size[] = {1};
+    //   OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&weight_desc_t));
+    //   OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(
+    //       /* desc       */ weight_desc_t,
+    //       /* layout     */ CNNL_LAYOUT_ARRAY,
+    //       /* dtype      */ ConvertToCnnlDataType(input->data_type()),
+    //       /* dimNb      */ 1,
+    //       /* dimSize    */ dim_size,
+    //       /* dimStride  */ stride_size));
 
-      T value = static_cast<T>(1.0f);
-      OF_CNNL_CHECK(cnnlFill_v3(
-          /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-          /* pointer_mode */ CNNL_POINTER_MODE_HOST,
-          /* value        */ &value,
-          /* output_desc  */ weight_desc_t,
-          /* output       */ weight_dptr));
-    }
+    //   T value = static_cast<T>(1.0f);
+    //   OF_CNNL_CHECK(cnnlFill_v3(
+    //       /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+    //       /* pointer_mode */ CNNL_POINTER_MODE_HOST,
+    //       /* value        */ &value,
+    //       /* output_desc  */ weight_desc_t,
+    //       /* output       */ weight_dptr));
+    // }
 
     size_t workspace_size = -1;
     OF_CNNL_CHECK(cnnlGetNlllossWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
@@ -107,12 +108,16 @@ class MluNLLKernel final : public user_op::OpKernel {
         /* x_desc         */ input_desc.desc(),
         /* x              */ input->dptr(),
         /* t_desc         */ target_desc.desc(),
-        /* target         */ target->dptr<K>(),
+        /* target         */ target->dptr(),
         /* ignore_index   */ ignore_index,
         /* w_desc         */ (weight_desc_t == nullptr) ? weight_desc.desc() : weight_desc_t,
         /* filter         */ weight_dptr,
-        /* tf_desc        */ out_weight_desc.desc(),
-        /* total_filter   */ out_weight->mut_dptr(),
+        // /* w_desc         */ nullptr,
+        // /* filter         */ nullptr,
+        // /* tf_desc        */ out_weight_desc.desc(),
+        // /* total_filter   */ out_weight->mut_dptr(),
+        /* tf_desc        */ nullptr,
+        /* total_filter   */ nullptr,
         /* y_desc         */ output_desc.desc(),
         /* y              */ output->mut_dptr()));
   }

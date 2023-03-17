@@ -31,13 +31,7 @@ def _test_nll_loss_forward(test_case, shape, reduction, device, dtype):
     N = x.nelement() // x.shape[-1]
     target = flow.randint(0, C, (N,), dtype=flow.int).to(flow.device(device))
 
-    # TODO(WangYi): mlu nllloss must accept non-empty weight
-    weight = random.choice(
-        [
-            None,
-            flow.randn(C, dtype=dtype).to(flow.device(device)),
-        ]
-    )
+    weight = random.choice([None, flow.randn(C, dtype=dtype).to(flow.device(device)),])
     weight_cpu = None
 
     if weight is not None:
@@ -72,6 +66,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         # TODO(WangYi): add more shape after to_contiguous supported
         arg_dict["shape"] = [
             (16, 32,),
+            # (8, 12, 24),
         ]
         # TODO(Wangyi): reduce sum not supported, so only test none
         arg_dict["reduction"] = [
