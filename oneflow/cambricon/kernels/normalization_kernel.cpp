@@ -20,8 +20,15 @@ limitations under the License.
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/core/ep/include/primitive/permute.h"
 
 namespace oneflow {
+
+template<typename Context>
+std::unique_ptr<ep::primitive::Permute> NewPermutePrimitive(Context* ctx, const int& num_dims) {
+  return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(ctx->device_type(), num_dims);
+}
 
 template<typename T>
 class MluNormalizationKernel final : public user_op::OpKernel {
@@ -41,9 +48,9 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     const auto* beta = ctx->Tensor4ArgNameAndIndex("beta", 0);
     auto* moving_mean = ctx->Tensor4ArgNameAndIndex("moving_mean", 0);
     auto* moving_variance = ctx->Tensor4ArgNameAndIndex("moving_variance", 0);
-    // make sure NHWC format, so channel axis must be 3(for 4-dim tensor)
-    // const auto axis = ctx->Attr<int32_t>("axis");
-    // CHECK_EQ(axis, x->shape_view().NumAxes() - 1); 
+    // make sure input tensor's format NCHW, so channel axis must be 1
+    const auto axis = ctx->Attr<int32_t>("axis");
+    CHECK_EQ(axis, 1); 
     const auto epsilon = ctx->Attr<float>("epsilon");
 
     int n = 0, c = 0, h = 0, w = 0;
@@ -54,10 +61,27 @@ class MluNormalizationKernel final : public user_op::OpKernel {
       c = x->shape_view().At(1);
     } else {
       n = x->shape_view().At(0);
-      h = x->shape_view().At(1);
-      w = x->shape_view().At(2);
-      c = x->shape_view().At(3);
+      c = x->shape_view().At(1);
+      h = x->shape_view().At(2);
+      w = x->shape_view().At(3);
     }
+
+    size_t tmp_in_size = x->shape_view().elem_cnt() * sizeof(x->data_type());
+    size_t tmp_out_size = y->shape_view().elem_cnt() * sizeof(y->data_type());;
+    CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
+    CnnlWorkspace tmp_out_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_size);
+    void* tmp_in_dptr = tmp_in_workspace.dptr();
+    void* tmp_out_dptr = tmp_out_workspace.dptr();
+
+    std::vector<int64_t> in_shapevec({n, h, w, c});
+    std::vector<int64_t> out_shapevec({n, c, h, w});
+    auto transpose = NewPermutePrimitive(ctx, x->shape_view().NumAxes());
+    CHECK(transpose);
+    // transpose input NCHW -> NHWC
+    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(),
+                    in_shapevec.data(), x->dptr<T>(),
+                    std::vector<int>({0, 3, 1, 2}).data(), tmp_in_dptr);
+
 
     int dims[4];
     dims[0] = n;
@@ -80,8 +104,10 @@ class MluNormalizationKernel final : public user_op::OpKernel {
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc, x->dptr(),
         weight_bias_mean_var_desc, gamma->dptr(), beta->dptr(), moving_mean->dptr(),
         moving_variance->dptr(), epsilon, output_desc, y->mut_dptr()));
-    // sync
-    ctx->stream()->Sync();
+    // transpose output NHWC -> NCHW
+    transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(),
+                    out_shapevec.data(), y->dptr<T>(),
+                    std::vector<int>({0, 2, 3, 1}).data(), tmp_out_dptr);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
