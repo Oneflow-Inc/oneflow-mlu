@@ -59,7 +59,7 @@ def _test_reduce_sum_impl(test_case, device="mlu", data_type=flow.float32):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestSumModule(flow.unittest.TestCase):
+class TestReduceSumModule(flow.unittest.TestCase):
     def test_reduce_sum(test_case):
         _test_reduce_sum_impl(test_case)
 
