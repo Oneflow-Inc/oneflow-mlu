@@ -48,9 +48,15 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     const auto* beta = ctx->Tensor4ArgNameAndIndex("beta", 0);
     auto* moving_mean = ctx->Tensor4ArgNameAndIndex("moving_mean", 0);
     auto* moving_variance = ctx->Tensor4ArgNameAndIndex("moving_variance", 0);
+<<<<<<< HEAD
     // make sure input tensor's format NCHW, so channel axis must be 1
     const auto axis = ctx->Attr<int32_t>("axis");
     CHECK_EQ(axis, 1); 
+=======
+    // make sure NHWC format, so channel axis must be 3(for 4-dim tensor)
+    // const auto axis = ctx->Attr<int32_t>("axis");
+    // CHECK_EQ(axis, x->shape_view().NumAxes() - 1);
+>>>>>>> 5ed02d767ea88491bf2a2e93c3dad9bf4aff76c1
     const auto epsilon = ctx->Attr<float>("epsilon");
 
     int n = 0, c = 0, h = 0, w = 0;
