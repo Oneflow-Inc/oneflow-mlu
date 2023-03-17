@@ -91,7 +91,6 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc, tmp_in_ptr,
         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, _adaptive_avg_pool2d_workspace,
         _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));
-    ;
     std::vector<int64_t> out_shapevec(
         {out_tensor->shape_view().At(0), out_tensor->shape_view().At(2),
          out_tensor->shape_view().At(3), out_tensor->shape_view().At(1)});
@@ -100,6 +99,8 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     transpose->Launch(ctx->stream(), out_tensor->data_type(), out_tensor->shape_view().NumAxes(),
                       out_shapevec.data(), tmp_out_ptr, std::vector<int>({0, 3, 1, 2}).data(),
                       out_ptr);
+    cnnlDestroyTensorDescriptor(in_desc);
+    cnnlDestroyTensorDescriptor(out_decs);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
