@@ -37,10 +37,6 @@ class MluGatherKernel final : public user_op::OpKernel, public user_op::CudaGrap
 
     if (out->shape_view().elem_cnt() == 0) { return; }
 
-    const Shape in_shape = ExpandDimIf0D(in->shape_view());
-    std::vector<int> in_shape_vec;
-    for (const auto x : in_shape.dim_vec()) { in_shape_vec.push_back(static_cast<int>(x)); }
-
     CnnlTensorDescriptor in_desc(in), indices_desc(indices), out_desc(out);
     OF_CNNL_CHECK(cnnlIndexSelect(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), axis,
                                   in_desc.desc(), in->dptr(), indices_desc.desc(), indices->dptr(),

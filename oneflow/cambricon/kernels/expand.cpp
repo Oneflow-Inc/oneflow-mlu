@@ -34,7 +34,7 @@ class MluExpandKernel final : public user_op::OpKernel, public user_op::CudaGrap
     const auto out_shape = out->shape_view();
 
     // handle 0-size tensor
-    if (std::any_of(out_shape.begin(), out_shape.end(), [](int64_t dim) { return dim <= 0; })) {
+    if (std::any_of(out_shape.begin(), out_shape.end(), [](int64_t dim) { return dim == 0; })) {
       return;
     }
     CnnlTensorDescriptor in_desc(in), out_desc(out);
