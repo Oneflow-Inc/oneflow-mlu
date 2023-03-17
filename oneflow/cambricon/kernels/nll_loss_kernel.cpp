@@ -22,6 +22,7 @@ limitations under the License.
 #include "oneflow/core/framework/user_op_hob.h"
 #include "oneflow/core/framework/user_op_tensor.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/core/kernel/kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 
@@ -36,15 +37,12 @@ class MluNLLKernel final : public user_op::OpKernel {
  private:
   using user_op::OpKernel::Compute;
 
-  // TODO(Wangyi): support reduction mode in each kernel
   // api `cnnlNlllossForward` doesn't accept w_desc==NULL and filter==NULL,
   // which doesn't match the doc, so if weight is None, the impl is tricky,
   // use workspace to save weight filled by 1.0 and set tensor desc manually
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* input = ctx->Tensor4ArgNameAndIndex("input", 0);
     const user_op::Tensor* target = ctx->Tensor4ArgNameAndIndex("target", 0);
-    user_op::Tensor* weight = nullptr;
-    void* weight_dptr = nullptr;
     user_op::Tensor* output = ctx->Tensor4ArgNameAndIndex("output", 0);
     user_op::Tensor* out_weight = ctx->Tensor4ArgNameAndIndex("out_weight", 0);
     const int64_t C = input->shape_view().At(input->shape_view().NumAxes() - 1);
@@ -53,51 +51,51 @@ class MluNLLKernel final : public user_op::OpKernel {
     CnnlTensorDescriptor input_desc;
     CnnlTensorDescriptor target_desc;
     CnnlTensorDescriptor weight_desc;
-    cnnlTensorDescriptor_t weight_desc_t = nullptr;
     CnnlTensorDescriptor output_desc;
     CnnlTensorDescriptor out_weight_desc;
 
     input_desc.set(input);
     target_desc.set(target);
     output_desc.set(output);
-    out_weight_desc.set(out_weight);
 
+    int64_t element_size = GetSizeOfDataType(out_weight->data_type());
+    // we only use the 0 index out_weight, so out_weight shoule be filled by zero.
+    if (out_weight->shape_view().elem_cnt() > 1) {
+      AutoMemset(ctx->stream(), out_weight->mut_dptr(), 0,
+                 out_weight->shape_view().elem_cnt() * element_size, out_weight->mem_case());
+    }
+    int64_t out_weight_size[1] = {1};
+    out_weight_desc.set(1, out_weight_size, ConvertToCnnlDataType(out_weight->data_type()));
+
+    const void* weight_dptr = nullptr;
+    CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(), 0);
     if (ctx->has_input("weight", 0)) {
-      weight = ctx->Tensor4ArgNameAndIndex("weight", 0);
+      const user_op::Tensor* weight = ctx->Tensor4ArgNameAndIndex("weight", 0);
       weight_desc.set(weight);
-      weight_dptr = weight->mut_dptr();
-    };
-    //  else {
-    //   // for input without weight cases
-    //   // TODO(WangYi): impl too ugly, refine it
-    //   size_t workspace_size_for_weight = sizeof(T) * C;
-    //   CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(),
-    //                                           workspace_size_for_weight);
-    //   weight_dptr = cnnl_workspace_for_weight.dptr();
-    //   const int dim_size[] = {static_cast<int>(C)};
-    //   const int stride_size[] = {1};
-    //   OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&weight_desc_t));
-    //   OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(
-    //       /* desc       */ weight_desc_t,
-    //       /* layout     */ CNNL_LAYOUT_ARRAY,
-    //       /* dtype      */ ConvertToCnnlDataType(input->data_type()),
-    //       /* dimNb      */ 1,
-    //       /* dimSize    */ dim_size,
-    //       /* dimStride  */ stride_size));
+      weight_dptr = weight->dptr();
+    } else {
+      // for input without weight cases
+      size_t workspace_size_for_weight = sizeof(T) * C;
+      cnnl_workspace_for_weight.resize(workspace_size_for_weight);
+      const int dim_size[] = {static_cast<int>(C)};
+      const int stride_size[] = {1};
+      weight_desc.set(1, dim_size, stride_size, ConvertToCnnlDataType(out_weight->data_type()));
 
-    //   T value = static_cast<T>(1.0f);
-    //   OF_CNNL_CHECK(cnnlFill_v3(
-    //       /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-    //       /* pointer_mode */ CNNL_POINTER_MODE_HOST,
-    //       /* value        */ &value,
-    //       /* output_desc  */ weight_desc_t,
-    //       /* output       */ weight_dptr));
-    // }
+      T value = static_cast<T>(1.0f);
+      OF_CNNL_CHECK(cnnlFill_v3(
+          /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+          /* pointer_mode */ CNNL_POINTER_MODE_HOST,
+          /* value        */ &value,
+          /* output_desc  */ weight_desc.desc(),
+          /* output       */ cnnl_workspace_for_weight.dptr()));
+      weight_dptr = cnnl_workspace_for_weight.dptr();
+    }
 
-    size_t workspace_size = -1;
+    size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetNlllossWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                               input_desc.desc(), &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
+                                 workspace_size + sizeof(int64_t));
     void* workspace = cnnl_workspace.dptr();
 
     OF_CNNL_CHECK(cnnlNlllossForward(
@@ -110,14 +108,10 @@ class MluNLLKernel final : public user_op::OpKernel {
         /* t_desc         */ target_desc.desc(),
         /* target         */ target->dptr(),
         /* ignore_index   */ ignore_index,
-        /* w_desc         */ (weight_desc_t == nullptr) ? weight_desc.desc() : weight_desc_t,
+        /* w_desc         */ weight_desc.desc(),
         /* filter         */ weight_dptr,
-        // /* w_desc         */ nullptr,
-        // /* filter         */ nullptr,
-        // /* tf_desc        */ out_weight_desc.desc(),
-        // /* total_filter   */ out_weight->mut_dptr(),
-        /* tf_desc        */ nullptr,
-        /* total_filter   */ nullptr,
+        /* tf_desc        */ out_weight_desc.desc(),
+        /* total_filter   */ out_weight->mut_dptr(),
         /* y_desc         */ output_desc.desc(),
         /* y              */ output->mut_dptr()));
   }
