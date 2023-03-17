@@ -73,7 +73,8 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     }
 
     size_t tmp_in_size = x->shape_view().elem_cnt() * sizeof(x->data_type());
-    size_t tmp_out_size = y->shape_view().elem_cnt() * sizeof(y->data_type());;
+    size_t tmp_out_size = y->shape_view().elem_cnt() * sizeof(y->data_type());
+    ;
     CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
     CnnlWorkspace tmp_out_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_size);
     void* tmp_in_dptr = tmp_in_workspace.dptr();
@@ -84,10 +85,8 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     auto transpose = NewPermutePrimitive(ctx, x->shape_view().NumAxes());
     CHECK(transpose);
     // transpose input NCHW -> NHWC
-    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(),
-                    in_shapevec.data(), x->dptr<T>(),
-                    std::vector<int>({0, 3, 1, 2}).data(), tmp_in_dptr);
-
+    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(), in_shapevec.data(),
+                      x->dptr<T>(), std::vector<int>({0, 3, 1, 2}).data(), tmp_in_dptr);
 
     int dims[4];
     dims[0] = n;
@@ -111,9 +110,8 @@ class MluNormalizationKernel final : public user_op::OpKernel {
         weight_bias_mean_var_desc, gamma->dptr(), beta->dptr(), moving_mean->dptr(),
         moving_variance->dptr(), epsilon, output_desc, y->mut_dptr()));
     // transpose output NHWC -> NCHW
-    transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(),
-                    out_shapevec.data(), y->dptr<T>(),
-                    std::vector<int>({0, 2, 3, 1}).data(), tmp_out_dptr);
+    transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(), out_shapevec.data(),
+                      y->dptr<T>(), std::vector<int>({0, 2, 3, 1}).data(), tmp_out_dptr);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
