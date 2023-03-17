@@ -22,12 +22,13 @@ limitations under the License.
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/core/ep/include/primitive/permute.h"
 
 namespace oneflow {
 
 template<typename Context>
-std::unique_ptr<oneflow::ep::primitive::Permute> NewPermutePrimitive(const int& num_dims) {
-  return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(DeviceType::kMLU, num_dims);
+std::unique_ptr<ep::primitive::Permute> NewPermutePrimitive(Context* ctx, const int& num_dims) {
+  return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(ctx->device_type(), num_dims);
 }
 
 template<typename T>
@@ -50,20 +51,26 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     void* tmp_in_ptr = tmp_in_cnnl_workspace.dptr();
 
     std::vector<int64_t> in_shapevec(
-          {in_tensor->shape_view().At(0), in_tensor->shape_view().At(3), in_tensor->shape_view().At(1), in_tensor->shape_view().At(2)});
-    auto transpose = NewPermutePrimitive(in_tensor->shape_view().NumAxes());
+          {in_tensor->shape_view().At(0), in_tensor->shape_view().At(2), in_tensor->shape_view().At(3), in_tensor->shape_view().At(1)});
+    auto transpose = NewPermutePrimitive(ctx, in_tensor->shape_view().NumAxes());
     CHECK(transpose);
     transpose->Launch(ctx->stream(), in_tensor->data_type(), in_tensor->shape_view().NumAxes(),
                     in_shapevec.data(), in_ptr,
-                    std::vector<int>({0, 3, 1, 2}).data(), tmp_in_ptr);
+                    std::vector<int>({0, 2, 3, 1}).data(), tmp_in_ptr);
 
-    CnnlTensorDescriptor in_desc, out_decs;
-    cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(GetDataType<T>::value);
-    in_desc.set(in_tensor, CNNL_LAYOUT_NHWC, cnnl_data_type);
-    out_decs.set(out_tensor, CNNL_LAYOUT_NHWC, cnnl_data_type);
+    cnnlTensorDescriptor_t in_desc = nullptr, out_decs = nullptr;
+    const int in_dims[4] = {static_cast<int>(in_tensor->shape_view().At(0)), static_cast<int>(in_tensor->shape_view().At(2)), static_cast<int>(in_tensor->shape_view().At(3)), static_cast<int>(in_tensor->shape_view().At(1))};
+    const int out_dims[4] = {static_cast<int>(out_tensor->shape_view().At(0)), static_cast<int>(out_tensor->shape_view().At(2)), static_cast<int>(out_tensor->shape_view().At(3)), static_cast<int>(out_tensor->shape_view().At(1))};
+    auto dtype = ConvertToCnnlDataType(in_tensor->data_type());
+    cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
+    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&in_desc));
+    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&out_decs));
+    OF_CNNL_CHECK(cnnlSetTensorDescriptor(in_desc, layout, dtype, 4, in_dims));
+    OF_CNNL_CHECK(cnnlSetTensorDescriptor(out_decs, layout, dtype, 4, out_dims));
+
     size_t _adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                          in_desc.desc(), CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,out_decs.desc(),
+                                          in_desc, CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_decs,
                                           &_adaptive_avg_pool2d_workspace_size));
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), _adaptive_avg_pool2d_workspace_size);
     void* _adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
@@ -71,18 +78,18 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_workspace_size);
     void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), 
-                                                in_desc.desc(), 
+                                                in_desc, 
                                                 tmp_in_ptr, 
                                                 CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, 
                                                 _adaptive_avg_pool2d_workspace,
                                                 _adaptive_avg_pool2d_workspace_size,
-                                                out_decs.desc(),
+                                                out_decs,
                                                 tmp_out_ptr,
                                                 NULL,
                                                 NULL));
     std::vector<int64_t> out_shapevec(
           {out_tensor->shape_view().At(0), out_tensor->shape_view().At(1), out_tensor->shape_view().At(2), out_tensor->shape_view().At(3)});
-    transpose = NewPermutePrimitive(out_tensor->shape_view().NumAxes());
+    transpose = NewPermutePrimitive(ctx, out_tensor->shape_view().NumAxes());
     CHECK(transpose);
     transpose->Launch(ctx->stream(), in_tensor->data_type(), in_tensor->shape_view().NumAxes(),
                     out_shapevec.data(), tmp_out_ptr,
