@@ -51,8 +51,7 @@ class TestReshapeCambriconModule(flow.unittest.TestCase):
         ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
-        
-    
+
     def test_0_size_tensor_reshape(test_case):
         arr = np.random.randn(4, 2, 0, 3)
         x1 = flow.tensor(arr, device="mlu", dtype=flow.float32)
@@ -60,7 +59,7 @@ class TestReshapeCambriconModule(flow.unittest.TestCase):
         mlu_out = flow.reshape(x1, shape=(3, 0, 3))
         cpu_out = flow.reshape(x2, shape=(3, 0, 3))
         test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out, 0.0001, 0.0001))
-    
+
     def test_0_dim_tensor_reshape(test_case):
         x1 = flow.tensor(2.0, device="mlu", dtype=flow.float32)
         x2 = flow.tensor(2.0, device="cpu", dtype=flow.float32)
