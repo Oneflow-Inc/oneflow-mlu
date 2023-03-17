@@ -37,7 +37,6 @@ class MluNormalizationKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const bool training = ctx->Attr<bool>("training");
     CHECK(!training);
-
     const user_op::Tensor* x = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* y = ctx->Tensor4ArgNameAndIndex("y", 0);
     const auto* gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
@@ -45,18 +44,53 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     auto* moving_mean = ctx->Tensor4ArgNameAndIndex("moving_mean", 0);
     auto* moving_variance = ctx->Tensor4ArgNameAndIndex("moving_variance", 0);
     const auto axis = ctx->Attr<int32_t>("axis");
-    CHECK_EQ(axis, x->shape_view().NumAxes() - 1);
+    // CHECK_EQ(axis, x->shape_view().NumAxes() - 1); // make sure NHWC format, so channel axis must be 3(for 4-dim tensor)
     const auto epsilon = ctx->Attr<float>("epsilon");
 
-    CnnlTensorDescriptor input_desc, output_desc, weight_bias_mean_var_desc;
-    input_desc.set(x);
-    output_desc.set(y);
-    weight_bias_mean_var_desc.set(gamma);
+    int n = 0, c = 0, h = 0, w = 0;
+    if (x->shape_view().NumAxes() == 2) {
+      n = x->shape_view().At(0);
+      h = 1;
+      w = 1;
+      c = x->shape_view().At(1);
+    } else {
+      n = x->shape_view().At(0);
+      h = x->shape_view().At(1);
+      w = x->shape_view().At(2);
+      c = x->shape_view().At(3);
+    }
+
+    int dims[4];
+    dims[0] = n;
+    dims[1] = h;
+    dims[2] = w;
+    dims[3] = c;
+
+
+    // CnnlTensorDescriptor input_desc, output_desc, weight_bias_mean_var_desc;
+    // input_desc.set(x);
+    // output_desc.set(y);
+    // weight_bias_mean_var_desc.set(gamma);
+    cnnlTensorDescriptor_t input_desc, output_desc, weight_bias_mean_var_desc;
+    cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
+    auto dtype = ConvertToCnnlDataType(x->data_type());
+    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&input_desc));
+    OF_CNNL_CHECK(cnnlSetTensorDescriptor(input_desc, layout, dtype, 4, dims));
+
+    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&output_desc));
+    OF_CNNL_CHECK(cnnlSetTensorDescriptor(output_desc, layout, dtype, 4, dims));
+
+    int dim[1];
+    dim[0] = c;
+    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&weight_bias_mean_var_desc));
+    OF_CNNL_CHECK(cnnlSetTensorDescriptor(weight_bias_mean_var_desc, layout, dtype, 1, dim));
+
     OF_CNNL_CHECK(cnnlBatchNormForwardInference(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),
-        x->dptr(), weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(),
-        moving_mean->dptr(), moving_variance->raw_dptr(), epsilon, output_desc.desc(),
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc,
+        x->dptr(), weight_bias_mean_var_desc, gamma->dptr(), beta->dptr(),
+        moving_mean->dptr(), moving_variance->dptr(), epsilon, output_desc,
         y->mut_dptr()));
+
     ctx->stream()->Sync();
   }
 

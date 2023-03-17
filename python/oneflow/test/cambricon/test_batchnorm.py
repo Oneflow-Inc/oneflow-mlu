@@ -30,14 +30,12 @@ def _test_batchnorm2d_forward(test_case, shape, device, dtype):
     x1 = flow.tensor(arr, device=flow.device(device), dtype=dtype)
     x2 = flow.tensor(arr, device="cpu", dtype=dtype)
     m1 = flow.nn.BatchNorm2d(
-        num_features=int(x1.shape[1]), track_running_stats=False, affine=False
-    ).to(flow.device(device))
-    m1.train(False)
+        num_features=int(x1.shape[1]), track_running_stats=True, affine=False
+    ).eval().to(flow.device(device))
 
     m2 = flow.nn.BatchNorm2d(
-        num_features=int(x2.shape[1]), track_running_stats=False, affine=False
-    ).to("cpu")
-    m2.train(False)
+        num_features=int(x2.shape[1]), track_running_stats=True, affine=False
+    ).eval().to("cpu")
 
     mlu_out = m1(x1)
     cpu_out = m2(x2)
