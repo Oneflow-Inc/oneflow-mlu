@@ -59,8 +59,6 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     transpose->Launch(ctx->stream(), in_tensor->data_type(), in_tensor->shape_view().NumAxes(),
                       in_shapevec.data(), in_ptr, std::vector<int>({0, 2, 3, 1}).data(),
                       tmp_in_ptr);
-    ctx->stream()->As<ep::MluStream>()->Sync();
-
     cnnlTensorDescriptor_t in_desc = nullptr, out_decs = nullptr;
     const int in_dims[4] = {static_cast<int>(in_tensor->shape_view().At(0)),
                             static_cast<int>(in_tensor->shape_view().At(2)),
@@ -76,7 +74,6 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&out_decs));
     OF_CNNL_CHECK(cnnlSetTensorDescriptor(in_desc, layout, dtype, 4, in_dims));
     OF_CNNL_CHECK(cnnlSetTensorDescriptor(out_decs, layout, dtype, 4, out_dims));
-
     size_t _adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc,
@@ -93,8 +90,7 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc, tmp_in_ptr,
         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, _adaptive_avg_pool2d_workspace,
-        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));
-    ctx->stream()->As<ep::MluStream>()->Sync();
+        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));;
     std::vector<int64_t> out_shapevec(
         {out_tensor->shape_view().At(0), out_tensor->shape_view().At(2),
          out_tensor->shape_view().At(3), out_tensor->shape_view().At(1)});
