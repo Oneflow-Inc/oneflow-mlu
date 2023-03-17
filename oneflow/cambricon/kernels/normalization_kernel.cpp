@@ -50,7 +50,7 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     auto* moving_variance = ctx->Tensor4ArgNameAndIndex("moving_variance", 0);
     // make sure input tensor's format NCHW, so channel axis must be 1
     const auto axis = ctx->Attr<int32_t>("axis");
-    CHECK_EQ(axis, 1); 
+    CHECK_EQ(axis, 1);
     const auto epsilon = ctx->Attr<float>("epsilon");
 
     int n = 0, c = 0, h = 0, w = 0;
