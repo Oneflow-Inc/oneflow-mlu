@@ -34,7 +34,6 @@ class ReduceKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* input = ctx->Tensor4ArgNameAndIndex("input_tensor", 0);
     user_op::Tensor* output = ctx->Tensor4ArgNameAndIndex("output_tensor", 0);
-    user_op::Tensor* tmp_buffer = ctx->Tensor4ArgNameAndIndex("tmp_buffer", 0);
     const auto& axis = ctx->Attr<std::vector<int32_t>>("axis");
     // TODO: if(input->shape_view().elem_cnt() == 0)
 
@@ -62,14 +61,9 @@ class ReduceKernel final : public user_op::OpKernel {
 };
 
 #define REGISTER_REDUCE_MLU_KERNEL(op_name, device, dtype)                                         \
-  REGISTER_USER_KERNEL(op_name)                                                                    \
-      .SetCreateFn<ReduceKernel<device, dtype, dtype>>()                                           \
-      .SetIsMatchedHob((user_op::HobDeviceType() == device)                                        \
-                       && (user_op::HobDataType("output_tensor", 0) == GetDataType<dtype>::value)) \
-      .SetInferTmpSizeFn([](user_op::InferContext* ctx) {                                          \
-        const Shape& in_shape = ctx->InputShape("input_tensor", 0);                                \
-        return in_shape.elem_cnt() * sizeof(dtype);                                                \
-      });
+  REGISTER_USER_KERNEL(op_name).SetCreateFn<ReduceKernel<device, dtype, dtype>>().SetIsMatchedHob( \
+      (user_op::HobDeviceType() == device)                                                         \
+      && (user_op::HobDataType("output_tensor", 0) == GetDataType<dtype>::value));
 
 #define REGISTER_REDUCE_SUM_KERNELS(device, dtype) \
   REGISTER_REDUCE_MLU_KERNEL("reduce_sum", device, dtype)
@@ -77,11 +71,7 @@ class ReduceKernel final : public user_op::OpKernel {
 #define REGISTER_REDUCE_SUM_KERNELS_BY_DEVICE(device) \
   REGISTER_REDUCE_SUM_KERNELS(device, float)          \
   REGISTER_REDUCE_SUM_KERNELS(device, float16)        \
-  REGISTER_REDUCE_SUM_KERNELS(device, double)         \
-  REGISTER_REDUCE_SUM_KERNELS(device, int8_t)         \
-  REGISTER_REDUCE_SUM_KERNELS(device, uint8_t)        \
-  REGISTER_REDUCE_SUM_KERNELS(device, int32_t)        \
-  REGISTER_REDUCE_SUM_KERNELS(device, int64_t)
+  REGISTER_REDUCE_SUM_KERNELS(device, int32_t)
 
 REGISTER_REDUCE_SUM_KERNELS_BY_DEVICE(DeviceType::kMLU)
 
