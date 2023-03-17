@@ -106,6 +106,9 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     // transpose output NHWC -> NCHW
     transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(), out_shapevec.data(),
                       y->dptr<T>(), std::vector<int>({0, 2, 3, 1}).data(), tmp_out_dptr);
+    cnnlDestroyTensorDescriptor(input_desc);
+    cnnlDestroyTensorDescriptor(output_desc);
+    cnnlDestroyTensorDescriptor(weight_bias_mean_var_desc);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
