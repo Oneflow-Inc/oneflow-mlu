@@ -29,18 +29,22 @@ def _get_data(shape, dtype):
 
 
 def _test_matmul_forward(test_case, shape, device, dtype):
-    """test matmul forward on MLU"""
+    (shape_a, shape_b, transpose_a, transpose_b) = shape
     alpha = np.random.randn()
-    a = _get_data(shape[0], dtype)
-    b = _get_data(shape[1], dtype)
+    a = _get_data(shape_a, dtype)
+    b = _get_data(shape_b, dtype)
     # mlu
     mlu_a = flow.tensor(a, device=flow.device(device), dtype=dtype)
     mlu_b = flow.tensor(b, device=flow.device(device), dtype=dtype)
-    mlu_out = flow.matmul(mlu_a, mlu_b, alpha=alpha)
+    mlu_out = flow.matmul(
+        mlu_a, mlu_b, alpha=alpha, transpose_a=transpose_a, transpose_b=transpose_b
+    )
     # cpu
     cpu_a = flow.tensor(a, device=flow.device("cpu"), dtype=dtype)
     cpu_b = flow.tensor(b, device=flow.device("cpu"), dtype=dtype)
-    cpu_out = flow.matmul(cpu_a, cpu_b, alpha=alpha)
+    cpu_out = flow.matmul(
+        cpu_a, cpu_b, alpha=alpha, transpose_a=transpose_a, transpose_b=transpose_b
+    )
     # compare
     diff = 0.0001
     test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), diff, diff))
@@ -54,9 +58,12 @@ class TestBatchMatmulCambriconModule(flow.unittest.TestCase):
             _test_matmul_forward,
         ]
         arg_dict["shape"] = [
-            ((2, 3, 4), (2, 4, 5)),
-            ((2, 4, 5), (2, 5, 6)),
-            ((2, 3, 4, 5), (2, 3, 5, 6)),
+            ((2, 3, 4), (2, 4, 5), False, False,),
+            ((2, 4, 5), (2, 5, 6), False, False,),
+            ((2, 3, 4, 5), (2, 3, 5, 6), False, False,),
+            ((2, 4, 3), (2, 4, 5), True, False,),
+            ((2, 4, 5), (2, 6, 5), False, True,),
+            ((2, 3, 5, 4), (2, 3, 6, 5), True, True,),
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
@@ -71,8 +78,10 @@ class TestBatchMatmulCambriconModule(flow.unittest.TestCase):
             _test_matmul_forward,
         ]
         arg_dict["shape"] = [
-            ((1, 3, 4), (2, 4, 5)),
-            ((1, 7, 3, 4), (7, 1, 4, 5)),
+            ((1, 3, 4), (2, 4, 5), False, False,),
+            ((1, 7, 3, 4), (7, 1, 4, 5), False, False,),
+            ((1, 4, 3), (2, 4, 5), True, False,),
+            ((1, 7, 3, 4), (7, 1, 5, 4), False, True,),
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [

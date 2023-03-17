@@ -142,8 +142,8 @@ class BroadcastMatmulKernelMLU final : public user_op::OpKernel {
  private:
   void Compute(user_op::KernelComputeContext* ctx) const override {
     KernelLaunchConfig conf;
-    conf.trans_a = ep::primitive::BlasTransposeType::N;
-    conf.trans_b = ep::primitive::BlasTransposeType::N;
+    conf.trans_a = GetBlasTransposeType(ctx, "transpose_a");
+    conf.trans_b = GetBlasTransposeType(ctx, "transpose_b");
     conf.alpha = ctx->Attr<double>("alpha");
     conf.a = ctx->Tensor4ArgNameAndIndex("a", 0);
     conf.b = ctx->Tensor4ArgNameAndIndex("b", 0);
