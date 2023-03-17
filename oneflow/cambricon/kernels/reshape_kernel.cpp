@@ -44,8 +44,14 @@ class MluReshapeKernel final : public user_op::OpKernel {
     // fill output tensor with Scalar(0) because during the backward propogation, this kernel will
     // also be used.
     if (elem_cnt == 0) {
-      // TODO: fill primitive
-      printf("\n TODO:use fill primitive");
+      const int64_t out_elem_cnt = out->shape_view().elem_cnt();
+      CHECK_GE(out_elem_cnt, 0);
+      if (out_elem_cnt == 0) { return; }
+      std::unique_ptr<ep::primitive::Fill> fill =
+          ep::primitive::NewPrimitive<ep::primitive::FillFactory>(ctx->device_type(),
+                                                                  out->data_type());
+      CHECK(fill);
+      fill->Launch(ctx->stream(), out->mut_dptr(), Scalar(0), out_elem_cnt);
       return;
     }
 
