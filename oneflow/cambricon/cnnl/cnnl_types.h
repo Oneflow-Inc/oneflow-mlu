@@ -13,31 +13,16 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
-#define ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
+#ifndef ONEFLOW_CAMBRICON_CNNL_CNNL_TYPES_H_
+#define ONEFLOW_CAMBRICON_CNNL_CNNL_TYPES_H_
 
-#include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/core/ep/include/event.h"
+#include "oneflow/core/common/data_type.h"
+#include "cnnl.h"
 
 namespace oneflow {
-namespace ep {
 
-class MluEvent : public Event {
- public:
-  OF_DISALLOW_COPY_AND_MOVE(MluEvent);
-  explicit MluEvent(unsigned int flags);
-  ~MluEvent() override;
+cnnlDataType_t ConvertToCnnlDataType(DataType dtype);
 
-  Maybe<bool> QueryDone() override;
-  Maybe<void> Sync() override;
-
-  cnrtNotifier_t mlu_event();
-
- private:
-  cnrtNotifier_t mlu_event_;
-};
-
-}  // namespace ep
 }  // namespace oneflow
 
-#endif  // ONEFLOW_CAMBRICON_EP_MLU_EVENT_H_
+#endif  // ONEFLOW_CAMBRICON_CNNL_CNNL_TYPES_H_
