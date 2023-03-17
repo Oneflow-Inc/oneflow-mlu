@@ -781,24 +781,24 @@ DEFINE_BLD_SUB_TASK_GRAPH_METHOD(BldSubTskGphByBoxing) {
             << " dst parallel conf: " << dst_parallel_desc.parallel_conf().DebugString()
             << " src_nd_sbp " << src_nd_sbp.DebugString() << " dst nd_sbp "
             << dst_nd_sbp.DebugString();
-    Maybe<SubTskGphBuilderStatus> status = Error::BoxingNotSupportedError();
+    Maybe<SubTskGphBuilderStatus> maybe_status = Error::BoxingNotSupportedError();
     if (!sub_tsk_gph_builders_for_specific_device_.empty()) {
       for (const auto& sub_tsk_gph_builder : sub_tsk_gph_builders_for_specific_device_) {
-        status = TRY(sub_tsk_gph_builder->Build(
+        maybe_status = TRY(sub_tsk_gph_builder->Build(
             sub_tsk_gph_builder_ctx_.get(), in_nodes, &out_nodes, &sorted_ctrl_tasks,
             src_parallel_desc, dst_parallel_desc, lbi, blob_desc, src_nd_sbp, dst_nd_sbp,
             *(CHECK_JUST(src_op_node->op().GetOpTimeShape()).get())));
-        if (status.IsOk()) { break; }
+        if (maybe_status.IsOk()) { break; }
       }
     }
-    if (!status.IsOk()) {
-      status = TRY(hierarchical_sub_tsk_gph_builder_->Build(
+    if (!maybe_status.IsOk()) {
+      maybe_status = TRY(hierarchical_sub_tsk_gph_builder_->Build(
           sub_tsk_gph_builder_ctx_.get(), in_nodes, &out_nodes, &sorted_ctrl_tasks,
           src_parallel_desc, dst_parallel_desc, lbi, blob_desc, src_nd_sbp, dst_nd_sbp,
           *(CHECK_JUST(src_op_node->op().GetOpTimeShape()).get())));
     }
-    auto status_val = CHECK_JUST(status);
-    boxing_logger_->Log(*status_val, src_op_node->op().op_name(), dst_op_node->op().op_name(),
+    auto status = CHECK_JUST(maybe_status);
+    boxing_logger_->Log(*status, src_op_node->op().op_name(), dst_op_node->op().op_name(),
                         src_parallel_desc, dst_parallel_desc, src_nd_sbp, dst_nd_sbp, lbi,
                         blob_desc);
     CHECK_EQ(out_nodes.size(), sorted_dst_comp_tasks.size());
