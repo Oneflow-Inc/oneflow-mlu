@@ -112,7 +112,7 @@ class CnnlBatchMatmulDescriptor
 class CnnlMatmulAlgoDescriptor
     : public CnnlDescriptor<cnnlMatMulAlgoStruct, &cnnlMatMulAlgoCreate, &cnnlMatMulAlgoDestroy> {
  public:
-  CnnlMatmulAlgoDescriptor() {}
+  CnnlMatmulAlgoDescriptor() { init(); }
 };
 
 class CnnlUniqueDescriptor : public CnnlDescriptor<cnnlUniqueStruct, &cnnlCreateUniqueDescriptor,

@@ -31,24 +31,19 @@ struct KernelLaunchConfig {
   const user_op::Tensor* a = nullptr;
   const user_op::Tensor* b = nullptr;
   user_op::Tensor* out = nullptr;
-  // TODO(Jianhua Zheng): alpha and beta always using float?
   float alpha;
-  float beta;
   ep::primitive::BlasTransposeType trans_a;
   ep::primitive::BlasTransposeType trans_b;
 };
 
-void LaunchBatchMatmulKernel(user_op::KernelComputeContext* ctx, const KernelLaunchConfig& conf) {
+void LaunchMatmulKernel(user_op::KernelComputeContext* ctx, const KernelLaunchConfig& conf) {
   CnnlMatmulDescriptor bmm_desc;
   bmm_desc.set_attr(CNNL_MATMUL_DESC_TRANSA, &conf.trans_a, sizeof(conf.trans_a));
   bmm_desc.set_attr(CNNL_MATMUL_DESC_TRANSB, &conf.trans_b, sizeof(conf.trans_b));
-
-
-  // CnnlMatmulAlgoDescriptor algo_desc;
-  cnnlMatMulAlgo_t matmul_algo_;
-  OF_CNNL_CHECK(cnnlMatMulAlgoCreate(&matmul_algo_));
-
-
+  const static int using_beta = 0;
+  const static float beta = 0.0;
+  bmm_desc.set_attr(CNNL_MATMUL_USE_BETA, &using_beta, sizeof(using_beta));
+  CnnlMatmulAlgoDescriptor algo_desc;
   CnnlTensorDescriptor a_desc, b_desc, out_desc;
   a_desc.set(conf.a);
   b_desc.set(conf.b);
@@ -61,17 +56,10 @@ void LaunchBatchMatmulKernel(user_op::KernelComputeContext* ctx, const KernelLau
   OF_CNNL_CHECK(cnnlGetBatchMatMulBCastWorkspaceSize(handle, a_desc.desc(), b_desc.desc(),
                                                      out_desc.desc(), &workspace_size));
   CnnlWorkspace workspace(stream, workspace_size);
-
-
-  const void* alpha = &conf.alpha;
-  const void* beta = &conf.beta;
-  OF_CNNL_CHECK(cnnlBatchMatMulBCast_v2(handle, bmm_desc.desc(), matmul_algo_, alpha,
+  OF_CNNL_CHECK(cnnlBatchMatMulBCast_v2(handle, bmm_desc.desc(), algo_desc.desc(), &conf.alpha,
                                         a_desc.desc(), conf.a->dptr(), b_desc.desc(),
-                                        conf.b->dptr(), beta, out_desc.desc(),
+                                        conf.b->dptr(), &beta, out_desc.desc(),
                                         conf.out->mut_dptr(), workspace.dptr(), workspace_size));
-  
-  // TODO: remove
-  OF_CNNL_CHECK(cnnlMatMulAlgoDestroy(matmul_algo_));
 }
 
 ep::primitive::BlasTransposeType GetBlasTransposeType(bool transpose) {
@@ -103,9 +91,9 @@ class BatchMatmulKernelMLU final : public user_op::OpKernel {
     conf.trans_a = GetBlasTransposeType(ctx, "transpose_a");
     conf.trans_b = GetBlasTransposeType(ctx, "transpose_b");
     conf.a = ctx->Tensor4ArgNameAndIndex("a", 0);
-    const DataType data_type = conf.a->data_type();
     const int64_t num_axes = conf.a->shape_view().NumAxes();
     CHECK_GT(num_axes, 2);
+    const DataType data_type = conf.a->data_type();
     conf.b = ctx->Tensor4ArgNameAndIndex("b", 0);
     CHECK_EQ(conf.b->data_type(), data_type);
     CHECK_EQ(conf.b->shape_view().NumAxes(), num_axes);
@@ -113,7 +101,6 @@ class BatchMatmulKernelMLU final : public user_op::OpKernel {
     CHECK_EQ(conf.out->data_type(), data_type);
     CHECK_EQ(conf.out->shape_view().NumAxes(), num_axes);
     conf.alpha = ctx->Attr<double>("alpha");
-    conf.beta = 0.0;
     if (ctx->has_input("_add_to_output", 0)) {
       const user_op::Tensor* add_to_output = ctx->Tensor4ArgNameAndIndex("_add_to_output", 0);
       CHECK_EQ(add_to_output->data_type(), data_type);
@@ -122,14 +109,13 @@ class BatchMatmulKernelMLU final : public user_op::OpKernel {
       CHECK(memcpy);
       memcpy->Launch(ctx->stream(), conf.out->mut_dptr(), add_to_output->dptr(),
                      add_to_output->shape_view().elem_cnt() * GetSizeOfDataType(data_type));
-      conf.beta = 1.0;
     }
-    LaunchBatchMatmulKernel(ctx, conf);
+    LaunchMatmulKernel(ctx, conf);
   }
 };
 
-#define REGISTER_BATCH_MATMUL_USER_KERNEL(op_name, dtype)                                   \
-  REGISTER_USER_KERNEL(op_name)                                                             \
+#define REGISTER_BATCH_MATMUL_USER_KERNEL(dtype)                                            \
+  REGISTER_USER_KERNEL("batch_matmul")                                                      \
       .SetCreateFn<BatchMatmulKernelMLU<dtype>>()                                           \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                       \
                        && (user_op::HobDataType("a", 0) == user_op::HobDataType("b", 0))    \
@@ -144,7 +130,57 @@ class BatchMatmulKernelMLU final : public user_op::OpKernel {
             return Maybe<void>::Ok();                                                       \
           });
 
-REGISTER_BATCH_MATMUL_USER_KERNEL("batch_matmul", float)
+REGISTER_BATCH_MATMUL_USER_KERNEL(float)
+
+class BroadcastMatmulKernelMLU final : public user_op::OpKernel {
+ public:
+  BroadcastMatmulKernelMLU() = default;
+  ~BroadcastMatmulKernelMLU() = default;
+
+  bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
+
+ private:
+  void Compute(user_op::KernelComputeContext* ctx) const override {
+    KernelLaunchConfig conf;
+    conf.trans_a = ep::primitive::BlasTransposeType::N;
+    conf.trans_b = ep::primitive::BlasTransposeType::N;
+    conf.alpha = ctx->Attr<double>("alpha");
+    conf.a = ctx->Tensor4ArgNameAndIndex("a", 0);
+    conf.b = ctx->Tensor4ArgNameAndIndex("b", 0);
+    conf.out = ctx->Tensor4ArgNameAndIndex("out", 0);
+    // CNNL: The a and b must have no less than two dimensions
+    CHECK_GE(conf.a->shape_view().NumAxes(), 2);
+    CHECK_GE(conf.b->shape_view().NumAxes(), 2);
+    if (ctx->has_input("_add_to_output", 0)) {
+      const user_op::Tensor* add_to_output = ctx->Tensor4ArgNameAndIndex("_add_to_output", 0);
+      CHECK_EQ(add_to_output->shape_view(), conf.out->shape_view());
+      auto memcpy = NewMemcpyPrimitive(ctx);
+      CHECK(memcpy);
+      memcpy->Launch(
+          ctx->stream(), conf.out->mut_dptr(), add_to_output->dptr(),
+          add_to_output->shape_view().elem_cnt() * GetSizeOfDataType(add_to_output->data_type()));
+    }
+    LaunchMatmulKernel(ctx, conf);
+  }
+};
+
+#define REGISTER_BROADCAST_MATMUL_USER_KERNEL(dtype)                                        \
+  REGISTER_USER_KERNEL("broadcast_matmul")                                                  \
+      .SetCreateFn<BroadcastMatmulKernelMLU>()                                              \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                       \
+                       && (user_op::HobDataType("a", 0) == user_op::HobDataType("b", 0))    \
+                       && (user_op::HobDataType("a", 0) == user_op::HobDataType("out", 0))  \
+                       && (user_op::HobDataType("a", 0) == GetDataType<dtype>::value))      \
+      .SetInplaceProposalFn(                                                                \
+          [](const user_op::InferContext& ctx,                                              \
+             const user_op::AddInplaceArgPair& AddInplaceArgPairFn) -> Maybe<void> {        \
+            if (ctx.has_input("_add_to_output", 0)) {                                       \
+              OF_RETURN_IF_ERROR(AddInplaceArgPairFn("out", 0, "_add_to_output", 0, true)); \
+            }                                                                               \
+            return Maybe<void>::Ok();                                                       \
+          });
+
+REGISTER_BROADCAST_MATMUL_USER_KERNEL(float)
 
 }  // namespace
 
