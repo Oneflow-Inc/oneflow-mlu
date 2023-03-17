@@ -111,13 +111,15 @@ class MluNormalizationKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_RELU_MLU_KERNEL(dtype)                               \
+#define REGISTER_BN_IINFERENCE_MLU_KERNEL(dtype)                      \
   REGISTER_USER_KERNEL("normalization")                               \
       .SetCreateFn<MluNormalizationKernel<dtype>>()                   \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
-REGISTER_RELU_MLU_KERNEL(float)
-REGISTER_RELU_MLU_KERNEL(float16)
+REGISTER_BN_IINFERENCE_MLU_KERNEL(float)
+REGISTER_BN_IINFERENCE_MLU_KERNEL(float16)
+
+#undef REGISTER_BN_IINFERENCE_MLU_KERNEL
 
 }  // namespace oneflow
