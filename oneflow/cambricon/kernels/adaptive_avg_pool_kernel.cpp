@@ -90,7 +90,8 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc, tmp_in_ptr,
         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, _adaptive_avg_pool2d_workspace,
-        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));;
+        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));
+    ;
     std::vector<int64_t> out_shapevec(
         {out_tensor->shape_view().At(0), out_tensor->shape_view().At(2),
          out_tensor->shape_view().At(3), out_tensor->shape_view().At(1)});
