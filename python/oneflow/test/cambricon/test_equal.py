@@ -85,7 +85,7 @@ def _test_equal_float_scalar(test_case, device):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestGreater(flow.unittest.TestCase):
+class TestEqual(flow.unittest.TestCase):
     def test_equal(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [

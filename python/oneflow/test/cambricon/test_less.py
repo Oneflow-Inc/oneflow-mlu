@@ -85,7 +85,7 @@ def _test_less_float_scalar(test_case, device):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestGreater(flow.unittest.TestCase):
+class TestLess(flow.unittest.TestCase):
     def test_less(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
