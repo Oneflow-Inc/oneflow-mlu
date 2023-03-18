@@ -81,19 +81,13 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(), in_shapevec.data(),
                       x->dptr<T>(), std::vector<int>({0, 3, 1, 2}).data(), tmp_in_dptr);
 
-    int dims[4];
-    dims[0] = n;
-    dims[1] = h;
-    dims[2] = w;
-    dims[3] = c;
+    int dims[4] = {n, h, w, c};
     CnnlTensorDescriptor input_desc, output_desc, weight_bias_mean_var_desc;
-    cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
     auto dtype = ConvertToCnnlDataType(x->data_type());
-    input_desc.set(x, layout, 4, dims, dtype);
-    output_desc.set(y, layout, 4, dims, dtype);
-    int dim[1];
-    dim[0] = c;
-    weight_bias_mean_var_desc.set(gamma, layout, 1, dim, dtype);
+    input_desc.set(4, dims, dtype, CNNL_LAYOUT_NHWC);
+    output_desc.set(4, dims, dtype, CNNL_LAYOUT_NHWC);
+    int dim[1] = {c};
+    weight_bias_mean_var_desc.set(1, dim, dtype, CNNL_LAYOUT_NHWC);
     // inference
     OF_CNNL_CHECK(cnnlBatchNormForwardInference(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),

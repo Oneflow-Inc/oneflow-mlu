@@ -45,9 +45,6 @@ class CnnlTensorDescriptor : public CnnlDescriptor<cnnlTensorStruct, &cnnlCreate
   void set(const user_op::Tensor* t);
   void set(const user_op::Tensor* t, cnnlTensorLayout_t layout,
            cnnlDataType_t data_type = CNNL_DTYPE_INVALID);
-  // for batchnorm
-  void set(const user_op::Tensor* t, cnnlTensorLayout_t layout, int ndim, const int dims[],
-           cnnlDataType_t data_type = CNNL_DTYPE_INVALID);
   void set(const user_op::Tensor* t, cnnlDataType_t dtype);
   void set_onchip_dtype(cnnlDataType_t data_type);
   void set(int position = 0, float scale = 1.0);
