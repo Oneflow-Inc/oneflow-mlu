@@ -18,29 +18,29 @@ import unittest
 from collections import OrderedDict
 
 import numpy as np
+import oneflow as flow
+
+import oneflow.unittest
 from oneflow.test_utils.test_util import GenArgList
 
-import oneflow as flow
-import oneflow.unittest
 
-
-def _test_add_forward(test_case, shape, device, dtype):
-    x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    y = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    of_out = flow.add(x, y)
-    np_out = np.add(x.numpy(), y.numpy())
-    test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 0.0001, 0.0001))
+def _test_different_dtype(test_case, shape, dtype):
+    y1 = flow.ones(shape, device=flow.device("mlu"), dtype=dtype)
+    y2 = flow.ones(shape, device="cpu", dtype=dtype)
+    test_case.assertTrue(np.array_equal(y1.numpy(), y2.numpy()))
+    y1 = flow.full(shape, 2.0, device=flow.device("mlu"), dtype=dtype)
+    y2 = flow.full(shape, 2.0, device="cpu", dtype=dtype)
+    test_case.assertTrue(np.array_equal(y1.numpy(), y2.numpy()))
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestAddCambriconModule(flow.unittest.TestCase):
-    def test_add(test_case):
+class TestCambriconConstantModule(flow.unittest.TestCase):
+    def test_constant(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_add_forward,
+            _test_different_dtype,
         ]
-        arg_dict["shape"] = [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)]
-        arg_dict["device"] = ["mlu"]
+        arg_dict["shape"] = [(2, 3), (2, 3, 4), (2, 3, 4, 5)]
         arg_dict["dtype"] = [
             flow.float32,
             flow.float16,
@@ -50,12 +50,6 @@ class TestAddCambriconModule(flow.unittest.TestCase):
         ]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
-
-    def test_0_size_add(test_case):
-        x = flow.tensor(1.0, device=flow.device("mlu"), dtype=flow.float32)
-        y = flow.tensor(2.0, device=flow.device("mlu"), dtype=flow.float32)
-        z = x + y
-        test_case.assertTrue(np.allclose(z.numpy(), [3.0], 0.0001, 0.0001))
 
 
 if __name__ == "__main__":

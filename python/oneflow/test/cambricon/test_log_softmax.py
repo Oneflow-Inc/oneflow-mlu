@@ -46,9 +46,11 @@ class TestLogSoftmaxCambriconModule(flow.unittest.TestCase):
         arg_dict["test_fun"] = [
             _test_log_softmax_forward,
         ]
-        # TODO(WangYi): add more shape after to_contiguous supported
         arg_dict["shape"] = [
-            (2, 3,),
+            (16, 32,),
+            (12, 16, 24),
+            (8, 12, 16, 24),
+            (4, 8, 12, 16, 24),
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
