@@ -96,22 +96,6 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
         /* horizon_dilation   */ static_cast<int>(dilation[1]),
         /* ceil_mode          */ ceil_mode));
 
-    size_t extra_input_size = 0;
-    OF_CNNL_CHECK(cnnlGetPoolingExtraInputSize(
-        /* handle           */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* mode             */ cnnlPoolingMode_t::CNNL_POOLING_MAX,
-        /* out_w_size       */ y->shape_view().At(y->shape_view().NumAxes() - 1),
-        /* out_h_size       */ y->shape_view().At(y->shape_view().NumAxes() - 2),
-        /* extra_input_size */ &extra_input_size));
-    CnnlWorkspace extra_input_workspace(ctx->stream()->As<ep::MluStream>(), extra_input_size);
-    const void* extra_input = extra_input_workspace.dptr();
-    OF_CNNL_CHECK(cnnlInitPoolingExtraInput(
-        /* handle           */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* pooling_desc     */ pooling_desc,
-        /* x_desc           */ x_desc.desc(),
-        /* y_desc           */ y_desc.desc(),
-        /* extra_host_input */ &extra_input));
-
     size_t pooling_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetPoolingWithIndexWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
