@@ -24,15 +24,12 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _get_data(shape, dtype):
-    return np.random.randn(*shape)
-
-
 def _test_matmul_forward(test_case, shape, device, dtype):
     (shape_a, shape_b, transpose_a, transpose_b) = shape
     alpha = np.random.randn()
-    a = _get_data(shape_a, dtype)
-    b = _get_data(shape_b, dtype)
+    a = np.random.randn(*shape_a)
+    b = np.random.randn(*shape_b)
+
     # mlu
     mlu_a = flow.tensor(a, device=flow.device(device), dtype=dtype)
     mlu_b = flow.tensor(b, device=flow.device(device), dtype=dtype)

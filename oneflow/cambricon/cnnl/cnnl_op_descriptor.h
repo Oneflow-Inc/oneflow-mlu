@@ -109,12 +109,6 @@ class CnnlBatchMatmulDescriptor
   void set_attr(cnnlBatchMatMulDescAttribute_t attr, const void* buf, size_t size_in_bytes);
 };
 
-class CnnlMatmulAlgoDescriptor
-    : public CnnlDescriptor<cnnlMatMulAlgoStruct, &cnnlMatMulAlgoCreate, &cnnlMatMulAlgoDestroy> {
- public:
-  CnnlMatmulAlgoDescriptor() { init(); }
-};
-
 class CnnlUniqueDescriptor : public CnnlDescriptor<cnnlUniqueStruct, &cnnlCreateUniqueDescriptor,
                                                    &cnnlDestroyUniqueDescriptor> {
  public:
