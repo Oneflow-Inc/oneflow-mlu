@@ -160,17 +160,14 @@ class Conv2DKernel final : public user_op::OpKernel {
          out->shape_view().At(3), out->shape_view().At(1)});
     transpose = NewPermutePrimitive(ctx, out->shape_view().NumAxes());
     CHECK(transpose);
-    std::cout << "enter here" << std::endl;
     transpose->Launch(ctx->stream(), out->data_type(), out->shape_view().NumAxes(),
                       out_shapevec.data(), tmp_out_ptr, std::vector<int>({0, 3, 1, 2}).data(),
                       out->mut_dptr());
-    std::cout << "leave here" << std::endl;
-    cnnlDestroyTensorDescriptor(in_desc);
-    cnnlDestroyTensorDescriptor(weight_desc);
-    if (bias != nullptr){
-        cnnlDestroyTensorDescriptor(bias_desc);
-    }
-    cnnlDestroyTensorDescriptor(out_desc);
+    OF_CNNL_CHECK(cnnlDestroyTensorDescriptor(in_desc));
+    OF_CNNL_CHECK(cnnlDestroyTensorDescriptor(weight_desc));
+    OF_CNNL_CHECK(cnnlDestroyTensorDescriptor(bias_desc));
+    OF_CNNL_CHECK(cnnlDestroyTensorDescriptor(out_desc));
+    OF_CNNL_CHECK(cnnlDestroyConvolutionDescriptor(conv_desc));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
