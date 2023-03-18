@@ -1632,22 +1632,22 @@ class TestConv2d(flow.unittest.TestCase):
                 device=device,
             )
 
-    # def test_conv2d_group(test_case):
-    #     arg_dict = OrderedDict()
-    #     arg_dict["device"] = ["mlu"]
-    #     for arg in GenArgList(arg_dict):
-    #         device = arg[0]
-    #         conv = flow.nn.Conv2d(2, 2, (3, 3), groups=2, bias=False).to(
-    #             flow.device(device)
-    #         )
-    #         _test_conv2d(
-    #             test_case,
-    #             conv,
-    #             test_conv2d_group_data,
-    #             test_conv2d_group_weight,
-    #             test_conv2d_group_output,
-    #             device=device,
-    #         )
+    def test_conv2d_group(test_case):
+        arg_dict = OrderedDict()
+        arg_dict["device"] = ["mlu"]
+        for arg in GenArgList(arg_dict):
+            device = arg[0]
+            conv = flow.nn.Conv2d(2, 2, (3, 3), groups=2, bias=False).to(
+                flow.device(device)
+            )
+            _test_conv2d(
+                test_case,
+                conv,
+                test_conv2d_group_data,
+                test_conv2d_group_weight,
+                test_conv2d_group_output,
+                device=device,
+            )
 
     def test_conv2d_padding(test_case):
         arg_dict = OrderedDict()

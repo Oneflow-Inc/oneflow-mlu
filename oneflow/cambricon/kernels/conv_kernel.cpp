@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "cnnl.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
@@ -104,7 +105,6 @@ class Conv2DKernel final : public user_op::OpKernel {
     }
 
     cnnlConvolutionDescriptor_t conv_desc = nullptr;
-    cnnlConvolutionForwardAlgo_t algo = CNNL_CONVOLUTION_FWD_ALGO_DIRECT;
     OF_CNNL_CHECK(cnnlCreateConvolutionDescriptor(&conv_desc));
     
     const std::vector<int32_t>& padding = ctx->Attr<std::vector<int32_t>>("padding_before");
@@ -129,6 +129,8 @@ class Conv2DKernel final : public user_op::OpKernel {
     int dilation[2] = {dh, dw};
     int group_count = groups;
     OF_CNNL_CHECK(cnnlSetConvolutionDescriptor(conv_desc, 4, pad, stride, dilation, group_count, CNNL_DTYPE_FLOAT));
+    cnnlConvolutionForwardAlgo_t algo = CNNL_CONVOLUTION_FWD_ALGO_DIRECT;
+    OF_CNNL_CHECK(cnnlGetConvolutionForwardAlgorithm(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), conv_desc, in_desc, weight_desc, out_desc, CNNL_CONVOLUTION_FWD_FASTEST, &algo));
 
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetConvolutionForwardWorkspaceSize(
