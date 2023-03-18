@@ -68,7 +68,6 @@ class MluNormalizationKernel final : public user_op::OpKernel {
 
     size_t tmp_in_size = x->shape_view().elem_cnt() * sizeof(x->data_type());
     size_t tmp_out_size = y->shape_view().elem_cnt() * sizeof(y->data_type());
-    ;
     CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
     CnnlWorkspace tmp_out_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_size);
     void* tmp_in_dptr = tmp_in_workspace.dptr();
@@ -87,28 +86,23 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     dims[1] = h;
     dims[2] = w;
     dims[3] = c;
-    cnnlTensorDescriptor_t input_desc, output_desc, weight_bias_mean_var_desc;
+    CnnlTensorDescriptor input_desc, output_desc, weight_bias_mean_var_desc;
     cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
     auto dtype = ConvertToCnnlDataType(x->data_type());
-    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&input_desc));
-    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&output_desc));
-    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&weight_bias_mean_var_desc));
-    OF_CNNL_CHECK(cnnlSetTensorDescriptor(input_desc, layout, dtype, 4, dims));
-    OF_CNNL_CHECK(cnnlSetTensorDescriptor(output_desc, layout, dtype, 4, dims));
+    input_desc.set(x, layout, 4, dims, dtype);
+    output_desc.set(y, layout, 4, dims, dtype);
     int dim[1];
     dim[0] = c;
-    OF_CNNL_CHECK(cnnlSetTensorDescriptor(weight_bias_mean_var_desc, layout, dtype, 1, dim));
+    weight_bias_mean_var_desc.set(gamma, layout, 1, dim, dtype);
     // inference
     OF_CNNL_CHECK(cnnlBatchNormForwardInference(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc, x->dptr(),
-        weight_bias_mean_var_desc, gamma->dptr(), beta->dptr(), moving_mean->dptr(),
-        moving_variance->dptr(), epsilon, output_desc, y->mut_dptr()));
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),
+        x->dptr(), weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(),
+        moving_mean->dptr(), moving_variance->dptr(), epsilon, output_desc.desc(), y->mut_dptr()));
+
     // transpose output NHWC -> NCHW
     transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(), out_shapevec.data(),
                       y->dptr<T>(), std::vector<int>({0, 2, 3, 1}).data(), tmp_out_dptr);
-    cnnlDestroyTensorDescriptor(input_desc);
-    cnnlDestroyTensorDescriptor(output_desc);
-    cnnlDestroyTensorDescriptor(weight_bias_mean_var_desc);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

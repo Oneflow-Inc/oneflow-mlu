@@ -122,6 +122,11 @@ void CnnlTensorDescriptor::set(const user_op::Tensor* t, cnnlTensorLayout_t layo
                                           shape_info.data(), stride_info.data()));
 }
 
+void CnnlTensorDescriptor::set(const user_op::Tensor* t, cnnlTensorLayout_t layout, int ndim,
+                               const int dims[], cnnlDataType_t data_type) {
+  OF_CNNL_CHECK(cnnlSetTensorDescriptor(this->mut_desc(), layout, data_type, ndim, dims));
+}
+
 void CnnlTensorDescriptor::set(int position, float scale) {
   if (scale == 1.0f) {
     OF_CNNL_CHECK(cnnlSetTensorDescriptorPosition(this->mut_desc(), position));
