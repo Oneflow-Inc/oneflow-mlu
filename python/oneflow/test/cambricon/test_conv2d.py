@@ -17,6 +17,7 @@ limitations under the License.
 import unittest
 from collections import OrderedDict
 import os
+
 os.environ["ONEFLOW_KERNEL_ENABLE_FUSED_CONV_BIAS"] = "1"
 
 import numpy as np
@@ -1614,7 +1615,6 @@ class TestConv2d(flow.unittest.TestCase):
                 device=device,
             )
 
-
     # bias grad not yet supported
     def test_conv2d_with_bias(test_case):
         arg_dict = OrderedDict()
@@ -1683,7 +1683,6 @@ class TestConv2d(flow.unittest.TestCase):
                 device=device,
             )
 
-
     @unittest.skipIf(os.getenv("ONEFLOW_TEST_CPU_ONLY"), "only test cpu cases")
     def test_conv2d_kernel(test_case):
         arg_dict = OrderedDict()
@@ -1735,6 +1734,20 @@ class TestConv2d(flow.unittest.TestCase):
     #     arg_dict["device"] = ["mlu"]
     #     for arg in GenArgList(arg_dict):
     #         arg[0](test_case, *arg[1:])
+
+    def test_conv2d_group2(test_case):
+        conv_cpu = flow.nn.Conv2d(4, 4, (3, 3), groups=2, bias=False)
+        conv_mlu = flow.nn.Conv2d(4, 4, (3, 3), groups=2, bias=False)
+        conv_mlu.weight.copy_(conv_cpu.weight)
+        conv_mlu = conv_mlu.to("mlu")
+
+        x = flow.randn(2, 4, 4, 4)
+        out_cpu = conv_cpu(x)
+        out_mlu = conv_mlu(x.to("mlu"))
+        test_case.assertTrue(
+            np.allclose(out_mlu.cpu().numpy(), out_cpu.numpy(), 1e-4, 1e-5)
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
