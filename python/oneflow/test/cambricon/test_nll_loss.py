@@ -25,16 +25,17 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_nll_loss_forward(test_case, shape, reduction, device, dtype):
+def _test_nll_loss_forward(test_case, shape, reduction, device, dtype, has_weight):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    C = x.shape[-1]
-    N = x.nelement() // x.shape[-1]
-    target = flow.randint(0, C, (N,), dtype=flow.int).to(flow.device(device))
+    C = shape[1]
 
-    weight = random.choice([None, flow.randn(C, dtype=dtype).to(flow.device(device)),])
+    target_dims = [shape[0]] + list(shape[2:])
+    target = flow.randint(0, C, target_dims, dtype=flow.int).to(flow.device(device))
+
+    weight = None
     weight_cpu = None
-
-    if weight is not None:
+    if has_weight:
+        weight = flow.randn(C, dtype=dtype).to(flow.device(device))
         weight_cpu = weight.cpu()
         if dtype == flow.float16:
             weight_cpu = weight_cpu.float()
@@ -63,15 +64,15 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         arg_dict["test_fun"] = [
             _test_nll_loss_forward,
         ]
-        # TODO(WangYi): add more shape after to_contiguous supported
         arg_dict["shape"] = [
             (16, 32,),
-            # (8, 12, 24),
+            (8, 12, 24),
         ]
-        # TODO(Wangyi): reduce sum not supported, so only test none
+        # TODO: mean is not supported since out_weight is 0 when reduction type
+        # is CNNL_REDUCTION_NONE for cnnl cnnlNlllossForward
         arg_dict["reduction"] = [
             # "mean",
-            # "sum",
+            "sum",
             "none",
         ]
         arg_dict["device"] = ["mlu"]
@@ -79,6 +80,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
             flow.float32,
             flow.float16,
         ]
+        arg_dict["has_weight"] = [True, False]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
