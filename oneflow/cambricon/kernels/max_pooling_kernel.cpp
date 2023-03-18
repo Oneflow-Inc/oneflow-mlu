@@ -53,10 +53,13 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
     // cnnlPoolingForward_v2 requires NCHW or NHWC
     x_desc.set(x, CNNL_LAYOUT_NCHW);
     y_desc.set(y, CNNL_LAYOUT_NCHW);
+    indice_desc.set(indice, CNNL_LAYOUT_NCHW);
+
     // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32.
     // But in oneflow/user/ops/max_pool_op.cpp its dtype is set as kInt64.
     // There uses workspace to save int32 output and then copy it to int64 indice memory
-    indice_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+    CnnlTensorDescriptor int32_indice_desc;
+    int32_indice_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
                     ConvertToCnnlDataType(kInt32), CNNL_LAYOUT_NCHW);
     CnnlWorkspace int32_indice_workspace(ctx->stream()->As<ep::MluStream>(),
                                          sizeof(int32_t) * indice->shape_view().elem_cnt());
@@ -114,18 +117,16 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
         /* beta           */ nullptr,
         /* y_desc         */ y_desc.desc(),
         /* y              */ y->mut_dptr(),
-        /* index_desc     */ indice_desc.desc(),
+        /* index_desc     */ int32_indice_desc.desc(),
         /* index          */ int32_indice_workspace_ptr,
         /* workspace      */ pooling_workspace_ptr,
         /* workspace_size */ pooling_workspace_size));
 
     OF_CNNL_CHECK(cnnlDestroyPoolingDescriptor(pooling_desc));
 
-    // Segfault here
-    for (size_t i = 0; i < indice->shape_view().elem_cnt(); i++) {
-      ((int64_t*)indice->mut_dptr())[i] =
-          static_cast<int64_t>(((int32_t*)int32_indice_workspace_ptr)[i]);
-    }
+    OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                   int32_indice_desc.desc(), int32_indice_workspace_ptr, CNNL_CAST_INT32_TO_INT64, indice_desc.desc(),
+                                   indice->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
