@@ -53,8 +53,14 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
     // cnnlPoolingForward_v2 requires NCHW or NHWC
     x_desc.set(x, CNNL_LAYOUT_NCHW);
     y_desc.set(y, CNNL_LAYOUT_NCHW);
-    indice_desc.set(indice, CNNL_LAYOUT_NCHW);
-
+    // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32.
+    // But in oneflow/user/ops/max_pool_op.cpp its dtype is set as kInt64.
+    // There uses workspace to save int32 output and then copy it to int64 indice memory
+    indice_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+                    ConvertToCnnlDataType(kInt32), CNNL_LAYOUT_NCHW);
+    CnnlWorkspace int32_indice_workspace(ctx->stream()->As<ep::MluStream>(),
+                                         sizeof(int32_t) * indice->shape_view().elem_cnt());
+    void* int32_indice_workspace_ptr = int32_indice_workspace.dptr();
 
     cnnlPoolingDescriptor_t pooling_desc = nullptr;
     OF_CNNL_CHECK(cnnlCreatePoolingDescriptor(&pooling_desc));
@@ -91,12 +97,11 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
         /* extra_host_input */ &extra_input));
 
     size_t pooling_workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetPoolingWorkspaceSize(
-        /* handle           */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* mode             */ cnnlPoolingMode_t::CNNL_POOLING_MAX,
-        /* out_w_size       */ y->shape_view().At(y->shape_view().NumAxes() - 1),
-        /* out_h_size       */ y->shape_view().At(y->shape_view().NumAxes() - 2),
-        /* workspace_size   */ &pooling_workspace_size));
+    OF_CNNL_CHECK(cnnlGetPoolingWithIndexWorkspaceSize(
+        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        /* x_desc         */ x_desc.desc(),
+        /* y_desc         */ y_desc.desc(),
+        /* workspace_size */ &pooling_workspace_size));
     CnnlWorkspace pooling_workspace(ctx->stream()->As<ep::MluStream>(), pooling_workspace_size);
     void* pooling_workspace_ptr = pooling_workspace.dptr();
 
@@ -110,11 +115,17 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
         /* y_desc         */ y_desc.desc(),
         /* y              */ y->mut_dptr(),
         /* index_desc     */ indice_desc.desc(),
-        /* index          */ indice->mut_dptr(),
+        /* index          */ int32_indice_workspace_ptr,
         /* workspace      */ pooling_workspace_ptr,
         /* workspace_size */ pooling_workspace_size));
 
     OF_CNNL_CHECK(cnnlDestroyPoolingDescriptor(pooling_desc));
+
+    // Segfault here
+    for (size_t i = 0; i < indice->shape_view().elem_cnt(); i++) {
+      ((int64_t*)indice->mut_dptr())[i] =
+          static_cast<int64_t>(((int32_t*)int32_indice_workspace_ptr)[i]);
+    }
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
