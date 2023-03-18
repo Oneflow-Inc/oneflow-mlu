@@ -24,39 +24,43 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_log_softmax_forward(test_case, shape, device, dtype):
-    x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    mlu_out = flow.log_softmax(x)
-    if dtype == flow.float16:
-        cpu_out = flow.log_softmax(x.cpu().float())
-        test_case.assertTrue(
-            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.001, 0.001)
+def _test_batchnorm2d_forward(test_case, shape, device, dtype):
+    arr = np.random.randn(*shape)
+    # NOTE: mlu batchnorm only support NHWC format tensor as input, so need permutation.
+    x1 = flow.tensor(arr, device=flow.device(device), dtype=dtype)
+    x2 = flow.tensor(arr, device="cpu", dtype=dtype)
+    m1 = (
+        flow.nn.BatchNorm2d(
+            num_features=int(x1.shape[1]), track_running_stats=True, affine=False
         )
-    else:
-        cpu_out = flow.log_softmax(x.cpu())
-        test_case.assertTrue(
-            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+        .eval()
+        .to(flow.device(device))
+    )
+
+    m2 = (
+        flow.nn.BatchNorm2d(
+            num_features=int(x2.shape[1]), track_running_stats=True, affine=False
         )
+        .eval()
+        .to("cpu")
+    )
+
+    mlu_out = m1(x1)
+    cpu_out = m2(x2)
+
+    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), 0.001, 0.001))
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestLogSoftmaxCambriconModule(flow.unittest.TestCase):
-    def test_log_softmax(test_case):
+class TestBatchNormCambriconModule(flow.unittest.TestCase):
+    def test_batchnorm2d(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_log_softmax_forward,
+            _test_batchnorm2d_forward,
         ]
-        arg_dict["shape"] = [
-            (16, 32,),
-            (12, 16, 24),
-            (8, 12, 16, 24),
-            (4, 8, 12, 16, 24),
-        ]
+        arg_dict["shape"] = [(2, 3, 4, 5), (1, 2, 3, 4), (5, 6, 7, 8)]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [
-            flow.float32,
-            flow.float16,
-        ]
+        arg_dict["dtype"] = [flow.float32]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
