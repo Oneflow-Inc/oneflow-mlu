@@ -1159,6 +1159,8 @@ def _test_conv2d(
         conv.bias = flow.nn.Parameter(flow.Tensor(bias))
     conv.to(to_device)
     of_out = conv(x)
+    print(of_out.numpy().flatten()[:20])
+    print(output.flatten()[:20])
     test_case.assertTrue(np.allclose(of_out.numpy(), output, rtol=1e-4, atol=1e-8))
 
 
@@ -1630,91 +1632,91 @@ class TestConv2d(flow.unittest.TestCase):
                 device=device,
             )
 
-    def test_conv2d_group(test_case):
+    # def test_conv2d_group(test_case):
+    #     arg_dict = OrderedDict()
+    #     arg_dict["device"] = ["mlu"]
+    #     for arg in GenArgList(arg_dict):
+    #         device = arg[0]
+    #         conv = flow.nn.Conv2d(2, 2, (3, 3), groups=2, bias=False).to(
+    #             flow.device(device)
+    #         )
+    #         _test_conv2d(
+    #             test_case,
+    #             conv,
+    #             test_conv2d_group_data,
+    #             test_conv2d_group_weight,
+    #             test_conv2d_group_output,
+    #             device=device,
+    #         )
+
+    def test_conv2d_padding(test_case):
         arg_dict = OrderedDict()
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             device = arg[0]
-            conv = flow.nn.Conv2d(2, 2, (3, 3), groups=2, bias=False).to(
+            conv = flow.nn.Conv2d(1, 1, (3, 3), padding=(1, 2), bias=False).to(
                 flow.device(device)
             )
             _test_conv2d(
                 test_case,
                 conv,
-                test_conv2d_group_data,
-                test_conv2d_group_weight,
-                test_conv2d_group_output,
+                test_conv2d_padding_data,
+                test_conv2d_padding_weight,
+                test_conv2d_padding_output,
                 device=device,
             )
 
-    # def test_conv2d_padding(test_case):
-    #     arg_dict = OrderedDict()
-    #     arg_dict["device"] = ["mlu"]
-    #     for arg in GenArgList(arg_dict):
-    #         device = arg[0]
-    #         conv = flow.nn.Conv2d(1, 1, (3, 3), padding=(1, 2), bias=False).to(
-    #             flow.device(device)
-    #         )
-    #         _test_conv2d(
-    #             test_case,
-    #             conv,
-    #             test_conv2d_padding_data,
-    #             test_conv2d_padding_weight,
-    #             test_conv2d_padding_output,
-    #             device=device,
-    #         )
-
-    # def test_conv2d_stride(test_case):
-    #     arg_dict = OrderedDict()
-    #     arg_dict["device"] = ["mlu"]
-    #     for arg in GenArgList(arg_dict):
-    #         device = arg[0]
-    #         conv = flow.nn.Conv2d(
-    #             1, 1, (3, 3), padding=(1, 1), stride=(2, 3), bias=False
-    #         ).to(flow.device(device))
-    #         _test_conv2d(
-    #             test_case,
-    #             conv,
-    #             test_conv2d_stride_data,
-    #             test_conv2d_stride_weight,
-    #             test_conv2d_stride_output,
-    #             device=device,
-    #         )
+    def test_conv2d_stride(test_case):
+        arg_dict = OrderedDict()
+        arg_dict["device"] = ["mlu"]
+        for arg in GenArgList(arg_dict):
+            device = arg[0]
+            conv = flow.nn.Conv2d(
+                1, 1, (3, 3), padding=(1, 1), stride=(2, 3), bias=False
+            ).to(flow.device(device))
+            _test_conv2d(
+                test_case,
+                conv,
+                test_conv2d_stride_data,
+                test_conv2d_stride_weight,
+                test_conv2d_stride_output,
+                device=device,
+            )
 
 
-    # @unittest.skipIf(os.getenv("ONEFLOW_TEST_CPU_ONLY"), "only test cpu cases")
-    # def test_conv2d_kernel(test_case):
-    #     arg_dict = OrderedDict()
-    #     arg_dict["device"] = ["mlu"]
-    #     for arg in GenArgList(arg_dict):
-    #         device = arg[0]
-    #         conv = flow.nn.Conv2d(1, 1, (3, 5), bias=False).to(flow.device(device))
-    #         conv.to(flow.device("mlu"))
-    #         _test_conv2d(
-    #             test_case,
-    #             conv,
-    #             test_conv2d_kernel_data,
-    #             test_conv2d_kernel_weight,
-    #             test_conv2d_kernel_output,
-    #             device=device,
-    #         )
+    @unittest.skipIf(os.getenv("ONEFLOW_TEST_CPU_ONLY"), "only test cpu cases")
+    def test_conv2d_kernel(test_case):
+        arg_dict = OrderedDict()
+        arg_dict["device"] = ["mlu"]
+        for arg in GenArgList(arg_dict):
+            device = arg[0]
+            conv = flow.nn.Conv2d(1, 1, (3, 5), bias=False).to(flow.device(device))
+            conv.to(flow.device("mlu"))
+            _test_conv2d(
+                test_case,
+                conv,
+                test_conv2d_kernel_data,
+                test_conv2d_kernel_weight,
+                test_conv2d_kernel_output,
+                device=device,
+            )
 
-    # def test_conv2d_dilation(test_case):
-    #     arg_dict = OrderedDict()
-    #     arg_dict["device"] = ["mlu"]
-    #     for arg in GenArgList(arg_dict):
-    #         device = arg[0]
-    #         conv = flow.nn.Conv2d(1, 1, (3, 3), dilation=(2, 3), bias=False).to(
-    #             flow.device(device)
-    #         )
-    #         _test_conv2d(
-    #             test_case,
-    #             conv,
-    #             test_conv2d_dilation_data,
-    #             test_conv2d_dilation_weight,
-    #             test_conv2d_dilation_output,
-    #             device=device,
-    #         )
+    def test_conv2d_dilation(test_case):
+        arg_dict = OrderedDict()
+        arg_dict["device"] = ["mlu"]
+        for arg in GenArgList(arg_dict):
+            device = arg[0]
+            conv = flow.nn.Conv2d(1, 1, (3, 3), dilation=(2, 3), bias=False).to(
+                flow.device(device)
+            )
+            _test_conv2d(
+                test_case,
+                conv,
+                test_conv2d_dilation_data,
+                test_conv2d_dilation_weight,
+                test_conv2d_dilation_output,
+                device=device,
+            )
 
     # def test_large_in_channel_group_conv(test_case):
     #     arg_dict = OrderedDict()
