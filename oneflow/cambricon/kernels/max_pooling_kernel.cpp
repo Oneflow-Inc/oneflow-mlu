@@ -56,9 +56,9 @@ class MluMaxPoolKernel final : public user_op::OpKernel {
     y_desc.set(y, CNNL_LAYOUT_NCHW);
     indice_desc.set(indice, CNNL_LAYOUT_NCHW);
     // 1.
-    // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32.
+    // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32 or CNNL_DTYPE_INT16
     // But in oneflow/user/ops/max_pool_op.cpp its dtype is set as kInt64.
-    // There uses workspace to save int32 output and then copy it to int64 indice memory
+    // There uses workspace to save int32/16 output and then copy it to int64 indice memory
     // Variables start with index... represent the result of cnnlPoolingForwardWithIndex,
     // variables start with indice... represent the indices tensor of op
     // 2.
