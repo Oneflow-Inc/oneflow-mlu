@@ -149,13 +149,13 @@ class Conv2DKernel final : public user_op::OpKernel {
         OF_CNNL_CHECK(cnnlConvolutionForward(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), conv_desc, algo, nullptr, in_desc, tmp_in_ptr,
         weight_desc, tmp_weight_ptr, bias_desc, bias->dptr(),
-        &conv_workspace_ptr, workspace_size, nullptr, out_desc, tmp_out_ptr));
+        conv_workspace_ptr, workspace_size, nullptr, out_desc, tmp_out_ptr));
     }
     else{
         OF_CNNL_CHECK(cnnlConvolutionForward(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), conv_desc, algo, nullptr, in_desc, tmp_in_ptr,
         weight_desc, tmp_weight_ptr, nullptr, nullptr,
-        &conv_workspace_ptr, workspace_size, nullptr, out_desc, tmp_out_ptr));
+        conv_workspace_ptr, workspace_size, nullptr, out_desc, tmp_out_ptr));
     }
     std::vector<int64_t> out_shapevec(
         {out->shape_view().At(0), out->shape_view().At(2),
