@@ -26,7 +26,8 @@ import oneflow.unittest
 
 def _test_batchnorm2d_forward(test_case, shape, device, dtype):
     arr = np.random.randn(*shape)
-    # NOTE: mlu batchnorm only support NHWC format tensor as input, so need permutation.
+    # NOTE: mlu batchnorm only support NCHW format tensor as input
+    # and will execute auto permutation in kernel implementation(NCHW input -> NHWC(for CNNL kernel) -> NCHW output)
     x1 = flow.tensor(arr, device=flow.device(device), dtype=dtype)
     x2 = flow.tensor(arr, device="cpu", dtype=dtype)
     m1 = (
