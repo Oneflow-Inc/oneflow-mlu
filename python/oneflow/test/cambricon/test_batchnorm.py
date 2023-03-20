@@ -24,7 +24,7 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_batchnorm2d_forward(test_case, shape, device, dtype):
+def _test_batchnorm2d_infer(test_case, shape, device, dtype):
     arr = np.random.randn(*shape)
     # NOTE: mlu batchnorm only support NCHW format tensor as input
     # and will execute auto permutation in kernel implementation(NCHW input -> NHWC(for CNNL kernel) -> NCHW output)
@@ -52,12 +52,44 @@ def _test_batchnorm2d_forward(test_case, shape, device, dtype):
     test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), 0.001, 0.001))
 
 
+def _test_batchnorm2d_train(test_case, shape, device, dtype):
+    arr = np.random.randn(*shape)
+    # NOTE: mlu batchnorm only support NCHW format tensor as input
+    # and will execute auto permutation in kernel implementation(NCHW input -> NHWC(for CNNL kernel) -> NCHW output)
+    x1 = flow.tensor(arr, device=flow.device(device), dtype=dtype, requires_grad=True)
+    x2 = flow.tensor(arr, device="cpu", dtype=dtype, requires_grad=True)
+    m1 = (
+        flow.nn.BatchNorm2d(
+            num_features=int(x1.shape[1]), track_running_stats=True, affine=True
+        )
+        .train()
+        .to(flow.device(device))
+    )
+
+    m2 = (
+        flow.nn.BatchNorm2d(
+            num_features=int(x2.shape[1]), track_running_stats=True, affine=False
+        )
+        .train()
+        .to("cpu")
+    )
+
+    mlu_out = m1(x1)
+    cpu_out = m2(x2)
+
+    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), 0.001, 0.001))
+    mlu_out.sum().backward()
+    cpu_out.sum().backward()
+    test_case.assertTrue(np.allclose(x1.grad.numpy(), x2.grad.numpy(), 0.001, 0.001))
+
+
 @flow.unittest.skip_unless_1n1d()
 class TestBatchNormCambriconModule(flow.unittest.TestCase):
     def test_batchnorm2d(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_batchnorm2d_forward,
+            _test_batchnorm2d_infer,
+            _test_batchnorm2d_train,
         ]
         arg_dict["shape"] = [(2, 3, 4, 5), (1, 2, 3, 4), (5, 6, 7, 8)]
         arg_dict["device"] = ["mlu"]
