@@ -109,7 +109,7 @@ class ExecutorImpl : public Executor {
   void DestroyGroupToken(GroupToken* group_token) override;
 
  private:
-  DeviceType GetUniqueBackend(const std::vector<RequestId>& group);
+  DeviceType GetUniqueDeviceType(const std::vector<RequestId>& group);
   GroupToken* CreateGroupToken(const std::vector<RequestId>& group, void* backend_group_token);
 
   std::vector<std::unique_ptr<ExecutorBackend>> backends_;
@@ -160,7 +160,7 @@ void ExecutorImpl::DeinitJob(int64_t job_id) {
 
 GroupToken* ExecutorImpl::CreateGroupToken(const std::vector<RequestId>& group,
                                            void* backend_group_token) {
-  return new GroupToken(GetUniqueBackend(group), backend_group_token);
+  return new GroupToken(GetUniqueDeviceType(group), backend_group_token);
 }
 
 void ExecutorImpl::DestroyGroupToken(GroupToken* group_token) {
@@ -218,7 +218,7 @@ void ExecutorImpl::ExecuteGroup(GroupToken* group_token) {
   backends_.at(device_type)->ExecuteGroup(group_token->backend_group_token());
 }
 
-DeviceType ExecutorImpl::GetUniqueBackend(const std::vector<RequestId>& group) {
+DeviceType ExecutorImpl::GetUniqueDeviceType(const std::vector<RequestId>& group) {
   const DeviceType device_type =
       request_store_->MutRequestEntry(group.front())->desc().op_desc().device_type();
   request_store_->ForEachMutRequestEntryForIdsInJob(
