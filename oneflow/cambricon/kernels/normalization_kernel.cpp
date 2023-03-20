@@ -107,7 +107,8 @@ class MluNormalizationInferenceKernel final : public user_op::OpKernel {
   REGISTER_USER_KERNEL("normalization")                               \
       .SetCreateFn<MluNormalizationInferenceKernel<dtype>>()          \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
-                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value) \
+                       && (user_op::HobAttr<bool>("training") == false));
 
 REGISTER_BN_INFERENCE_MLU_KERNEL(float)
 REGISTER_BN_INFERENCE_MLU_KERNEL(float16)
@@ -211,7 +212,8 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
   REGISTER_USER_KERNEL("normalization")                               \
       .SetCreateFn<MluNormalizationTrainingKernel<dtype>>()           \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
-                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value) \
+                       && (user_op::HobAttr<bool>("training") == true));
 
 REGISTER_BN_TRAINING_MLU_KERNEL(float)
 REGISTER_BN_TRAINING_MLU_KERNEL(float16)

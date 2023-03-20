@@ -68,7 +68,7 @@ def _test_batchnorm2d_train(test_case, shape, device, dtype):
 
     m2 = (
         flow.nn.BatchNorm2d(
-            num_features=int(x2.shape[1]), track_running_stats=True, affine=False
+            num_features=int(x2.shape[1]), track_running_stats=True, affine=True
         )
         .train()
         .to("cpu")
