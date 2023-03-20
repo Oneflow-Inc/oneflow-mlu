@@ -67,18 +67,12 @@ class MluStream : public Stream {
     workspace.resize(workspace_size);
     return this;
   }
+
   const MluStream* AsignWorkSpace(CnnlWorkspace& workspace, size_t workspace_size) const {
     if (workspace.mlu_stream_ == nullptr) { workspace.mlu_stream_ = const_cast<MluStream*>(this); }
     workspace.resize(workspace_size);
     return this;
   }
-
-  // template<typename Callable, typename... Args>
-  // const MluStream* AsignWorkSpace(CnnlWorkspace& workspace, Callable cal_workspace_size,
-  //                                 Args... args) const {
-  //   size_t workspace_size = 0;
-  //   return AsignWorkSpace(workspace, cal_workspace_size, workspace_size, args...);
-  // }
 
  private:
   cnrtQueue_t mlu_stream_{};
