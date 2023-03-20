@@ -47,6 +47,28 @@ def _test_matmul_forward(test_case, shape, device, dtype):
     test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), diff, diff))
 
 
+def _test_broadcast_matmul_grad_b(test_case, shape, device, dtype):
+    alpha = np.random.randn()
+    a = np.random.randn(*shape)
+    b = np.random.randn(*shape)
+
+    # mlu
+    mlu_a = flow.tensor(a, device=flow.device(device), dtype=dtype)
+    mlu_b = flow.tensor(b, device=flow.device(device), dtype=dtype)
+    mlu_out = flow.broadcast_matmul_grad_b(
+        mlu_a, mlu_b, alpha=alpha
+    )
+    # cpu
+    cpu_a = flow.tensor(a, device=flow.device("cpu"), dtype=dtype)
+    cpu_b = flow.tensor(b, device=flow.device("cpu"), dtype=dtype)
+    cpu_out = flow.broadcast_matmul_grad_b(
+        cpu_a, cpu_b, alpha=alpha
+    )
+    # compare
+    diff = 0.0001
+    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out.numpy(), diff, diff))
+
+
 @flow.unittest.skip_unless_1n1d()
 class TestBatchMatmulCambriconModule(flow.unittest.TestCase):
     def test_matmul(test_case):
@@ -100,6 +122,21 @@ class TestBatchMatmulCambriconModule(flow.unittest.TestCase):
             ((1, 7, 3, 4), (7, 1, 4, 5), False, False,),
             ((1, 4, 3), (2, 4, 5), True, False,),
             ((1, 7, 3, 4), (7, 1, 5, 4), False, True,),
+        ]
+        arg_dict["device"] = ["mlu"]
+        arg_dict["dtype"] = [
+            flow.float,
+        ]
+        for arg in GenArgList(arg_dict):
+            arg[0](test_case, *arg[1:])
+    
+    def test_broadcast_matmul_grad_b(test_case):
+        arg_dict = OrderedDict()
+        arg_dict["test_fun"] = [
+            _test_broadcast_matmul_grad_b,
+        ]
+        arg_dict["shape"] = [
+            (1, 3, 4), (2, 4, 5), (1, 7, 3, 4), (7, 1, 5, 4)
         ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [

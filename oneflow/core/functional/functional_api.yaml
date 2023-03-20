@@ -1214,7 +1214,7 @@
 
 - name: "broadcast_matmul_grad_b"
   signature: "Tensor (Tensor a, Tensor b, Double alpha=1.0) => BroadcastMatmulGradB"
-  bind_python: False
+  bind_python: True
 
 - name: "batch_matmul"
   signature:
