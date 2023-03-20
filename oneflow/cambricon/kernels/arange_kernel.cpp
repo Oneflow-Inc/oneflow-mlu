@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/core/common/data_type.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
@@ -41,14 +42,18 @@ class MluArangeKernel final : public user_op::OpKernel {
     float step_float = 0.0;
     CnnlTensorDescriptor out_decs;
     out_decs.set(out);
+    size_t tmp_out_workspace_size =
+        out->shape_view().elem_cnt() * GetSizeOfDataType(dtype);
+    CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_workspace_size);
+    void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
     if (std::is_same_v<T, float> || std::is_same_v<T, float16>){
       start_float = static_cast<float>(ctx->Attr<double>("float_start"));
       step_float = static_cast<float>(ctx->Attr<double>("integer_delta"));
-      OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION, (void *)&start_float, (void *)&step_float, out_decs.desc(), output));
+      OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION, (void *)&start_float, (void *)&step_float, out_decs.desc(), tmp_out_ptr));
     }else{
       start_int = static_cast<int32_t>(ctx->Attr<int64_t>("integer_start"));
       step_int = static_cast<int32_t>(ctx->Attr<int64_t>("integer_delta"));
-      OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION, (void *)&start_int, (void *)&step_int, out_decs.desc(), output));
+      OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION, (void *)&start_int, (void *)&step_int, out_decs.desc(), tmp_out_ptr));
     }
     
   }
