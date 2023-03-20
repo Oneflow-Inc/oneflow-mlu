@@ -87,10 +87,10 @@ class MluSoftmaxGradKernel final : public user_op::OpKernel {
     int softmax_dim = y->shape_view().At(y_ndim - 1);
 
     CnnlTensorDescriptor y_desc, dy_desc, dx_desc;
-    std::vector<int> addentional_dims_y = {batch_dims, 1, softmax_dim};
-    y_desc.set_reshape(y, addentional_dims_y);
-    dy_desc.set_reshape(dy, addentional_dims_y);
-    dx_desc.set_reshape(dx, addentional_dims_y);
+    std::vector<int> addentional_dims = {batch_dims, 1, softmax_dim};
+    y_desc.set_reshape(y, addentional_dims);
+    dy_desc.set_reshape(dy, addentional_dims);
+    dx_desc.set_reshape(dx, addentional_dims);
 
     cnnlSoftmaxBackward(
         /* handle      */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
