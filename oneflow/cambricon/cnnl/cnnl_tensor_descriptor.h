@@ -31,6 +31,16 @@ class CnnlTensorDescriptor : public CnnlDescriptor<cnnlTensorStruct, &cnnlCreate
  public:
   // Init create Tensor descriptor
   CnnlTensorDescriptor() = default;
+  CnnlTensorDescriptor(const user_op::Tensor* t) { set(t); }  // NOLINT
+  CnnlTensorDescriptor(const user_op::Tensor* t, cnnlTensorLayout_t layout,
+                       cnnlDataType_t data_type = CNNL_DTYPE_INVALID) {
+    set(t, layout, data_type);
+  }
+  CnnlTensorDescriptor(const user_op::Tensor* t, cnnlDataType_t dtype) { set(t, dtype); }
+  CnnlTensorDescriptor(const user_op::Tensor* t, bool keep_dim, std::vector<int64_t>& keepdim_sizes,
+                       cnnlDataType_t dtype = CNNL_DTYPE_INVALID) {
+    set(t, keep_dim, keepdim_sizes, dtype);
+  }
   // set descriptor from tensor
   void set(const user_op::Tensor* t);
   void set(const user_op::Tensor* t, cnnlTensorLayout_t layout,
@@ -87,6 +97,13 @@ class CnnlTensorDescriptor : public CnnlDescriptor<cnnlTensorStruct, &cnnlCreate
   template<typename T>
   void set(int ndim, const T* shape, cnnlDataType_t data_type,
            cnnlTensorLayout_t layout = CNNL_LAYOUT_ARRAY) {
+    if (!ndim) {
+      ndim = 1;
+      std::vector<int> shape_info(1, 1);
+      OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(this->mut_desc(), CNNL_LAYOUT_ARRAY, data_type, ndim,
+                                              shape_info.data(), shape_info.data()));
+      return;
+    }
     std::vector<int> shape_info(ndim, 1);
     std::vector<int> stride_info(ndim, 1);
     int value = 1;
@@ -104,6 +121,13 @@ class CnnlTensorDescriptor : public CnnlDescriptor<cnnlTensorStruct, &cnnlCreate
   template<typename T>
   void set(int ndim, const T* shape, const T* stride, cnnlDataType_t data_type,
            cnnlTensorLayout_t layout = CNNL_LAYOUT_ARRAY) {
+    if (!ndim) {
+      ndim = 1;
+      std::vector<int> shape_info(1, 1);
+      OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(this->mut_desc(), CNNL_LAYOUT_ARRAY, data_type, ndim,
+                                              shape_info.data(), shape_info.data()));
+      return;
+    }
     std::vector<int> shape_info(ndim, 1);
     std::vector<int> stride_info(ndim, 1);
     for (int i = 0; i < ndim; ++i) {
