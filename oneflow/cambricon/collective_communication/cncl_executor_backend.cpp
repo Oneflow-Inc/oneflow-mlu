@@ -22,7 +22,8 @@ limitations under the License.
 #include "oneflow/core/control/global_process_ctx.h"
 #include "oneflow/core/job/global_for.h"
 #include "oneflow/core/thread/thread_pool.h"
-#include "oneflow/cambricon/ep/mlu_util.h"
+#include "oneflow/cambricon/common/mlu_util.h"
+#include "oneflow/cambricon/common/mlu_guard.h"
 
 #include <memory>
 #include <utility>

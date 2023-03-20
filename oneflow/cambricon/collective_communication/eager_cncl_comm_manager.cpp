@@ -23,7 +23,8 @@ limitations under the License.
 #include "oneflow/core/job/parallel_desc.h"
 #include "oneflow/core/operator/op_conf.pb.h"
 #include "oneflow/core/vm/vm_util.h"
-#include "oneflow/cambricon/ep/mlu_util.h"
+#include "oneflow/cambricon/common/mlu_util.h"
+#include "oneflow/cambricon/common/mlu_guard.h"
 #include "oneflow/core/graph/boxing/collective_boxing.pb.h"
 #include "oneflow/core/ep/include/device_manager_registry.h"
 
