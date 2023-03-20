@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 
 namespace {
@@ -68,13 +69,12 @@ class MluBroadcastAddN final : public MluBroadcastBinaryKernelBase {
                    const std::array<const void*, 2>& input_dptrs,
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
     size_t workspace_size = 0;
-    CnnlWorkspace cnnl_workspace;
-    ctx->stream()
-        ->As<ep::MluStream>()
-        ->AsignWorkSpace(cnnl_workspace, cnnlGetAddNWorkspaceSize, workspace_size,
-                         input_descs.data(), input_descs.size(), z_desc)
-        ->Launch(cnnlAddN_v2, input_descs.data(), input_dptrs.data(), input_descs.size(), z_desc,
-                 z_dtr, cnnl_workspace.dptr(), workspace_size);
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetAddNWorkspaceSize, workspace_size, input_descs.data(),
+                        input_descs.size(), z_desc)
+        .Launch(cnnlAddN_v2, input_descs.data(), input_dptrs.data(), input_descs.size(), z_desc,
+                z_dtr, cnnl_executor.GetWorkSpace(0), workspace_size);
   }
 };
 
@@ -87,13 +87,11 @@ class MluBroadcastMul final : public MluBroadcastBinaryKernelBase {
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
     const auto a_desc = input_descs.at(1);
     size_t workspace_size = 0;
-    CnnlWorkspace cnnl_workspace;
-    ctx->stream()
-        ->As<ep::MluStream>()
-        ->Launch(cnnlExpand, input_descs.at(0), input_dptrs.at(0), z_desc, z_dtr)
-        ->AsignWorkSpace(cnnl_workspace, cnnlGetAxWorkspaceSize, workspace_size, a_desc, z_desc)
-        ->Launch(cnnlAx_v2, a_desc, input_dptrs.at(1), z_desc, z_dtr, cnnl_workspace.dptr(),
-                 workspace_size);
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor.Launch(cnnlExpand, input_descs.at(0), input_dptrs.at(0), z_desc, z_dtr)
+        .AllocWorkSpace(0, cnnlGetAxWorkspaceSize, workspace_size, a_desc, z_desc)
+        .Launch(cnnlAx_v2, a_desc, input_dptrs.at(1), z_desc, z_dtr, cnnl_executor.GetWorkSpace(0),
+                workspace_size);
   }
 };
 
@@ -105,15 +103,13 @@ class MluBroadcastDiv final : public MluBroadcastBinaryKernelBase {
                    const std::array<const void*, 2>& input_dptrs,
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
     size_t workspace_size = 0;
-    CnnlWorkspace cnnl_workspace;
-
-    ctx->stream()
-        ->As<ep::MluStream>()
-        ->AsignWorkSpace(cnnl_workspace, cnnlGetDivWorkspaceSize, workspace_size, input_descs.at(0),
-                         input_descs.at(1), z_desc)
-        ->Launch(cnnlDiv_v2, CNNL_COMPUTATION_HIGH_PRECISION, input_descs.at(0), input_dptrs.at(0),
-                 input_descs.at(1), input_dptrs.at(1), cnnl_workspace.dptr(), workspace_size,
-                 z_desc, z_dtr);
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetDivWorkspaceSize, workspace_size, input_descs.at(0),
+                        input_descs.at(1), z_desc)
+        .Launch(cnnlDiv_v2, CNNL_COMPUTATION_HIGH_PRECISION, input_descs.at(0), input_dptrs.at(0),
+                input_descs.at(1), input_dptrs.at(1), cnnl_executor.GetWorkSpace(0), workspace_size,
+                z_desc, z_dtr);
   }
 };
 

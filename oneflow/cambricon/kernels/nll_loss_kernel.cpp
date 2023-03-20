@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "cnnl.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
@@ -25,6 +24,7 @@ limitations under the License.
 #include "oneflow/core/kernel/kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 
 namespace oneflow {
 
@@ -68,51 +68,47 @@ class MluNLLKernel final : public user_op::OpKernel {
     out_weight_desc.set(1, out_weight_size, ConvertToCnnlDataType(out_weight->data_type()));
 
     const void* weight_dptr = nullptr;
-    CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(), 0);
+    CnnlExecutor<2> cnnl_executor(ctx->stream());
+
     if (ctx->has_input("weight", 0)) {
       const user_op::Tensor* weight = ctx->Tensor4ArgNameAndIndex("weight", 0);
       weight_desc.set(weight);
       weight_dptr = weight->dptr();
     } else {
       // for input without weight cases
-      size_t workspace_size_for_weight = sizeof(T) * C;
-      cnnl_workspace_for_weight.resize(workspace_size_for_weight);
       const int dim_size[] = {static_cast<int>(C)};
       const int stride_size[] = {1};
       weight_desc.set(1, dim_size, stride_size, ConvertToCnnlDataType(out_weight->data_type()));
 
       T value = static_cast<T>(1.0f);
-      ctx->stream()->As<ep::MluStream>()->Launch(
-          cnnlFill_v3,
-          /* pointer_mode */ CNNL_POINTER_MODE_HOST,
-          /* value        */ &value,
-          /* output_desc  */ weight_desc.desc(),
-          /* output       */ cnnl_workspace_for_weight.dptr());
-      weight_dptr = cnnl_workspace_for_weight.dptr();
+      cnnl_executor.AllocWorkSpace(0, sizeof(T) * C)
+          .Launch(cnnlFill_v3,
+                  /* pointer_mode */ CNNL_POINTER_MODE_HOST,
+                  /* value        */ &value,
+                  /* output_desc  */ weight_desc.desc(),
+                  /* output       */ cnnl_executor.GetWorkSpace(0));
+      weight_dptr = cnnl_executor.GetWorkSpace(0);
     }
 
     size_t workspace_size = 0;
-    CnnlWorkspace cnnl_workspace;
 
-    ctx->stream()
-        ->As<ep::MluStream>()
-        ->AsignWorkSpace(cnnl_workspace, cnnlGetNlllossWorkspaceSize, workspace_size,
-                         input_desc.desc())
-        ->Launch(cnnlNlllossForward,
-                 /* algorithm      */ CNNL_REDUCTION_NONE,
-                 /* workspace      */ cnnl_workspace.dptr(),
-                 /* workspace_size */ workspace_size,
-                 /* x_desc         */ input_desc.desc(),
-                 /* x              */ input->dptr(),
-                 /* t_desc         */ target_desc.desc(),
-                 /* target         */ target->dptr(),
-                 /* ignore_index   */ ignore_index,
-                 /* w_desc         */ weight_desc.desc(),
-                 /* filter         */ weight_dptr,
-                 /* tf_desc        */ out_weight_desc.desc(),
-                 /* total_filter   */ out_weight->mut_dptr(),
-                 /* y_desc         */ output_desc.desc(),
-                 /* y              */ output->mut_dptr());
+    cnnl_executor.Launch(cnnlGetNlllossWorkspaceSize, input_desc.desc(), &workspace_size)
+        .AllocWorkSpace(1, workspace_size + sizeof(int64_t))
+        .Launch(cnnlNlllossForward,
+                /* algorithm      */ CNNL_REDUCTION_NONE,
+                /* workspace      */ cnnl_executor.GetWorkSpace(1),
+                /* workspace_size */ workspace_size,
+                /* x_desc         */ input_desc.desc(),
+                /* x              */ input->dptr(),
+                /* t_desc         */ target_desc.desc(),
+                /* target         */ target->dptr(),
+                /* ignore_index   */ ignore_index,
+                /* w_desc         */ weight_desc.desc(),
+                /* filter         */ weight_dptr,
+                /* tf_desc        */ out_weight_desc.desc(),
+                /* total_filter   */ out_weight->mut_dptr(),
+                /* y_desc         */ output_desc.desc(),
+                /* y              */ output->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

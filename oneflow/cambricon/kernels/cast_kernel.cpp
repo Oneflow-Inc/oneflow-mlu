@@ -16,6 +16,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
@@ -80,8 +81,9 @@ class MluCastKernel final : public user_op::OpKernel {
     }
 
     CnnlTensorDescriptor in_desc(in), out_decs(out);
-    ctx->stream()->As<ep::MluStream>()->Launch(cnnlCastDataType, in_desc.desc(), in->dptr(), type,
-                                               out_decs.desc(), out->mut_dptr());
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlCastDataType, in_desc.desc(), in->dptr(), type, out_decs.desc(),
+                out->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

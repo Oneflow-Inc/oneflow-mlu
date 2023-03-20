@@ -15,11 +15,13 @@ limitations under the License.
 */
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
+#include "oneflow/core/framework/stream.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 
 namespace oneflow {
@@ -46,9 +48,9 @@ class MluActivationKernel final : public user_op::OpKernel {
 void CnnlActivationForward(user_op::KernelComputeContext* ctx, const user_op::Tensor* in,
                            user_op::Tensor* out, const CnnlActivationDescriptor& activation_desc) {
   CnnlTensorDescriptor input_desc(in), output_desc(out);
-  ctx->stream()->As<ep::MluStream>()->Launch(cnnlActivationForward, activation_desc.desc(), nullptr,
-                                             input_desc.desc(), in->dptr(), nullptr,
-                                             output_desc.desc(), out->mut_dptr());
+  CnnlExecutor(ctx->stream())
+      .Launch(cnnlActivationForward, activation_desc.desc(), nullptr, input_desc.desc(), in->dptr(),
+              nullptr, output_desc.desc(), out->mut_dptr());
 }
 
 inline auto BaseActivationIsMatched(const std::string& input_name) {

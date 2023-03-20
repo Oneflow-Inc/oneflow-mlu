@@ -16,6 +16,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/ep/include/primitive/primitive.h"
 #include "oneflow/core/ep/include/primitive/broadcast_matmul.h"
@@ -70,8 +71,13 @@ void LaunchBroadcastMatmul(Stream* stream, DataType data_type, BlasTransposeType
 
   cnnlMatMulAlgo_t algo;
   cnnlMatMulHeuristicResult_t result;
+
   OF_CNNL_CHECK(cnnlMatMulAlgoCreate(&algo));
   OF_CNNL_CHECK(cnnlCreateMatMulHeuristicResult(&result));
+
+  CnnlExecutor<1> cnnl_executor(stream);
+  size_t workspace_size = 0;
+  int return_algo_count = 0;
 
   if (num_batch_dims == 0) {
     CnnlTensorDescriptor a_desc, b_desc, c_desc;
@@ -82,16 +88,18 @@ void LaunchBroadcastMatmul(Stream* stream, DataType data_type, BlasTransposeType
     b_desc.set(2, b_dims, cnnl_data_type);
     c_desc.set(2, c_dims, cnnl_data_type);
 
-    int return_algo_count = 0;
-    mlu_stream->Launch(cnnlGetMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(), b_desc.desc(),
-                       c_desc.desc(), c_desc.desc(), nullptr, 1, &result, &return_algo_count);
-    size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetMatMulHeuristicResult(result, algo, &workspace_size));
-    CnnlWorkspace workspace(mlu_stream, workspace_size);
-    // d = alpha * a * b + beta * c
-    mlu_stream->Launch(cnnlMatMul_v2, matmul_desc.desc(), algo, &cnnl_alpha, a_desc.desc(), a,
-                       b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c, workspace.dptr(),
-                       workspace_size, c_desc.desc(), c);
+    cnnl_executor
+        .Launch(cnnlGetMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(), b_desc.desc(),
+                c_desc.desc(), c_desc.desc(), nullptr, 1, &result, &return_algo_count)
+        .AllocWorkSpace(
+            0,
+            [&]() {
+              OF_CNNL_CHECK(cnnlGetMatMulHeuristicResult(result, algo, &workspace_size));
+              return workspace_size;
+            }())
+        .Launch(cnnlMatMul_v2, matmul_desc.desc(), algo, &cnnl_alpha, a_desc.desc(), a,
+                b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c, cnnl_executor.GetWorkSpace(0),
+                workspace_size, c_desc.desc(), c);
   } else {
     CnnlTensorDescriptor a_desc, b_desc, c_desc;
     std::vector<int64_t> a_dims(num_batch_dims + 2);
@@ -112,18 +120,18 @@ void LaunchBroadcastMatmul(Stream* stream, DataType data_type, BlasTransposeType
     b_desc.set(b_dims.size(), b_dims.data(), cnnl_data_type);
     c_desc.set(c_dims.size(), c_dims.data(), cnnl_data_type);
 
-    int return_algo_count = 0;
-    cnnlMatMulHeuristicResult_t result;
-    OF_CNNL_CHECK(cnnlCreateMatMulHeuristicResult(&result));
-    mlu_stream->Launch(cnnlGetBatchMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(),
-                       b_desc.desc(), c_desc.desc(), nullptr, 1, &result, &return_algo_count);
-    size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetBatchMatMulHeuristicResult(result, algo, &workspace_size));
-    CnnlWorkspace workspace(mlu_stream, workspace_size);
-    // c = alpha * a * b + beta * c
-    mlu_stream->Launch(cnnlBatchMatMulBCast_v2, matmul_desc.desc(), algo, &cnnl_alpha,
-                       a_desc.desc(), a, b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c,
-                       workspace.dptr(), workspace_size);
+    cnnl_executor
+        .Launch(cnnlGetBatchMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(), b_desc.desc(),
+                c_desc.desc(), nullptr, 1, &result, &return_algo_count)
+        .AllocWorkSpace(
+            0,
+            [&]() {
+              OF_CNNL_CHECK(cnnlGetBatchMatMulHeuristicResult(result, algo, &workspace_size));
+              return workspace_size;
+            }())
+        .Launch(cnnlBatchMatMulBCast_v2, matmul_desc.desc(), algo, &cnnl_alpha, a_desc.desc(), a,
+                b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c, cnnl_executor.GetWorkSpace(0),
+                workspace_size);
   }
 
   // destory matmul result and algo handle

@@ -88,9 +88,7 @@ cnrtQueue_t MluStream::mlu_stream() const { return mlu_stream_; }
 
 cnnlHandle_t MluStream::cnnl_handle() const { return cnnl_handle_; }
 
-CnnlWorkspace MluStream::NewCnnlWorkspace(size_t workspace_size) {
-  return CnnlWorkspace(this, workspace_size);
-}
+
 
 }  // namespace ep
 }  // namespace oneflow

@@ -22,6 +22,7 @@ limitations under the License.
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 
 namespace oneflow {
 
@@ -46,16 +47,17 @@ class MluLogSoftmaxKernel final : public user_op::OpKernel {
     std::vector<int> addentional_dims_output = {batch_dims, 1, softmax_dim};
     input_desc.set_reshape(in, addentional_dims_input);
     output_desc.set_reshape(out, addentional_dims_output);
-    ctx->stream()->As<ep::MluStream>()->Launch(cnnlSoftmaxForward_v2,
-                                               /* algorithm */ CNNL_SOFTMAX_LOG,
-                                               /* mode      */ CNNL_SOFTMAX_MODE_LOW_DIMENSION,
-                                               /* prefer    */ CNNL_COMPUTATION_HIGH_PRECISION,
-                                               /* alpha     */ nullptr,
-                                               /* x_desc    */ input_desc.desc(),
-                                               /* x         */ in->dptr(),
-                                               /* beta      */ nullptr,
-                                               /* y_desc    */ output_desc.desc(),
-                                               /* y         */ out->mut_dptr());
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlSoftmaxForward_v2,
+                /* algorithm */ CNNL_SOFTMAX_LOG,
+                /* mode      */ CNNL_SOFTMAX_MODE_LOW_DIMENSION,
+                /* prefer    */ CNNL_COMPUTATION_HIGH_PRECISION,
+                /* alpha     */ nullptr,
+                /* x_desc    */ input_desc.desc(),
+                /* x         */ in->dptr(),
+                /* beta      */ nullptr,
+                /* y_desc    */ output_desc.desc(),
+                /* y         */ out->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

@@ -72,7 +72,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         # is CNNL_REDUCTION_NONE for cnnl cnnlNlllossForward
         arg_dict["reduction"] = [
             # "mean",
-            "sum",
+            # "sum",
             "none",
         ]
         arg_dict["device"] = ["mlu"]

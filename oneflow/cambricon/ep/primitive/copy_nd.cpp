@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/ep/include/primitive/copy_nd.h"
 #include "oneflow/core/ep/common/primitive/copy_nd.h"
@@ -51,8 +52,8 @@ class CopyNdImpl : public CopyNd {
     CnnlTensorDescriptor input_desc, output_desc;
     input_desc.set(num_dims, src_dims, cnnl_data_type);
     output_desc.set(num_dims, dst_dims, cnnl_data_type);
-    stream->As<ep::MluStream>()->Launch(cnnlStridedSlice, input_desc.desc(), src, begin.data(),
-                                        end.data(), stride.data(), output_desc.desc(), dst);
+    CnnlExecutor(stream).Launch(cnnlStridedSlice, input_desc.desc(), src, begin.data(), end.data(),
+                                stride.data(), output_desc.desc(), dst);
   }
 };
 

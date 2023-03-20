@@ -18,9 +18,6 @@ limitations under the License.
 
 namespace oneflow {
 
-CnnlWorkspace::CnnlWorkspace()
-    : mlu_stream_(nullptr), size_(0), capacity_(0), workspace_dptr_(nullptr) {}
-
 CnnlWorkspace::CnnlWorkspace(ep::MluStream* stream, size_t workspace_size)
     : mlu_stream_(stream),
       size_(workspace_size),

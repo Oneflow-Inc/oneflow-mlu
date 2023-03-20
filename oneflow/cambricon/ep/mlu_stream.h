@@ -20,7 +20,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/core/ep/include/stream.h"
 #include "oneflow/core/vm/caching_allocator.h"
-#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+
 
 namespace oneflow {
 
@@ -50,29 +50,6 @@ class MluStream : public Stream {
   cnnlHandle_t cnnl_handle() const;
 
   vm::CachingAllocator* workspace_allocator() { return workspace_allocator_.get(); }
-
-  CnnlWorkspace NewCnnlWorkspace(size_t workspace_size = 0);
-
-  template<typename Callable, typename... Args>
-  const MluStream* Launch(Callable cnnl_func, Args... args) const {
-    OF_CNNL_CHECK(std::invoke(cnnl_func, cnnl_handle(), args...));
-    return this;
-  }
-
-  template<typename Callable, typename... Args>
-  const MluStream* AsignWorkSpace(CnnlWorkspace& workspace, Callable cal_workspace_size,
-                                  size_t& workspace_size, Args... args) const {
-    OF_CNNL_CHECK(std::invoke(cal_workspace_size, cnnl_handle(), args..., &workspace_size));
-    if (workspace.mlu_stream_ == nullptr) { workspace.mlu_stream_ = const_cast<MluStream*>(this); }
-    workspace.resize(workspace_size);
-    return this;
-  }
-
-  const MluStream* AsignWorkSpace(CnnlWorkspace& workspace, size_t workspace_size) const {
-    if (workspace.mlu_stream_ == nullptr) { workspace.mlu_stream_ = const_cast<MluStream*>(this); }
-    workspace.resize(workspace_size);
-    return this;
-  }
 
  private:
   cnrtQueue_t mlu_stream_{};

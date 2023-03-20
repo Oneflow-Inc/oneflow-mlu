@@ -25,10 +25,7 @@ class MluStream;
 }
 
 class CnnlWorkspace {
-  friend class ep::MluStream;
-
  public:
-  CnnlWorkspace();
   CnnlWorkspace(ep::MluStream* stream, size_t workspace_size = 0);
   ~CnnlWorkspace();
 

@@ -20,6 +20,7 @@ limitations under the License.
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/core/ep/include/primitive/permute.h"
 
@@ -89,10 +90,10 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     int dim[1] = {c};
     weight_bias_mean_var_desc.set(1, dim, dtype, CNNL_LAYOUT_NHWC);
     // inference
-    ctx->stream()->As<ep::MluStream>()->Launch(
-        cnnlBatchNormForwardInference, nullptr, nullptr, input_desc.desc(), x->dptr(),
-        weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(), moving_mean->dptr(),
-        moving_variance->dptr(), epsilon, output_desc.desc(), y->mut_dptr());
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlBatchNormForwardInference, nullptr, nullptr, input_desc.desc(), x->dptr(),
+                weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(), moving_mean->dptr(),
+                moving_variance->dptr(), epsilon, output_desc.desc(), y->mut_dptr());
 
     // transpose output NHWC -> NCHW
     transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(), out_shapevec.data(),
