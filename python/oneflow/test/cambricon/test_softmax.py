@@ -39,7 +39,7 @@ def _test_softmax_forward(test_case, shape, device, dtype):
         )
 
 
-def _test_softmax_backward(test_case, shape, device, dtype):
+def _test_softmax_backward(test_case, shape, dtype):
     x_np = np.random.randn(*shape)
     y_grad_np = np.random.randn(*shape)
 
@@ -113,7 +113,6 @@ class TestSoftmaxCambriconModule(flow.unittest.TestCase):
             (8, 12, 16, 24),
             (4, 8, 12, 16, 24),
         ]
-        arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
             flow.float16,
