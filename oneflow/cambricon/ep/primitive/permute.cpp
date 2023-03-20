@@ -48,15 +48,12 @@ class PermuteImpl : public Permute {
     output_desc.set(num_dims, dst_dims, cnnl_data_type);
 
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetTransposeWorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
-                                                input_desc.desc(), tran_desc.desc(),
-                                                &workspace_size));
-    CnnlWorkspace cnnl_workspace(stream->As<ep::MluStream>(), workspace_size);
-    void* transpose_workspace = cnnl_workspace.dptr();
-
-    OF_CNNL_CHECK(cnnlTranspose_v2(stream->As<ep::MluStream>()->cnnl_handle(), tran_desc.desc(),
-                                   input_desc.desc(), src, output_desc.desc(), dst,
-                                   transpose_workspace, workspace_size));
+    CnnlWorkspace cnnl_workspace;
+    stream->As<ep::MluStream>()
+        ->AsignWorkSpace(cnnl_workspace, cnnlGetTransposeWorkspaceSize, workspace_size,
+                         input_desc.desc(), tran_desc.desc())
+        ->Launch(cnnlTranspose_v2, tran_desc.desc(), input_desc.desc(), src, output_desc.desc(),
+                 dst, cnnl_workspace.dptr(), workspace_size);
   }
 };
 

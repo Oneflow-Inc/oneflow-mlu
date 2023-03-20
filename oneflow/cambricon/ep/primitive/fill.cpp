@@ -52,8 +52,8 @@ class FillImpl : public Fill {
     int64_t out_dims[1];
     out_dims[0] = count;
     out_decs.set(1, out_dims, cnnl_data_type);
-    OF_CNNL_CHECK(cnnlFill_v3(stream->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST,
-                              &dst_value, out_decs.desc(), dst));
+    stream->As<ep::MluStream>()->Launch(cnnlFill_v3, CNNL_POINTER_MODE_HOST, &dst_value,
+                                        out_decs.desc(), dst);
   }
 };
 

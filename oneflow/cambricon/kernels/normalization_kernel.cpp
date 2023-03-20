@@ -89,10 +89,10 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     int dim[1] = {c};
     weight_bias_mean_var_desc.set(1, dim, dtype, CNNL_LAYOUT_NHWC);
     // inference
-    OF_CNNL_CHECK(cnnlBatchNormForwardInference(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),
-        x->dptr(), weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(),
-        moving_mean->dptr(), moving_variance->dptr(), epsilon, output_desc.desc(), y->mut_dptr()));
+    ctx->stream()->As<ep::MluStream>()->Launch(
+        cnnlBatchNormForwardInference, nullptr, nullptr, input_desc.desc(), x->dptr(),
+        weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(), moving_mean->dptr(),
+        moving_variance->dptr(), epsilon, output_desc.desc(), y->mut_dptr());
 
     // transpose output NHWC -> NCHW
     transpose->Launch(ctx->stream(), y->data_type(), y->shape_view().NumAxes(), out_shapevec.data(),

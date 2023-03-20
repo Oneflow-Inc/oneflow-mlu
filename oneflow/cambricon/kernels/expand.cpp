@@ -38,8 +38,8 @@ class MluExpandKernel final : public user_op::OpKernel, public user_op::CudaGrap
       return;
     }
     CnnlTensorDescriptor in_desc(in), out_desc(out);
-    OF_CNNL_CHECK(cnnlExpand(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc.desc(),
-                             in->dptr(), out_desc.desc(), out->mut_dptr()));
+    ctx->stream()->As<ep::MluStream>()->Launch(cnnlExpand, in_desc.desc(), in->dptr(),
+                                               out_desc.desc(), out->mut_dptr());
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };

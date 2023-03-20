@@ -82,38 +82,37 @@ class MluNLLKernel final : public user_op::OpKernel {
       weight_desc.set(1, dim_size, stride_size, ConvertToCnnlDataType(out_weight->data_type()));
 
       T value = static_cast<T>(1.0f);
-      OF_CNNL_CHECK(cnnlFill_v3(
-          /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+      ctx->stream()->As<ep::MluStream>()->Launch(
+          cnnlFill_v3,
           /* pointer_mode */ CNNL_POINTER_MODE_HOST,
           /* value        */ &value,
           /* output_desc  */ weight_desc.desc(),
-          /* output       */ cnnl_workspace_for_weight.dptr()));
+          /* output       */ cnnl_workspace_for_weight.dptr());
       weight_dptr = cnnl_workspace_for_weight.dptr();
     }
 
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetNlllossWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                              input_desc.desc(), &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                 workspace_size + sizeof(int64_t));
-    void* workspace = cnnl_workspace.dptr();
+    CnnlWorkspace cnnl_workspace;
 
-    OF_CNNL_CHECK(cnnlNlllossForward(
-        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* algorithm      */ CNNL_REDUCTION_NONE,
-        /* workspace      */ workspace,
-        /* workspace_size */ workspace_size,
-        /* x_desc         */ input_desc.desc(),
-        /* x              */ input->dptr(),
-        /* t_desc         */ target_desc.desc(),
-        /* target         */ target->dptr(),
-        /* ignore_index   */ ignore_index,
-        /* w_desc         */ weight_desc.desc(),
-        /* filter         */ weight_dptr,
-        /* tf_desc        */ out_weight_desc.desc(),
-        /* total_filter   */ out_weight->mut_dptr(),
-        /* y_desc         */ output_desc.desc(),
-        /* y              */ output->mut_dptr()));
+    ctx->stream()
+        ->As<ep::MluStream>()
+        ->AsignWorkSpace(cnnl_workspace, cnnlGetNlllossWorkspaceSize, workspace_size,
+                         input_desc.desc())
+        ->Launch(cnnlNlllossForward,
+                 /* algorithm      */ CNNL_REDUCTION_NONE,
+                 /* workspace      */ cnnl_workspace.dptr(),
+                 /* workspace_size */ workspace_size,
+                 /* x_desc         */ input_desc.desc(),
+                 /* x              */ input->dptr(),
+                 /* t_desc         */ target_desc.desc(),
+                 /* target         */ target->dptr(),
+                 /* ignore_index   */ ignore_index,
+                 /* w_desc         */ weight_desc.desc(),
+                 /* filter         */ weight_dptr,
+                 /* tf_desc        */ out_weight_desc.desc(),
+                 /* total_filter   */ out_weight->mut_dptr(),
+                 /* y_desc         */ output_desc.desc(),
+                 /* y              */ output->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

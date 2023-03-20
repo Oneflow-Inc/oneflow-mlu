@@ -83,16 +83,15 @@ void LaunchBroadcastMatmul(Stream* stream, DataType data_type, BlasTransposeType
     c_desc.set(2, c_dims, cnnl_data_type);
 
     int return_algo_count = 0;
-    OF_CNNL_CHECK(cnnlGetMatMulAlgoHeuristic(mlu_stream->cnnl_handle(), matmul_desc.desc(),
-                                             a_desc.desc(), b_desc.desc(), c_desc.desc(),
-                                             c_desc.desc(), NULL, 1, &result, &return_algo_count));
+    mlu_stream->Launch(cnnlGetMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(), b_desc.desc(),
+                       c_desc.desc(), c_desc.desc(), nullptr, 1, &result, &return_algo_count);
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetMatMulHeuristicResult(result, algo, &workspace_size));
     CnnlWorkspace workspace(mlu_stream, workspace_size);
     // d = alpha * a * b + beta * c
-    OF_CNNL_CHECK(cnnlMatMul_v2(mlu_stream->cnnl_handle(), matmul_desc.desc(), algo, &cnnl_alpha,
-                                a_desc.desc(), a, b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c,
-                                workspace.dptr(), workspace_size, c_desc.desc(), c));
+    mlu_stream->Launch(cnnlMatMul_v2, matmul_desc.desc(), algo, &cnnl_alpha, a_desc.desc(), a,
+                       b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c, workspace.dptr(),
+                       workspace_size, c_desc.desc(), c);
   } else {
     CnnlTensorDescriptor a_desc, b_desc, c_desc;
     std::vector<int64_t> a_dims(num_batch_dims + 2);
@@ -116,16 +115,15 @@ void LaunchBroadcastMatmul(Stream* stream, DataType data_type, BlasTransposeType
     int return_algo_count = 0;
     cnnlMatMulHeuristicResult_t result;
     OF_CNNL_CHECK(cnnlCreateMatMulHeuristicResult(&result));
-    OF_CNNL_CHECK(cnnlGetBatchMatMulAlgoHeuristic(mlu_stream->cnnl_handle(), matmul_desc.desc(),
-                                                  a_desc.desc(), b_desc.desc(), c_desc.desc(), NULL,
-                                                  1, &result, &return_algo_count));
+    mlu_stream->Launch(cnnlGetBatchMatMulAlgoHeuristic, matmul_desc.desc(), a_desc.desc(),
+                       b_desc.desc(), c_desc.desc(), nullptr, 1, &result, &return_algo_count);
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetBatchMatMulHeuristicResult(result, algo, &workspace_size));
     CnnlWorkspace workspace(mlu_stream, workspace_size);
     // c = alpha * a * b + beta * c
-    OF_CNNL_CHECK(cnnlBatchMatMulBCast_v2(
-        mlu_stream->cnnl_handle(), matmul_desc.desc(), algo, &cnnl_alpha, a_desc.desc(), a,
-        b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c, workspace.dptr(), workspace_size));
+    mlu_stream->Launch(cnnlBatchMatMulBCast_v2, matmul_desc.desc(), algo, &cnnl_alpha,
+                       a_desc.desc(), a, b_desc.desc(), b, &cnnl_beta, c_desc.desc(), c,
+                       workspace.dptr(), workspace_size);
   }
 
   // destory matmul result and algo handle

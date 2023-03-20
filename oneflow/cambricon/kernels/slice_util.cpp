@@ -47,9 +47,8 @@ void SliceKernelUtil::Forward(ep::Stream* stream, const SliceParams& params, Dat
   CnnlTensorDescriptor input_desc, output_desc;
   input_desc.set(params.ndim, params.dims, params.stride, cnnl_data_type);
   output_desc.set(params.ndim, params.size, cnnl_data_type);
-  OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
-                                 entire, begin.data(), end.data(), stride.data(),
-                                 output_desc.desc(), sliced));
+  stream->As<ep::MluStream>()->Launch(cnnlStridedSlice, input_desc.desc(), entire, begin.data(),
+                                      end.data(), stride.data(), output_desc.desc(), sliced);
 }
 
 void SliceKernelUtil::Forward(ep::Stream* stream, const SliceParams& entire_params,
@@ -82,10 +81,10 @@ void SliceKernelUtil::Forward(ep::Stream* stream, const SliceParams& entire_para
     }
     return true;
   }();
+  const auto mlu_stream = stream->As<ep::MluStream>();
   if (input_has_0_stride) {
-    OF_CNNL_CHECK(cnnlFill_v3(stream->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_DEVICE,
-                              entire, output_desc.desc(),
-                              reinterpret_cast<char*>(sliced) + sliced_start));
+    mlu_stream->Launch(cnnlFill_v3, CNNL_POINTER_MODE_DEVICE, entire, output_desc.desc(),
+                       reinterpret_cast<char*>(sliced) + sliced_start);
     return;
   }
 
@@ -97,29 +96,27 @@ void SliceKernelUtil::Forward(ep::Stream* stream, const SliceParams& entire_para
     temp_entire.resize(entire_params.elem_cnt() * element_size);
     CnnlTensorDescriptor temp_entire_desc;
     temp_entire_desc.set(entire_params.ndim, entire_params.size, cnnl_data_type);
-
-    OF_CNNL_CHECK(cnnlCopy(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), entire,
-                           temp_entire_desc.desc(), temp_entire.dptr()));
+    mlu_stream->Launch(cnnlCopy, input_desc.desc(), entire, temp_entire_desc.desc(),
+                       temp_entire.dptr());
     contiguous_entire = temp_entire.dptr();
     input_desc = std::move(temp_entire_desc);
   }
 
   // cnnlStridedSlice does not support non-contiguous output.
   if (IsContiguous(sliced_params.ndim, sliced_params.size, sliced_stride.data())) {
-    OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
-                                   contiguous_entire, begin.data(), end.data(), stride.data(),
-                                   output_desc.desc(),
-                                   reinterpret_cast<char*>(sliced) + sliced_start));
+    mlu_stream->Launch(cnnlStridedSlice, input_desc.desc(), contiguous_entire, begin.data(),
+                       end.data(), stride.data(), output_desc.desc(),
+                       reinterpret_cast<char*>(sliced) + sliced_start);
+
   } else {
     CnnlWorkspace temp(stream->As<ep::MluStream>(), sliced_params.elem_cnt() * element_size);
     CnnlTensorDescriptor temp_desc;
     temp_desc.set(sliced_params.ndim, sliced_params.size, cnnl_data_type);
-    OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
-                                   contiguous_entire, begin.data(), end.data(), stride.data(),
-                                   temp_desc.desc(), temp.dptr()));
-    OF_CNNL_CHECK(cnnlCopy(stream->As<ep::MluStream>()->cnnl_handle(), temp_desc.desc(),
-                           temp.dptr(), output_desc.desc(),
-                           reinterpret_cast<char*>(sliced) + sliced_start));
+    mlu_stream
+        ->Launch(cnnlStridedSlice, input_desc.desc(), contiguous_entire, begin.data(), end.data(),
+                 stride.data(), temp_desc.desc(), temp.dptr())
+        ->Launch(cnnlCopy, temp_desc.desc(), temp.dptr(), output_desc.desc(),
+                 reinterpret_cast<char*>(sliced) + sliced_start);
   }
 }
 

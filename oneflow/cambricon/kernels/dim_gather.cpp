@@ -36,9 +36,9 @@ class MluDimGatherKernel final : public user_op::OpKernel {
     const int32_t dim = ctx->Attr<int32_t>("dim");
 
     CnnlTensorDescriptor in_desc(in), index_desc(index), out_desc(out);
-    OF_CNNL_CHECK(cnnlGather(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), dim, in_desc.desc(),
-                             in->dptr(), index_desc.desc(), index->dptr(), out_desc.desc(),
-                             out->mut_dptr()));
+    ctx->stream()->As<ep::MluStream>()->Launch(cnnlGather, dim, in_desc.desc(), in->dptr(),
+                                               index_desc.desc(), index->dptr(), out_desc.desc(),
+                                               out->mut_dptr());
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };

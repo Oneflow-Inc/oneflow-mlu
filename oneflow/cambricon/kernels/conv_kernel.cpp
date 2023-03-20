@@ -166,21 +166,21 @@ class Conv2DKernel final : public user_op::OpKernel {
       bias_desc.set(1, bias_sizes, cnnl_data_type, layout);
       bias_ptr = bias->dptr();
     }
+
     cnnlConvolutionForwardAlgo_t algo;
-    OF_CNNL_CHECK(cnnlGetConvolutionForwardAlgorithm(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), conv_desc.desc(), input_desc.desc(),
-        weight_desc.desc(), output_desc.desc(), CNNL_CONVOLUTION_FWD_FASTEST, &algo));
-
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetConvolutionForwardWorkspaceSize(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), weight_desc.desc(),
-        output_desc.desc(), bias_desc.desc(), conv_desc.desc(), algo, &workspace_size));
-    CnnlWorkspace workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
+    CnnlWorkspace workspace;
 
-    OF_CNNL_CHECK(cnnlConvolutionForward(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), conv_desc.desc(), algo, nullptr,
-        input_desc.desc(), input_ptr, weight_desc.desc(), weight_ptr, bias_desc.desc(), bias_ptr,
-        workspace.dptr(), workspace_size, nullptr, output_desc.desc(), output_ptr));
+    ctx->stream()
+        ->As<ep::MluStream>()
+        ->Launch(cnnlGetConvolutionForwardAlgorithm, conv_desc.desc(), input_desc.desc(),
+                 weight_desc.desc(), output_desc.desc(), CNNL_CONVOLUTION_FWD_FASTEST, &algo)
+        ->AsignWorkSpace(workspace, cnnlGetConvolutionForwardWorkspaceSize, workspace_size,
+                         input_desc.desc(), weight_desc.desc(), output_desc.desc(),
+                         bias_desc.desc(), conv_desc.desc(), algo)
+        ->Launch(cnnlConvolutionForward, conv_desc.desc(), algo, nullptr, input_desc.desc(),
+                 input_ptr, weight_desc.desc(), weight_ptr, bias_desc.desc(), bias_ptr,
+                 workspace.dptr(), workspace_size, nullptr, output_desc.desc(), output_ptr);
 
     if (data_format != "channels_last") {
       auto transpose = NewPermutePrimitive(ctx, out_shape.NumAxes());

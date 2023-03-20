@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/ep/primitive/type_seq.h"
+#include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/ep/common/primitive/broadcast_elementwise_binary.h"
 #include "oneflow/core/ep/include/primitive/fill.h"
 
@@ -82,14 +83,13 @@ class BinaryLogical : public BroadcastElementwiseBinary {
     }
     dst_desc.set(dst_dims.size(), dst_dims.data(), dst_dtype_);
 
+    CnnlWorkspace workspace;
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetLogicOpWorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
-                                              src0_desc.desc(), src1_desc.desc(), dst_desc.desc(),
-                                              &workspace_size));
-    CnnlWorkspace workspace(stream->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlLogicOp(stream->As<ep::MluStream>()->cnnl_handle(), logical_op_,
-                              src0_desc.desc(), src0, src1_desc.desc(), src1, workspace.dptr(),
-                              workspace_size, dst_desc.desc(), dst));
+    stream->As<ep::MluStream>()
+        ->AsignWorkSpace(workspace, cnnlGetLogicOpWorkspaceSize, workspace_size, src0_desc.desc(),
+                         src1_desc.desc(), dst_desc.desc())
+        ->Launch(cnnlLogicOp, logical_op_, src0_desc.desc(), src0, src1_desc.desc(), src1,
+                 workspace.dptr(), workspace_size, dst_desc.desc(), dst);
   }
 
   void Launch(Stream* stream, Scalar src0, size_t num_src1_dims, const int64_t* src1_dims,

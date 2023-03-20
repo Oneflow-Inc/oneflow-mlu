@@ -14,8 +14,12 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/ep/mlu_stream.h"
 
 namespace oneflow {
+
+CnnlWorkspace::CnnlWorkspace()
+    : mlu_stream_(nullptr), size_(0), capacity_(0), workspace_dptr_(nullptr) {}
 
 CnnlWorkspace::CnnlWorkspace(ep::MluStream* stream, size_t workspace_size)
     : mlu_stream_(stream),

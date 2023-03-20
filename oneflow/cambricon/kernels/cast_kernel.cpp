@@ -79,12 +79,9 @@ class MluCastKernel final : public user_op::OpKernel {
       UNIMPLEMENTED();
     }
 
-    CnnlTensorDescriptor in_desc, out_decs;
-    in_desc.set(in);
-    out_decs.set(out);
-    OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                   in_desc.desc(), in->dptr(), type, out_decs.desc(),
-                                   out->mut_dptr()));
+    CnnlTensorDescriptor in_desc(in), out_decs(out);
+    ctx->stream()->As<ep::MluStream>()->Launch(cnnlCastDataType, in_desc.desc(), in->dptr(), type,
+                                               out_decs.desc(), out->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

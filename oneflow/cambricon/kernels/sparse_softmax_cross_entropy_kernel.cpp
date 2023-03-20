@@ -47,11 +47,11 @@ class MluSparseSoftmaxCrossEntropyKernel final : public user_op::OpKernel {
     out_desc.set(out);
 
     // prob means the gradients.
-    OF_CNNL_CHECK(cnnlSparseSoftmaxCrossEntropyWithLogits_v2(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION,
+    ctx->stream()->As<ep::MluStream>()->Launch(
+        cnnlSparseSoftmaxCrossEntropyWithLogits_v2, CNNL_COMPUTATION_HIGH_PRECISION,
         CNNL_SOFTMAX_MODE_LOW_DIMENSION, prediction_desc.desc(), prediction->dptr(),
         label_desc.desc(), label->dptr(), out_desc.desc(), out->mut_dptr(), prob_desc.desc(),
-        prob->mut_dptr()));
+        prob->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

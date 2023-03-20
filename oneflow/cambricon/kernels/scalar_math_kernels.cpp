@@ -100,11 +100,9 @@ void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0, const use
                                   << num_axes << " <= " << CNNL_DIM_MAX << ")";
   TransformParams params;
   SetTransformParams<op, T>(src0, params);
-  CnnlTensorDescriptor input_desc;
-  input_desc.set(in);
-  auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
-  OF_CNNL_CHECK(cnnlTransform(handle, &params.alpha, input_desc.desc(), in->dptr(), &params.beta,
-                              out->mut_dptr()));
+  CnnlTensorDescriptor input_desc(in);
+  ctx->stream()->As<ep::MluStream>()->Launch(cnnlTransform, &params.alpha, input_desc.desc(),
+                                             in->dptr(), &params.beta, out->mut_dptr());
 }
 
 }  // namespace

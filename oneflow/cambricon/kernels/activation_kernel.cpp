@@ -45,12 +45,10 @@ class MluActivationKernel final : public user_op::OpKernel {
 
 void CnnlActivationForward(user_op::KernelComputeContext* ctx, const user_op::Tensor* in,
                            user_op::Tensor* out, const CnnlActivationDescriptor& activation_desc) {
-  CnnlTensorDescriptor input_desc, output_desc;
-  input_desc.set(in);
-  output_desc.set(out);
-  OF_CNNL_CHECK(cnnlActivationForward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                      activation_desc.desc(), nullptr, input_desc.desc(),
-                                      in->dptr(), nullptr, output_desc.desc(), out->mut_dptr()));
+  CnnlTensorDescriptor input_desc(in), output_desc(out);
+  ctx->stream()->As<ep::MluStream>()->Launch(cnnlActivationForward, activation_desc.desc(), nullptr,
+                                             input_desc.desc(), in->dptr(), nullptr,
+                                             output_desc.desc(), out->mut_dptr());
 }
 
 inline auto BaseActivationIsMatched(const std::string& input_name) {

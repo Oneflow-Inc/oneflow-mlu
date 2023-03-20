@@ -53,11 +53,9 @@ class MluAddNKernel final : public user_op::OpKernel {
     // Set 0 since oneflow addn has no broadcasting.
     size_t addn_workspace_size = 0;
     void* addn_workspace = nullptr;
-
-    OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                              input_descs_vec.data(), input_dptrs_vec.data(), in_num,
-                              output_desc.desc(), out->mut_dptr(), addn_workspace,
-                              addn_workspace_size));
+    ctx->stream()->As<ep::MluStream>()->Launch(
+        cnnlAddN_v2, input_descs_vec.data(), input_dptrs_vec.data(), in_num, output_desc.desc(),
+        out->mut_dptr(), addn_workspace, addn_workspace_size);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
