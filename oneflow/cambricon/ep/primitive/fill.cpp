@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/ep/include/primitive/fill.h"
 #include "oneflow/core/ep/cpu/primitive/type_seq.h"
@@ -52,8 +53,8 @@ class FillImpl : public Fill {
     int64_t out_dims[1];
     out_dims[0] = count;
     out_decs.set(1, out_dims, cnnl_data_type);
-    OF_CNNL_CHECK(cnnlFill_v3(stream->As<ep::MluStream>()->cnnl_handle(), CNNL_POINTER_MODE_HOST,
-                              &dst_value, out_decs.desc(), dst));
+    CnnlExecutor(stream).Launch(cnnlFill_v3, CNNL_POINTER_MODE_HOST, &dst_value, out_decs.desc(),
+                                dst);
   }
 };
 

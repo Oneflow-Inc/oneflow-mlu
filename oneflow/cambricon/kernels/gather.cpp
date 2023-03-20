@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/core/kernel/cuda_graph_support.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 
 namespace oneflow {
 
@@ -38,9 +39,9 @@ class MluGatherKernel final : public user_op::OpKernel, public user_op::CudaGrap
     if (out->shape_view().elem_cnt() == 0) { return; }
 
     CnnlTensorDescriptor in_desc(in), indices_desc(indices), out_desc(out);
-    OF_CNNL_CHECK(cnnlIndexSelect(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), axis,
-                                  in_desc.desc(), in->dptr(), indices_desc.desc(), indices->dptr(),
-                                  out_desc.desc(), out->mut_dptr()));
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlIndexSelect, axis, in_desc.desc(), in->dptr(), indices_desc.desc(),
+                indices->dptr(), out_desc.desc(), out->mut_dptr());
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };

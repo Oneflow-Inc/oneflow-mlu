@@ -16,6 +16,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 
@@ -47,11 +48,11 @@ class MluSparseSoftmaxCrossEntropyKernel final : public user_op::OpKernel {
     out_desc.set(out);
 
     // prob means the gradients.
-    OF_CNNL_CHECK(cnnlSparseSoftmaxCrossEntropyWithLogits_v2(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), CNNL_COMPUTATION_HIGH_PRECISION,
-        CNNL_SOFTMAX_MODE_LOW_DIMENSION, prediction_desc.desc(), prediction->dptr(),
-        label_desc.desc(), label->dptr(), out_desc.desc(), out->mut_dptr(), prob_desc.desc(),
-        prob->mut_dptr()));
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlSparseSoftmaxCrossEntropyWithLogits_v2, CNNL_COMPUTATION_HIGH_PRECISION,
+                CNNL_SOFTMAX_MODE_LOW_DIMENSION, prediction_desc.desc(), prediction->dptr(),
+                label_desc.desc(), label->dptr(), out_desc.desc(), out->mut_dptr(),
+                prob_desc.desc(), prob->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

@@ -16,9 +16,13 @@ limitations under the License.
 #ifndef ONEFLOW_CAMBRICON_CNNL_CNNL_WORKSPACE_H_
 #define ONEFLOW_CAMBRICON_CNNL_CNNL_WORKSPACE_H_
 
-#include "oneflow/cambricon/ep/mlu_stream.h"
-
+#include <cstddef>
 namespace oneflow {
+namespace ep {
+
+class MluStream;
+
+}
 
 class CnnlWorkspace {
  public:

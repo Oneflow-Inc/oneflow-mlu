@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/ep/mlu_stream.h"
 
 namespace oneflow {
 

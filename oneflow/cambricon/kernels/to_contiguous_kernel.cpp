@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -33,11 +34,9 @@ class MluToContiguousKernel final : public user_op::OpKernel {
     user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
 
-    CnnlTensorDescriptor input_desc, output_desc;
-    input_desc.set(in);
-    output_desc.set(out);
-    OF_CNNL_CHECK(cnnlCopy(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
-                           in->dptr(), output_desc.desc(), out->mut_dptr()));
+    CnnlTensorDescriptor input_desc(in), output_desc(out);
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlCopy, input_desc.desc(), in->dptr(), output_desc.desc(), out->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

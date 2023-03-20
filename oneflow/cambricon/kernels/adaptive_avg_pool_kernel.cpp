@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
@@ -46,10 +47,11 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     const T* in_ptr = in_tensor->dptr<T>();
     T* out_ptr = out_tensor->mut_dptr<T>();
 
-    size_t tmp_in_workspace_size =
-        in_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
-    CnnlWorkspace tmp_in_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_workspace_size);
-    void* tmp_in_ptr = tmp_in_cnnl_workspace.dptr();
+    CnnlExecutor<3> cnnl_executor(ctx->stream());
+    cnnl_executor.AllocWorkSpace(
+        0, in_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type()));
+
+    void* tmp_in_ptr = cnnl_executor.GetWorkSpace(0);
 
     std::vector<int64_t> in_shapevec({in_tensor->shape_view().At(0), in_tensor->shape_view().At(1),
                                       in_tensor->shape_view().At(2),
@@ -74,31 +76,27 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&out_decs));
     OF_CNNL_CHECK(cnnlSetTensorDescriptor(in_desc, layout, dtype, 4, in_dims));
     OF_CNNL_CHECK(cnnlSetTensorDescriptor(out_decs, layout, dtype, 4, out_dims));
+
     size_t _adaptive_avg_pool2d_workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc,
-        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_decs,
-        &_adaptive_avg_pool2d_workspace_size));
-    CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                            _adaptive_avg_pool2d_workspace_size);
-    void* _adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
-    size_t tmp_out_workspace_size =
-        out_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
-    CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                         tmp_out_workspace_size);
-    void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
-    OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc, tmp_in_ptr,
-        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, _adaptive_avg_pool2d_workspace,
-        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));
+
+    cnnl_executor
+        .AllocWorkSpace(1, cnnlGetAdaptivePoolingForwardWorkspaceSize,
+                        _adaptive_avg_pool2d_workspace_size, in_desc,
+                        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_decs)
+        .AllocWorkSpace(2, out_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type()))
+        .Launch(cnnlAdaptivePoolingForward_v2, in_desc, tmp_in_ptr,
+                CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, cnnl_executor.GetWorkSpace(1),
+                _adaptive_avg_pool2d_workspace_size, out_decs, cnnl_executor.GetWorkSpace(2),
+                nullptr, nullptr);
+
     std::vector<int64_t> out_shapevec(
         {out_tensor->shape_view().At(0), out_tensor->shape_view().At(2),
          out_tensor->shape_view().At(3), out_tensor->shape_view().At(1)});
     transpose = NewPermutePrimitive(ctx, out_tensor->shape_view().NumAxes());
     CHECK(transpose);
     transpose->Launch(ctx->stream(), out_tensor->data_type(), out_tensor->shape_view().NumAxes(),
-                      out_shapevec.data(), tmp_out_ptr, std::vector<int>({0, 3, 1, 2}).data(),
-                      out_ptr);
+                      out_shapevec.data(), cnnl_executor.GetWorkSpace(2),
+                      std::vector<int>({0, 3, 1, 2}).data(), out_ptr);
     cnnlDestroyTensorDescriptor(in_desc);
     cnnlDestroyTensorDescriptor(out_decs);
   }

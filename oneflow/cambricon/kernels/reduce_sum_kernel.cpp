@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
@@ -56,16 +57,15 @@ class ReduceKernel final : public user_op::OpKernel {
       reduce_desc.set(cnnl_dtype, axis, reduce_mode, reduce_indices, reduce_indices_type);
       output_desc.set(output);
     }
-    size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                               input_desc.desc(), output_desc.desc(),
-                                               reduce_desc.mut_desc(), &workspace_size));
-    CnnlWorkspace workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
 
-    OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), reduce_desc.desc(),
-                             workspace.dptr(), workspace_size, nullptr, input_desc.desc(),
-                             input->dptr(), 0, nullptr, nullptr, output_desc.desc(),
-                             output->mut_dptr()));
+    size_t workspace_size = 0;
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetReduceOpWorkspaceSize, workspace_size, input_desc.desc(),
+                        output_desc.desc(), reduce_desc.mut_desc())
+        .Launch(cnnlReduce, reduce_desc.desc(), cnnl_executor.GetWorkSpace(0), workspace_size,
+                nullptr, input_desc.desc(), input->dptr(), 0, nullptr, nullptr, output_desc.desc(),
+                output->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

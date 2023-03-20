@@ -18,6 +18,7 @@ limitations under the License.
 #include "oneflow/core/ep/common/primitive/permute.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
@@ -48,15 +49,12 @@ class PermuteImpl : public Permute {
     output_desc.set(num_dims, dst_dims, cnnl_data_type);
 
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetTransposeWorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
-                                                input_desc.desc(), tran_desc.desc(),
-                                                &workspace_size));
-    CnnlWorkspace cnnl_workspace(stream->As<ep::MluStream>(), workspace_size);
-    void* transpose_workspace = cnnl_workspace.dptr();
-
-    OF_CNNL_CHECK(cnnlTranspose_v2(stream->As<ep::MluStream>()->cnnl_handle(), tran_desc.desc(),
-                                   input_desc.desc(), src, output_desc.desc(), dst,
-                                   transpose_workspace, workspace_size));
+    CnnlExecutor<1> cnnl_executor(stream);
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetTransposeWorkspaceSize, workspace_size, input_desc.desc(),
+                        tran_desc.desc())
+        .Launch(cnnlTranspose_v2, tran_desc.desc(), input_desc.desc(), src, output_desc.desc(), dst,
+                cnnl_executor.GetWorkSpace(0), workspace_size);
   }
 };
 

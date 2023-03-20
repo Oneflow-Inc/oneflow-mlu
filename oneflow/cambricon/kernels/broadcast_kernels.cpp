@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 
 namespace {
@@ -68,13 +69,12 @@ class MluBroadcastAddN final : public MluBroadcastBinaryKernelBase {
                    const std::array<const void*, 2>& input_dptrs,
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetAddNWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                           input_descs.data(), input_descs.size(), z_desc,
-                                           &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_descs.data(),
-                              input_dptrs.data(), input_descs.size(), z_desc, z_dtr,
-                              cnnl_workspace.dptr(), workspace_size));
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetAddNWorkspaceSize, workspace_size, input_descs.data(),
+                        input_descs.size(), z_desc)
+        .Launch(cnnlAddN_v2, input_descs.data(), input_dptrs.data(), input_descs.size(), z_desc,
+                z_dtr, cnnl_executor.GetWorkSpace(0), workspace_size);
   }
 };
 
@@ -85,14 +85,13 @@ class MluBroadcastMul final : public MluBroadcastBinaryKernelBase {
                    const std::array<cnnlTensorDescriptor_t, 2>& input_descs,
                    const std::array<const void*, 2>& input_dptrs,
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
-    const auto cnnl_handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
-    OF_CNNL_CHECK(cnnlExpand(cnnl_handle, input_descs.at(0), input_dptrs.at(0), z_desc, z_dtr));
-    size_t workspace_size = 0;
     const auto a_desc = input_descs.at(1);
-    OF_CNNL_CHECK(cnnlGetAxWorkspaceSize(cnnl_handle, a_desc, z_desc, &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlAx_v2(cnnl_handle, a_desc, input_dptrs.at(1), z_desc, z_dtr,
-                            cnnl_workspace.dptr(), workspace_size));
+    size_t workspace_size = 0;
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor.Launch(cnnlExpand, input_descs.at(0), input_dptrs.at(0), z_desc, z_dtr)
+        .AllocWorkSpace(0, cnnlGetAxWorkspaceSize, workspace_size, a_desc, z_desc)
+        .Launch(cnnlAx_v2, a_desc, input_dptrs.at(1), z_desc, z_dtr, cnnl_executor.GetWorkSpace(0),
+                workspace_size);
   }
 };
 
@@ -104,14 +103,13 @@ class MluBroadcastDiv final : public MluBroadcastBinaryKernelBase {
                    const std::array<const void*, 2>& input_dptrs,
                    const cnnlTensorDescriptor_t& z_desc, void* z_dtr) const override {
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetDivWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                          input_descs.at(0), input_descs.at(1), z_desc,
-                                          &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlDiv_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                             CNNL_COMPUTATION_HIGH_PRECISION, input_descs.at(0), input_dptrs.at(0),
-                             input_descs.at(1), input_dptrs.at(1), cnnl_workspace.dptr(),
-                             workspace_size, z_desc, z_dtr));
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetDivWorkspaceSize, workspace_size, input_descs.at(0),
+                        input_descs.at(1), z_desc)
+        .Launch(cnnlDiv_v2, CNNL_COMPUTATION_HIGH_PRECISION, input_descs.at(0), input_dptrs.at(0),
+                input_descs.at(1), input_dptrs.at(1), cnnl_executor.GetWorkSpace(0), workspace_size,
+                z_desc, z_dtr);
   }
 };
 

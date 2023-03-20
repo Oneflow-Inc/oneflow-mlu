@@ -22,6 +22,7 @@ limitations under the License.
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 
 namespace oneflow {
 
@@ -66,16 +67,14 @@ class LayerNormMluKernel final : public user_op::OpKernel {
     }
 
     size_t tmp_buffer_size = 0;
-    OF_CNNL_CHECK(cnnlGetLayerNormOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                                  begin_norm_axis, input_desc.desc(),
-                                                  &tmp_buffer_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_buffer_size);
-
-    OF_CNNL_CHECK(cnnlLayerNormForward(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), in->dptr(),
-        begin_norm_axis, filter_bias_desc.desc(), gamma_dptr, beta_dptr, eps, cnnl_workspace.dptr(),
-        tmp_buffer_size, output_desc.desc(), out->mut_dptr(), mean_rstd_desc.desc(),
-        mean->mut_dptr(), inv_variance->mut_dptr()));
+    CnnlExecutor<1> cnnl_executor(ctx->stream());
+    cnnl_executor
+        .AllocWorkSpace(0, cnnlGetLayerNormOpWorkspaceSize, tmp_buffer_size, begin_norm_axis,
+                        input_desc.desc())
+        .Launch(cnnlLayerNormForward, input_desc.desc(), in->dptr(), begin_norm_axis,
+                filter_bias_desc.desc(), gamma_dptr, beta_dptr, eps, cnnl_executor.GetWorkSpace(0),
+                tmp_buffer_size, output_desc.desc(), out->mut_dptr(), mean_rstd_desc.desc(),
+                mean->mut_dptr(), inv_variance->mut_dptr());
   };
 };
 

@@ -16,6 +16,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -53,11 +54,9 @@ class MluAddNKernel final : public user_op::OpKernel {
     // Set 0 since oneflow addn has no broadcasting.
     size_t addn_workspace_size = 0;
     void* addn_workspace = nullptr;
-
-    OF_CNNL_CHECK(cnnlAddN_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                              input_descs_vec.data(), input_dptrs_vec.data(), in_num,
-                              output_desc.desc(), out->mut_dptr(), addn_workspace,
-                              addn_workspace_size));
+    CnnlExecutor(ctx->stream())
+        .Launch(cnnlAddN_v2, input_descs_vec.data(), input_dptrs_vec.data(), in_num,
+                output_desc.desc(), out->mut_dptr(), addn_workspace, addn_workspace_size);
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

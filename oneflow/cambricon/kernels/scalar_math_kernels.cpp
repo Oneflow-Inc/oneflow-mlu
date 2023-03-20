@@ -13,8 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_executor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
@@ -100,11 +100,10 @@ void LaunchMathKernel(user_op::KernelComputeContext* ctx, Scalar src0, const use
                                   << num_axes << " <= " << CNNL_DIM_MAX << ")";
   TransformParams params;
   SetTransformParams<op, T>(src0, params);
-  CnnlTensorDescriptor input_desc;
-  input_desc.set(in);
-  auto handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
-  OF_CNNL_CHECK(cnnlTransform(handle, &params.alpha, input_desc.desc(), in->dptr(), &params.beta,
-                              out->mut_dptr()));
+  CnnlTensorDescriptor input_desc(in);
+  CnnlExecutor(ctx->stream())
+      .Launch(cnnlTransform, &params.alpha, input_desc.desc(), in->dptr(), &params.beta,
+              out->mut_dptr());
 }
 
 }  // namespace
