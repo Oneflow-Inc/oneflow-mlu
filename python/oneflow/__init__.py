@@ -87,7 +87,6 @@ from oneflow._C import amin
 from oneflow._C import atanh
 from oneflow._C import atanh as arctanh
 from oneflow._C import batch_matmul as bmm
-from oneflow._C import broadcast_matmul_grad_b as broadcast_matmul_grad_b
 from oneflow._C import baddbmm
 from oneflow._C import broadcast_like
 from oneflow._C import chunk
