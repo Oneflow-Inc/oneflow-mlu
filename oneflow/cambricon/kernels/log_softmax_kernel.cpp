@@ -42,10 +42,9 @@ class MluLogSoftmaxKernel final : public user_op::OpKernel {
     int batch_dims = in->shape_view().Count(0, in_ndim - 1);
     int softmax_dim = in->shape_view().At(in_ndim - 1);
 
-    std::vector<int> addentional_dims_input = {batch_dims, 1, softmax_dim};
-    std::vector<int> addentional_dims_output = {batch_dims, 1, softmax_dim};
-    input_desc.set_reshape(in, addentional_dims_input);
-    output_desc.set_reshape(out, addentional_dims_output);
+    std::vector<int> addentional_dims = {batch_dims, 1, softmax_dim};
+    input_desc.set_reshape(in, addentional_dims);
+    output_desc.set_reshape(out, addentional_dims);
 
     OF_CNNL_CHECK(cnnlSoftmaxForward_v2(
         /* handle    */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
