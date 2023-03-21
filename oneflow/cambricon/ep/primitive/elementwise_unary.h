@@ -28,15 +28,16 @@ namespace ep {
 namespace primitive {
 namespace mlu {
 
-#define MLU_UNARY_FLOATING_MATH_OP_SEQ            \
-  OF_PP_MAKE_TUPLE_SEQ(UnaryOp::kReciprocal)      \
+#define MLU_UNARY_FLOATING_MATH_OP_SEQ       \
+  OF_PP_MAKE_TUPLE_SEQ(UnaryOp::kReciprocal) \
   OF_PP_MAKE_TUPLE_SEQ(UnaryOp::kReciprocalNoNan)
 
 template<UnaryOp unary_op>
 class ElementwiseUnaryImpl : public ElementwiseUnary {
  public:
   OF_DISALLOW_COPY_AND_MOVE(ElementwiseUnaryImpl);
-  ElementwiseUnaryImpl(Scalar attr0, Scalar attr1, DataType src_dtype, DataType dst_dtype) : attr0(attr0), attr1(attr1), src_dtype(src_dtype), dst_dtype(dst_dtype) {}
+  ElementwiseUnaryImpl(Scalar attr0, Scalar attr1, DataType src_dtype, DataType dst_dtype)
+      : attr0(attr0), attr1(attr1), src_dtype(src_dtype), dst_dtype(dst_dtype) {}
   ~ElementwiseUnaryImpl() override = default;
 
   void Launch(Stream* stream, const void* src_ptr, void* dst_ptr, size_t count) override {
@@ -46,10 +47,14 @@ class ElementwiseUnaryImpl : public ElementwiseUnary {
     output_desc.set(1, dims.data(), ConvertToCnnlDataType(dst_dtype));
 
     if constexpr (unary_op == UnaryOp::kReciprocal) {
-      OF_CNNL_CHECK(cnnlReciprocal(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), src_ptr, output_desc.desc(), dst_ptr));
+      OF_CNNL_CHECK(cnnlReciprocal(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
+                                   src_ptr, output_desc.desc(), dst_ptr));
     } else if constexpr (unary_op == UnaryOp::kReciprocalNoNan) {
-      OF_CNNL_CHECK(cnnlReciprocal(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(), src_ptr, output_desc.desc(), dst_ptr));
-      OF_CNNL_CHECK(cnnlNanToNum(stream->As<ep::MluStream>()->cnnl_handle(), output_desc.desc(), static_cast<const void*>(dst_ptr), 0, 0, 0, output_desc.desc(), dst_ptr));
+      OF_CNNL_CHECK(cnnlReciprocal(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
+                                   src_ptr, output_desc.desc(), dst_ptr));
+      OF_CNNL_CHECK(cnnlNanToNum(stream->As<ep::MluStream>()->cnnl_handle(), output_desc.desc(),
+                                 static_cast<const void*>(dst_ptr), 0, 0, 0, output_desc.desc(),
+                                 dst_ptr));
     } else {
       UNIMPLEMENTED();
     }

@@ -27,7 +27,7 @@ namespace mlu {
 
 template<UnaryOp unary_op>
 std::unique_ptr<ElementwiseUnary> NewElementwiseUnary(Scalar attr0, Scalar attr1, DataType src_type,
-                                                     DataType dst_type) {
+                                                      DataType dst_type) {
   return std::unique_ptr<ElementwiseUnary>(
       new ElementwiseUnaryImpl<unary_op>(attr0, attr1, src_type, dst_type));
 }
@@ -54,14 +54,14 @@ class ElementwiseUnaryFactoryImpl : public ElementwiseUnaryFactory {
   {std::make_tuple(unary_op, OF_PP_PAIR_SECOND(dtype_pair), OF_PP_PAIR_SECOND(dtype_pair)), \
    NewElementwiseUnary<unary_op>},
 
-    static const std::map<std::tuple<UnaryOp, DataType, DataType>,
-                          std::function<std::unique_ptr<ElementwiseUnary>(Scalar, Scalar, DataType, DataType)>>
+    static const std::map<
+        std::tuple<UnaryOp, DataType, DataType>,
+        std::function<std::unique_ptr<ElementwiseUnary>(Scalar, Scalar, DataType, DataType)>>
         new_elementwise_unary_handle{
             // For Float Type OP
             OF_PP_SEQ_PRODUCT_FOR_EACH_TUPLE(
                 MAKE_NEW_SAME_DTYPE_ELEMENTWISE_UNARY_ENTRY, MLU_UNARY_FLOATING_MATH_OP_SEQ,
-                CPU_PRIMITIVE_FLOATING_TYPE_SEQ CPU_PRIMITIVE_FLOAT16_TYPE_SEQ)
-        };
+                CPU_PRIMITIVE_FLOATING_TYPE_SEQ CPU_PRIMITIVE_FLOAT16_TYPE_SEQ)};
 
 #undef MAKE_NEW_SAME_DTYPE_ELEMENTWISE_UNARY_ENTRY
 
