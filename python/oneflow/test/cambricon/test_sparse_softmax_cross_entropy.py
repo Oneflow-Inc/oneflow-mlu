@@ -68,8 +68,6 @@ def _test_sparse_softmax_cross_entropy_grad(
     of_output_cpu = flow.nn.functional.sparse_softmax_cross_entropy(
         labels=of_labels_cpu, logits=of_logits_cpu
     )
-
-    print(of_logits_cpu.grad)
     of_logits_mlu = flow.tensor(
         np_logits, device=device_type, dtype=data_type, requires_grad=True
     )
@@ -77,9 +75,6 @@ def _test_sparse_softmax_cross_entropy_grad(
     of_output_mlu = flow.nn.functional.sparse_softmax_cross_entropy(
         labels=of_labels_mlu, logits=of_logits_mlu
     )
-    print(of_output_mlu)
-    print(of_output_cpu)
-    print("*" * 100)
     y_grad = flow.tensor(
         np.random.randn(*of_output_mlu.shape),
         device=flow.device(device_type),
@@ -92,9 +87,6 @@ def _test_sparse_softmax_cross_entropy_grad(
     cpu_dx = flow.autograd.grad(
         outputs=of_output_cpu, inputs=of_logits_cpu, grad_outputs=y_grad.cpu(),
     )[0]
-    print(mlu_dx)
-    print(cpu_dx)
-    print()
     assert np.allclose(mlu_dx.cpu().numpy(), cpu_dx.numpy(), rtol=1e-03, atol=1e-04)
 
 
@@ -105,8 +97,8 @@ class TestSparseSoftmaxCrossEntropyWithLogits(flow.unittest.TestCase):
         arg_dict["device_type"] = ["mlu"]
         arg_dict["data_type"] = ["float32"]
         arg_dict["label_type"] = ["int32"]
-        arg_dict["batch_size"] = [8, 16]
-        arg_dict["num_classes"] = [2, 1000]
+        arg_dict["batch_size"] = [64, 16]
+        arg_dict["num_classes"] = [100, 1000]
         for arg in GenArgList(arg_dict):
             _test_sparse_softmax_cross_entropy(*arg)
             _test_sparse_softmax_cross_entropy_grad(*arg)

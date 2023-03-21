@@ -13,12 +13,14 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/core/kernel/kernel_util.h"
+#include "oneflow/core/ep/include/primitive/fill.h"
 namespace oneflow {
 
 class MluSparseSoftmaxCrossEntropyKernel final : public user_op::OpKernel {
@@ -63,7 +65,6 @@ REGISTER_USER_KERNEL("sparse_softmax_cross_entropy")
                      && ((user_op::HobDataType("out", 0) == DataType::kFloat)
                          || (user_op::HobDataType("out", 0) == DataType::kFloat16)));
 
-
 class MluSparseSoftmaxCrossEntropyGradKernel final : public user_op::OpKernel {
  public:
   MluSparseSoftmaxCrossEntropyGradKernel() = default;
@@ -73,11 +74,31 @@ class MluSparseSoftmaxCrossEntropyGradKernel final : public user_op::OpKernel {
   using user_op::OpKernel::Compute;
   void Compute(user_op::KernelComputeContext* ctx) const override {
     user_op::Tensor* prob = ctx->Tensor4ArgNameAndIndex("prob", 0);
+    user_op::Tensor* dy = ctx->Tensor4ArgNameAndIndex("dy", 0);
     user_op::Tensor* prediction_diff = ctx->Tensor4ArgNameAndIndex("prediction_diff", 0);
-    int64_t elem_cnt = prob->shape_view().elem_cnt();
-    DataType dtype = prob->data_type();
-    AutoMemcpy(ctx->stream(), prediction_diff->mut_dptr(), prob->dptr(),
-               elem_cnt * GetSizeOfDataType(dtype), prediction_diff->mem_case(), prob->mem_case());
+
+    std::vector<int> expand_shape{};
+    for (int i = 0; i < dy->shape_view().NumAxes(); i++) {
+      expand_shape.push_back(dy->shape_view().At(i));
+    }
+    expand_shape.push_back(1);
+
+    CnnlTensorDescriptor prob_desc, dy_desc, diff_desc;
+    prob_desc.set(prob);
+    dy_desc.set_reshape(dy, expand_shape);
+    diff_desc.set(prediction_diff);
+    const auto cnnl_handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
+
+    OF_CNNL_CHECK(cnnlExpand(cnnl_handle, dy_desc.desc(), dy->dptr(), diff_desc.desc(),
+                             prediction_diff->mut_dptr()));
+
+    size_t workspace_size = 0;
+
+    OF_CNNL_CHECK(
+        cnnlGetAxWorkspaceSize(cnnl_handle, prob_desc.desc(), diff_desc.desc(), &workspace_size));
+    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
+    OF_CNNL_CHECK(cnnlAx_v2(cnnl_handle, prob_desc.desc(), prob->dptr(), diff_desc.desc(),
+                            prediction_diff->mut_dptr(), cnnl_workspace.dptr(), workspace_size));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
