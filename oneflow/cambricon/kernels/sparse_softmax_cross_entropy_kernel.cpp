@@ -18,7 +18,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
-
+#include "oneflow/core/kernel/kernel_util.h"
 namespace oneflow {
 
 class MluSparseSoftmaxCrossEntropyKernel final : public user_op::OpKernel {
@@ -63,6 +63,7 @@ REGISTER_USER_KERNEL("sparse_softmax_cross_entropy")
                      && ((user_op::HobDataType("out", 0) == DataType::kFloat)
                          || (user_op::HobDataType("out", 0) == DataType::kFloat16)));
 
+
 class MluSparseSoftmaxCrossEntropyGradKernel final : public user_op::OpKernel {
  public:
   MluSparseSoftmaxCrossEntropyGradKernel() = default;
@@ -73,21 +74,19 @@ class MluSparseSoftmaxCrossEntropyGradKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     user_op::Tensor* prob = ctx->Tensor4ArgNameAndIndex("prob", 0);
     user_op::Tensor* prediction_diff = ctx->Tensor4ArgNameAndIndex("prediction_diff", 0);
-    //prediction_diff = prob;
-    auto diff_ptr=prediction_diff->mut_dptr();
-   diff_ptr= prob->mut_dptr();
+    int64_t elem_cnt = prob->shape_view().elem_cnt();
+    DataType dtype = prob->data_type();
+    AutoMemcpy(ctx->stream(), prediction_diff->mut_dptr(), prob->dptr(),
+               elem_cnt * GetSizeOfDataType(dtype), prediction_diff->mem_case(), prob->mem_case());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_MLU_SPARSE_SOFTMAX_CROSSENTROPY_GRAD_KERNEL(dtype)   \
-  REGISTER_USER_KERNEL("sparse_softmax_cross_entropy_grad")           \
-      .SetCreateFn<MluSparseSoftmaxCrossEntropyGradKernel>()          \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
-                       && (user_op::HobDataType("prob", 0) == GetDataType<dtype>::value));
-
-REGISTER_MLU_SPARSE_SOFTMAX_CROSSENTROPY_GRAD_KERNEL(float)
-REGISTER_MLU_SPARSE_SOFTMAX_CROSSENTROPY_GRAD_KERNEL(float16)
+REGISTER_USER_KERNEL("sparse_softmax_cross_entropy_grad")
+    .SetCreateFn<MluSparseSoftmaxCrossEntropyGradKernel>()
+    .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)
+                     && ((user_op::HobDataType("prob", 0) == DataType::kFloat)
+                         || (user_op::HobDataType("prob", 0) == DataType::kFloat16)));
 
 }  // namespace oneflow
