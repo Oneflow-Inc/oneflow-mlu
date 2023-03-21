@@ -39,7 +39,7 @@ class CopyNdImpl : public CopyNd {
   void Launch(Stream* stream, DataType data_type, size_t num_dims, void* dst,
               const int64_t* dst_dims, const int64_t* dst_pos, const void* src,
               const int64_t* src_dims, const int64_t* src_pos,
-              const int64_t* extent, bool is_forward) const override {
+              const int64_t* extent) const override {
       cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
       CnnlTensorDescriptor input_desc, output_desc;
       if (num_dims == 0) {
