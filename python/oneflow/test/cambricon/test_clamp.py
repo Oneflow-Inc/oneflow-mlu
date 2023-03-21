@@ -40,7 +40,7 @@ class TestClampCambriconModule(flow.unittest.TestCase):
             _test_clamp_max,
         ]
         arg_dict["shape"] = [(2,), (2, 3), (2, 4, 5, 6)]
-        arg_dict["dtype"] = [flow.float32]
+        arg_dict["dtype"] = [flow.float32, flow.int32]
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])

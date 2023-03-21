@@ -36,15 +36,19 @@ class MluClipByScalarMaxKernel final : public user_op::OpKernel {
     const user_op::Tensor* x = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* y = ctx->Tensor4ArgNameAndIndex("y", 0);
     float floating_max = static_cast<float>(ctx->Attr<double>("floating_max"));
-    int64_t integral_max = ctx->Attr<int64_t>("integral_max");
-
+    int32_t integral_max = static_cast<int32_t>(ctx->Attr<int64_t>("integral_max"));
     CnnlTensorDescriptor input_desc, output_desc;
     input_desc.set(x);
     output_desc.set(y);
-
+    void* max = nullptr;
+    if (x->data_type() == DataType::kInt32) {
+      max = &integral_max;
+    } else {
+      max = &floating_max;
+    }
     OF_CNNL_CHECK(cnnlClip_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                              CNNL_POINTER_MODE_HOST, input_desc.desc(), x->dptr(), nullptr,
-                              &floating_max, output_desc.desc(), y->mut_dptr()));
+                              CNNL_POINTER_MODE_HOST, input_desc.desc(), x->dptr(), nullptr, max,
+                              output_desc.desc(), y->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -58,6 +62,7 @@ class MluClipByScalarMaxKernel final : public user_op::OpKernel {
 
 REGISTER_CLIP_BY_VALUE_MLU_KERNEL("clip_by_scalar_max", MluClipByScalarMax, float)
 REGISTER_CLIP_BY_VALUE_MLU_KERNEL("clip_by_scalar_max", MluClipByScalarMax, float16)
+REGISTER_CLIP_BY_VALUE_MLU_KERNEL("clip_by_scalar_max", MluClipByScalarMax, int32_t)
 
 #undef REGISTER_CLIP_BY_VALUE_MLU_KERNEL
 
