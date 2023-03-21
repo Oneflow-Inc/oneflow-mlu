@@ -52,10 +52,10 @@ class CopyNdImpl : public CopyNd {
       int src_offset = src_pos[num_dims - 1];
       int dst_offset = dst_pos[num_dims - 1];
       for (int i = num_dims - 2; i >= 0; --i) {
-        src_stride[i] = src_stride[i + 1] * static_cast<int>(src_dims[i + 1]);
-        dst_stride[i] = dst_stride[i + 1] * static_cast<int>(dst_dims[i + 1]);
-        src_offset += static_cast<int>(src_pos[i]) * src_stride[i];
-        dst_offset += static_cast<int>(dst_pos[i]) * dst_stride[i];
+        src_stride[i] = src_stride[i + 1] * src_dims[i + 1];
+        dst_stride[i] = dst_stride[i + 1] * dst_dims[i + 1];
+        src_offset += src_pos[i] * src_stride[i];
+        dst_offset += dst_pos[i] * dst_stride[i];
       }
 
       input_desc.set(num_dims, extent, src_stride.data(), cnnl_data_type);
