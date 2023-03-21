@@ -39,35 +39,31 @@ class MluUnsortedSegmentSumKernel final : public user_op::OpKernel {
     int64_t axis = ctx->Attr<int64_t>("axis");
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     Memset<DeviceType::kMLU>(ctx->stream(), out->mut_dptr(), 0,
-                        out->shape_view().elem_cnt() * sizeof(T));
+                             out->shape_view().elem_cnt() * sizeof(T));
 
-    if (axis != 0) {
-        LOG(FATAL) << "only support axis == 0 for MLU device.";
-    }
+    if (axis != 0) { LOG(FATAL) << "only support axis == 0 for MLU device."; }
     CnnlTensorDescriptor data_desc(data), indices_desc(segment_ids), out_desc(out);
     size_t workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetUnsortedSegmentSumWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), 
-                                            data_desc.desc(), out_desc.desc(), &workspace_size));
+    OF_CNNL_CHECK(
+        cnnlGetUnsortedSegmentSumWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                               data_desc.desc(), out_desc.desc(), &workspace_size));
     CnnlWorkspace workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlUnsortedSegmentSum(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), 
-                                            data_desc.desc(), data->dptr(), 
-                                            indices_desc.desc(), segment_ids->dptr<int32_t>(),
-                                            workspace.dptr(), workspace_size,
-                                            out_desc.desc(), out->mut_dptr()));
+    OF_CNNL_CHECK(cnnlUnsortedSegmentSum(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                         data_desc.desc(), data->dptr(), indices_desc.desc(),
+                                         segment_ids->dptr<int32_t>(), workspace.dptr(),
+                                         workspace_size, out_desc.desc(), out->mut_dptr()));
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return true; }
 };
 
-#define REGISTER_UNSORTED_SEGMENT_SUM_KERNEL(out_type)                          \
-  REGISTER_USER_KERNEL("unsorted_segment_sum_like")                             \
-      .SetCreateFn<MluUnsortedSegmentSumKernel<OF_PP_PAIR_FIRST(out_type)>>()   \
-      .SetIsMatchedHob(                                                         \
-          (user_op::HobDeviceType() == DeviceType::kMLU)                        \
-          && (user_op::HobDataType("segment_ids", 0) == DataType::kInt32)       \
-          && (user_op::HobDataType("out", 0) == OF_PP_PAIR_SECOND(out_type))    \
-          && (user_op::HobDataType("data", 0) == OF_PP_PAIR_SECOND(out_type))   \
-          && (user_op::HobDataType("like", 0) == OF_PP_PAIR_SECOND(out_type)));
-
+#define REGISTER_UNSORTED_SEGMENT_SUM_KERNEL(out_type)                                     \
+  REGISTER_USER_KERNEL("unsorted_segment_sum_like")                                        \
+      .SetCreateFn<MluUnsortedSegmentSumKernel<OF_PP_PAIR_FIRST(out_type)>>()              \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                      \
+                       && (user_op::HobDataType("segment_ids", 0) == DataType::kInt32)     \
+                       && (user_op::HobDataType("out", 0) == OF_PP_PAIR_SECOND(out_type))  \
+                       && (user_op::HobDataType("data", 0) == OF_PP_PAIR_SECOND(out_type)) \
+                       && (user_op::HobDataType("like", 0) == OF_PP_PAIR_SECOND(out_type)));
 
 REGISTER_UNSORTED_SEGMENT_SUM_KERNEL((float, DataType::kFloat))
 REGISTER_UNSORTED_SEGMENT_SUM_KERNEL((float16, DataType::kFloat16))
