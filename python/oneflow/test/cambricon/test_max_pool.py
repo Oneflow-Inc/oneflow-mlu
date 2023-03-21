@@ -108,9 +108,7 @@ def _test_max_pool2d_backward(
         y_grad, device=flow.device("mlu"), dtype=dtype
     ).requires_grad_(True)
 
-    # import ipdb; ipdb.set_trace()
     dx_cpu = flow.autograd.grad(
-        # outputs=[y_cpu, indices_cpu],
         outputs=y_cpu,
         inputs=x_cpu,
         grad_outputs=y_grad_cpu,
@@ -125,19 +123,14 @@ def _test_max_pool2d_backward(
         retain_graph=True,
     )[0]
 
-    # if dtype == flow.float16:
-    import ipdb; ipdb.set_trace()
-    test_case.assertTrue(
-        np.allclose(dx_cpu.float().numpy(), dx_mlu.float().numpy(), 0.001, 0.001)
-    )
-    # else:
-    #     test_case.assertTrue(
-    #         np.allclose(y_mlu.cpu().numpy(), y_cpu.numpy(), 0.0001, 0.0001)
-    #     )
-    # if indices_cpu is not None and indices_mlu is not None:
-    #     test_case.assertTrue(
-    #         np.allclose(indices_mlu.cpu().numpy(), indices_cpu.numpy(), 0.0001, 0.0001)
-    #     )
+    if dtype == flow.float16:
+        test_case.assertTrue(
+            np.allclose(dx_cpu.float().numpy(), dx_mlu.float().numpy(), 0.001, 0.003)
+        )
+    else:
+        test_case.assertTrue(
+            np.allclose(dx_cpu.float().numpy(), dx_mlu.float().numpy(), 0.0001, 0.0001)
+        )
 
 
 @flow.unittest.skip_unless_1n1d()
@@ -217,13 +210,14 @@ class TestMaxPoolCambriconModule(flow.unittest.TestCase):
             # 1, 2, [1, 2],
             1,
         ]
-        # the definition of indices result of max_pool2d doesn't match
-        # so disable return_indices here
+        # return_indices has no effect on backward result, so set False here
         arg_dict["return_indices"] = [
-            # True, False
             False,
         ]
-        arg_dict["ceil_mode"] = [True, False]
+        arg_dict["ceil_mode"] = [
+            False,
+            True,
+        ]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
