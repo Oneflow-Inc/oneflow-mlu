@@ -47,7 +47,7 @@ def _test_ones_like_int(test_case, shape, device):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestModule(flow.unittest.TestCase):
+class TestOnesLikeCambriconModule(flow.unittest.TestCase):
     def test_ones_like(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [_test_ones_like_float, _test_ones_like_int]
