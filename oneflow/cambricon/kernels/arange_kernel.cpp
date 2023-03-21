@@ -46,9 +46,9 @@ class MluArangeKernel final : public user_op::OpKernel {
     out_decs.set(out);
 
     size_t tmp_out_workspace_size = out->shape_view().elem_cnt();
-    if (std::is_same_v<T, float>) {
+    if constexpr (std::is_same_v<T, float>) {
       tmp_out_workspace_size *= GetSizeOfDataType(kFloat);
-    } else if (std::is_same_v<T, float16>) {
+    } else if constexpr (std::is_same_v<T, float16>) {
       tmp_out_workspace_size *= GetSizeOfDataType(kFloat16);
     } else {
       tmp_out_workspace_size *= GetSizeOfDataType(kInt32);
@@ -58,7 +58,7 @@ class MluArangeKernel final : public user_op::OpKernel {
     void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
 
     DataType tmp_out_data_type;
-    if (std::is_same_v<T, float> || std::is_same_v<T, float16>) {
+    if constexpr (std::is_same_v<T, float> || std::is_same_v<T, float16>) {
       tmp_out_desc.set(out, ConvertToCnnlDataType(GetDataType<T>::value));
       start_float = static_cast<float>(ctx->Attr<double>("float_start"));
       step_float = static_cast<float>(ctx->Attr<double>("float_delta"));
