@@ -39,21 +39,38 @@ class CopyNdImpl : public CopyNd {
   void Launch(Stream* stream, DataType data_type, size_t num_dims, void* dst,
               const int64_t* dst_dims, const int64_t* dst_pos, const void* src,
               const int64_t* src_dims, const int64_t* src_pos,
-              const int64_t* extent) const override {
-    std::vector<int> begin(num_dims, 0);
-    std::vector<int> end(num_dims, 0);
-    std::vector<int> stride(num_dims, 1);
-    for (int i = 0; i < num_dims; ++i) {
-      begin[i] = static_cast<int>(src_pos[i]);
-      end[i] = begin[i] + static_cast<int>(extent[i]);
+              const int64_t* extent, bool is_forward) const override {
+    if (is_forward) {
+      std::vector<int> begin(num_dims, 0);
+      std::vector<int> end(num_dims, 0);
+      std::vector<int> stride(num_dims, 1);
+      for (int i = 0; i < num_dims; ++i) {
+        begin[i] = static_cast<int>(src_pos[i]);
+        end[i] = begin[i] + static_cast<int>(extent[i]);
+      }
+      cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
+      CnnlTensorDescriptor input_desc, output_desc;
+      input_desc.set(num_dims, src_dims, cnnl_data_type);
+      output_desc.set(num_dims, dst_dims, cnnl_data_type);
+      OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
+                                    src, begin.data(), end.data(), stride.data(), output_desc.desc(),
+                                    dst));
+    } else {
+      std::vector<int> begin(num_dims, 0);
+      std::vector<int> end(num_dims, 0);
+      std::vector<int> stride(num_dims, 1);
+      for (int i = 0; i < num_dims; ++i) {
+        begin[i] = static_cast<int>(dst_pos[i]);
+        end[i] = begin[i] + static_cast<int>(extent[i]);
+      }
+      cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
+      CnnlTensorDescriptor input_desc, output_desc;
+      input_desc.set(num_dims, src_dims, cnnl_data_type);
+      output_desc.set(num_dims, dst_dims, cnnl_data_type);
+      OF_CNNL_CHECK(cnnlStridedSliceBackward(stream->As<ep::MluStream>()->cnnl_handle(),
+                                    begin.data(), end.data(), stride.data(), input_desc.desc(), src, output_desc.desc(),
+                                    dst));
     }
-    cnnlDataType_t cnnl_data_type = ConvertToCnnlDataType(data_type);
-    CnnlTensorDescriptor input_desc, output_desc;
-    input_desc.set(num_dims, src_dims, cnnl_data_type);
-    output_desc.set(num_dims, dst_dims, cnnl_data_type);
-    OF_CNNL_CHECK(cnnlStridedSlice(stream->As<ep::MluStream>()->cnnl_handle(), input_desc.desc(),
-                                   src, begin.data(), end.data(), stride.data(), output_desc.desc(),
-                                   dst));
   }
 };
 

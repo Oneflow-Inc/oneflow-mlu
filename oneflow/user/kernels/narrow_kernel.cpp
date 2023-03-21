@@ -76,7 +76,7 @@ class NarrowKernel final : public user_op::OpKernel {
     DimVector extent_vec = {outer_dim, length, inner_dim};
     copy_nd_primitive->Launch(ctx->stream(), out->data_type(), 3, out->mut_dptr(), dst_shape.data(),
                               dst_pos_vec.data(), in->dptr(), src_shape.data(), src_pos_vec.data(),
-                              extent_vec.data());
+                              extent_vec.data(), true);
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
@@ -118,7 +118,7 @@ class NarrowGradKernel final : public user_op::OpKernel {
 
     copy_nd_primitive->Launch(ctx->stream(), dx->data_type(), 3, dst, dst_shape.data(),
                               dst_pos_vec.data(), dy->dptr(), src_shape.data(), src_pos_vec.data(),
-                              extent_vec.data());
+                              extent_vec.data(), false);
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };

@@ -32,7 +32,7 @@ class CopyNd : public Primitive {
   virtual void Launch(Stream* stream, DataType data_type, size_t num_dims, void* dst,
                       const int64_t* dst_dims, const int64_t* dst_pos, const void* src,
                       const int64_t* src_dims, const int64_t* src_pos,
-                      const int64_t* extent) const = 0;
+                      const int64_t* extent, bool is_forward = true) const = 0;
 };
 
 class CopyNdFactory : public Factory<CopyNd> {
