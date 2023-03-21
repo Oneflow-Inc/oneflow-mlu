@@ -88,7 +88,8 @@ class MluNormalizationInferenceKernel final : public user_op::OpKernel {
     output_desc.set(4, shape_nhwc, dtype, CNNL_LAYOUT_NHWC);
     int dim[1] = {c};
     weight_bias_mean_var_desc.set(1, dim, dtype, CNNL_LAYOUT_ARRAY);
-    // api reference: https://www.cambricon.com/docs/sdk_1.10.0/cambricon_cnnl_1.15.2/developer_guide/cnnl_api/api/batchnorm.html#cnnlbatchnormforwardinference
+    // api reference:
+    // https://www.cambricon.com/docs/sdk_1.10.0/cambricon_cnnl_1.15.2/developer_guide/cnnl_api/api/batchnorm.html#cnnlbatchnormforwardinference
     // inference
     OF_CNNL_CHECK(cnnlBatchNormForwardInference(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),
@@ -104,10 +105,10 @@ class MluNormalizationInferenceKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_BN_INFERENCE_MLU_KERNEL(dtype)                       \
-  REGISTER_USER_KERNEL("normalization")                               \
-      .SetCreateFn<MluNormalizationInferenceKernel<dtype>>()          \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+#define REGISTER_BN_INFERENCE_MLU_KERNEL(dtype)                                       \
+  REGISTER_USER_KERNEL("normalization")                                               \
+      .SetCreateFn<MluNormalizationInferenceKernel<dtype>>()                          \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                 \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value) \
                        && (user_op::HobAttr<bool>("training") == false));
 
@@ -115,8 +116,6 @@ REGISTER_BN_INFERENCE_MLU_KERNEL(float)
 REGISTER_BN_INFERENCE_MLU_KERNEL(float16)
 
 #undef REGISTER_BN_INFERENCE_MLU_KERNEL
-
-
 
 template<typename T>
 class MluNormalizationTrainingKernel final : public user_op::OpKernel {
@@ -156,6 +155,12 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
       moving_mean = ctx->Tensor4ArgNameAndIndex("moving_mean", 0);
       moving_variance = ctx->Tensor4ArgNameAndIndex("moving_variance", 0);
     }
+    void* moving_mean_ptr = nullptr;
+    void* moving_variance_ptr = nullptr;
+    if (moving_mean != nullptr && moving_variance != nullptr) {
+      moving_mean_ptr = (void*)moving_mean->mut_dptr();
+      moving_variance_ptr = (void*)moving_variance->mut_dptr();
+    }
 
     int n = 0, c = 0, h = 0, w = 0;
     if (x->shape_view().NumAxes() == 2) {
@@ -170,8 +175,8 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
       w = x->shape_view().At(3);
     }
 
-    size_t tmp_in_size = x->shape_view().elem_cnt() * sizeof(x->data_type());
-    size_t tmp_out_size = y->shape_view().elem_cnt() * sizeof(y->data_type());
+    size_t tmp_in_size = x->shape_view().elem_cnt() * GetSizeOfDataType(x->data_type());
+    size_t tmp_out_size = y->shape_view().elem_cnt() * GetSizeOfDataType(y->data_type());
     CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
     CnnlWorkspace tmp_out_workspace(ctx->stream()->As<ep::MluStream>(), tmp_out_size);
     void* tmp_in_dptr = tmp_in_workspace.dptr();
@@ -181,8 +186,8 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
     CHECK(transpose);
     int permute_nhwc[4] = {0, 2, 3, 1};
     // transpose input NCHW -> NHWC
-    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(), x->shape_view().data(),
-                      x->dptr<T>(), permute_nhwc, tmp_in_dptr);
+    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(),
+                      x->shape_view().data(), x->dptr<T>(), permute_nhwc, tmp_in_dptr);
 
     int64_t shape_nhwc[4] = {n, h, w, c};
     CnnlTensorDescriptor input_desc, output_desc, weight_bias_mean_var_desc;
@@ -192,13 +197,14 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
     int dim[1] = {c};
     weight_bias_mean_var_desc.set(1, dim, dtype, CNNL_LAYOUT_ARRAY);
 
-    // api reference: https://www.cambricon.com/docs/sdk_1.10.0/cambricon_cnnl_1.15.2/developer_guide/cnnl_api/api/batchnorm.html#cnnlbatchnormforwardtraining
+    // api reference:
+    // https://www.cambricon.com/docs/sdk_1.10.0/cambricon_cnnl_1.15.2/developer_guide/cnnl_api/api/batchnorm.html#cnnlbatchnormforwardtraining
     // training
     OF_CNNL_CHECK(cnnlBatchNormForwardTraining(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr, input_desc.desc(),
-        tmp_in_dptr, weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(),
-        moving_mean->mut_dptr(), moving_variance->mut_dptr(), epsilon, momentum, output_desc.desc(), tmp_out_dptr,
-        mean->mut_dptr(), inv_variance->mut_dptr()));
+        tmp_in_dptr, weight_bias_mean_var_desc.desc(), gamma->dptr(), beta->dptr(), moving_mean_ptr,
+        moving_variance_ptr, epsilon, momentum, output_desc.desc(), tmp_out_dptr, mean->mut_dptr(),
+        inv_variance->mut_dptr()));
 
     // transpose output NHWC -> NCHW
     int permute_nchw[4] = {0, 3, 1, 2};
@@ -209,10 +215,10 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_BN_TRAINING_MLU_KERNEL(dtype)                        \
-  REGISTER_USER_KERNEL("normalization")                               \
-      .SetCreateFn<MluNormalizationTrainingKernel<dtype>>()           \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+#define REGISTER_BN_TRAINING_MLU_KERNEL(dtype)                                        \
+  REGISTER_USER_KERNEL("normalization")                                               \
+      .SetCreateFn<MluNormalizationTrainingKernel<dtype>>()                           \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                 \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value) \
                        && (user_op::HobAttr<bool>("training") == true));
 
@@ -220,6 +226,5 @@ REGISTER_BN_TRAINING_MLU_KERNEL(float)
 REGISTER_BN_TRAINING_MLU_KERNEL(float16)
 
 #undef REGISTER_BN_TRAINING_MLU_KERNEL
-
 
 }  // namespace oneflow
