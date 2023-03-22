@@ -73,8 +73,8 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
                       dz_tensor->shape_view().ptr(), dz_tensor->dptr(), tmp_ptr);
 
     CnnlTensorDescriptor tmp_desc, dy_desc;
-    tmp_desc.set(dz_tensor);
-    dy_desc.set(dy_tensor);
+    tmp_desc.set_reduce(dz_tensor);
+    dy_desc.set_reduce(dy_tensor);
 
     CnnlReduceDescriptor reduce_desc;
     auto cnnl_dtype = ConvertToCnnlDataType(dz_tensor->data_type());
