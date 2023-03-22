@@ -15,17 +15,9 @@ limitations under the License.
 */
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/core/common/data_type.h"
-#include "oneflow/core/common/data_type.pb.h"
-#include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
-#include "oneflow/core/framework/user_op_hob.h"
-#include "oneflow/core/framework/user_op_tensor.h"
-#include "oneflow/core/kernel/new_kernel_util.h"
-#include "oneflow/core/kernel/kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
-#include "oneflow/core/ep/include/primitive/where.h"
 
 namespace oneflow {
 
