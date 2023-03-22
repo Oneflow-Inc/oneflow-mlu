@@ -51,10 +51,6 @@ namespace mlu {
   OF_PP_MAKE_TUPLE_SEQ(BinaryOp::kLogicalOr, CNNL_LOGIC_OP_OR)    \
   OF_PP_MAKE_TUPLE_SEQ(BinaryOp::kLogicalXor, CNNL_LOGIC_OP_XOR)
 
-#define MLU_BINARY_ACTIVATION_BACKWARD_OP_SEQ          \
-  OF_PP_MAKE_TUPLE_SEQ(BinaryOp::kGeluBackwardWithDyX) \
-  OF_PP_MAKE_TUPLE_SEQ(BinaryOp::kReluBackwardWithDyY)
-
 template<BinaryOp op, typename T>
 inline DataType GetBinaryMathComputeDataType() {
   return GetDataType<T>::value;

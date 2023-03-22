@@ -13,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
@@ -84,5 +86,100 @@ REGISTER_USER_KERNEL("gelu")
       });
     })
     .SetIsMatchedHob(BaseActivationIsMatched("in"));
+
+// TODO: x/y 适配不同的 mode
+static void LaunchActivationGradKernelMlu(cnnlHandle_t handle, cnnlActivationMode_t activation_mode,
+                                          const user_op::Tensor* input_a_tensor,
+                                          const user_op::Tensor* input_b_tensor,
+                                          user_op::Tensor* output_tensor) {
+  CnnlTensorDescriptor diff_y_desc;
+  diff_y_desc.set(input_a_tensor);
+  CnnlTensorDescriptor x_desc;
+  x_desc.set(input_b_tensor);
+  CnnlTensorDescriptor diff_x_desc;
+  diff_x_desc.set(output_tensor);
+  CnnlActivationDescriptor activation_desc;
+  activation_desc.set(activation_mode, CNNL_ACTIVATION_HIGH_PRECISION, CNNL_NOT_PROPAGATE_NAN,
+                      /*coef*/ 0.0);
+  OF_CNNL_CHECK(
+      cnnlActivationBackward(handle, activation_desc.desc(),
+                             /*alpha*/ nullptr,
+                             /*y_desc*/ nullptr,
+                             /*y*/ nullptr, diff_y_desc.desc(),
+                             /*diff_y*/ input_a_tensor->dptr(), x_desc.desc(),
+                             /*x. when op=relu_grad, replace x with y*/ input_b_tensor->dptr(),
+                             /*beta*/ nullptr, diff_x_desc.desc(),
+                             /*diff_x*/ output_tensor->mut_dptr()));
+}
+
+template<typename T>
+class ActivationGradKernelMlu final : public user_op::OpKernel {
+ public:
+  OF_DISALLOW_COPY_AND_MOVE(ActivationGradKernelMlu);
+  ActivationGradKernelMlu() = default;
+  ~ActivationGradKernelMlu() = default;
+  ActivationGradKernelMlu(const std::string& output_name, const std::string& input_a_name,
+                          const std::string& input_b_name, cnnlActivationMode_t activation_mode)
+      : output_name_(output_name),
+        input_a_name_(input_a_name),
+        input_b_name_(input_b_name),
+        activation_mode_(activation_mode) {}
+
+ private:
+  using user_op::OpKernel::Compute;
+  void Compute(user_op::KernelComputeContext* ctx) const override {
+    // The meanings of input_a_name and input_b_name are determined by kernel registration, in the
+    // order of output_name, input_a_name, input_b_name.
+    const user_op::Tensor* input_a_tensor = ctx->Tensor4ArgNameAndIndex(input_a_name_, 0);
+    const user_op::Tensor* input_b_tensor = ctx->Tensor4ArgNameAndIndex(input_b_name_, 0);
+    user_op::Tensor* output_tensor = ctx->Tensor4ArgNameAndIndex(output_name_, 0);
+    const ShapeView& input_a_shape = input_a_tensor->shape_view();
+    const ShapeView& input_b_shape = input_b_tensor->shape_view();
+    const ShapeView& output_shape = output_tensor->shape_view();
+    CHECK_EQ(input_a_shape, input_b_shape) << "InputA shape should be equal to InputB shape.";
+    CHECK_EQ(input_a_shape, output_shape) << "Input shape should be equal to Output shape.";
+    if (input_a_shape.elem_cnt() == 0) { return; }
+    LaunchActivationGradKernelMlu(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                  activation_mode_, input_a_tensor, input_b_tensor, output_tensor);
+  }
+  bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
+
+  std::string output_name_;
+  std::string input_a_name_;
+  std::string input_b_name_;
+  cnnlActivationMode_t activation_mode_;
+};
+
+inline auto ActivationGradIsMatched(const std::string& name1, const std::string& name2,
+                                    const std::string& name3, DataType dtype) {
+  return (user_op::HobDeviceType() == DeviceType::kMLU) && (user_op::HobDataType(name1, 0) == dtype)
+         && (user_op::HobDataType(name2, 0) == dtype) && (user_op::HobDataType(name3, 0) == dtype);
+}
+
+#define REGISTER_RELU_GRAD_USER_KERNEL(data_type)                                               \
+  REGISTER_USER_KERNEL("relu_grad")                                                             \
+      .SetCreateFn([]() {                                                                       \
+        return user_op::NewOpKernel<ActivationGradKernelMlu<data_type>>("dx", "dy", "y",        \
+                                                                        CNNL_ACTIVATION_RELU);  \
+      })                                                                                        \
+      .SetIsMatchedHob(ActivationGradIsMatched("dx", "dy", "y", GetDataType<data_type>::value)) \
+      .SetInplaceProposalFn(                                                                    \
+          [](const user_op::InferContext&,                                                      \
+             const user_op::AddInplaceArgPair& AddInplaceArgPairFn) -> Maybe<void> {            \
+            OF_RETURN_IF_ERROR(AddInplaceArgPairFn("dx", 0, "dy", 0, true));                    \
+            return Maybe<void>::Ok();                                                           \
+          });
+REGISTER_RELU_GRAD_USER_KERNEL(float)
+REGISTER_RELU_GRAD_USER_KERNEL(float16)
+
+#define REGISTER_GELU_GRAD_USER_KERNEL(data_type)                                              \
+  REGISTER_USER_KERNEL("gelu_grad")                                                            \
+      .SetCreateFn([]() {                                                                      \
+        return user_op::NewOpKernel<ActivationGradKernelMlu<data_type>>("dx", "dy", "x",       \
+                                                                        CNNL_ACTIVATION_GELU); \
+      })                                                                                       \
+      .SetIsMatchedHob(ActivationGradIsMatched("dx", "dy", "x", GetDataType<data_type>::value));
+REGISTER_GELU_GRAD_USER_KERNEL(float)
+REGISTER_GELU_GRAD_USER_KERNEL(float16)
 
 }  // namespace oneflow
