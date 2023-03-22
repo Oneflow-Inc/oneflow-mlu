@@ -24,22 +24,22 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_arange(test_case, device):
-    np_out = np.arange(13, dtype=np.float32)
-    of_out = flow.arange(13, device=device, dtype=flow.float32)
-    test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 1e-05, 1e-05))
+def _test_arange(test_case, device, dtype):
+    of_cpu_out = flow.arange(13, device="cpu", dtype=dtype if dtype!=flow.float16 else flow.float32)
+    of_out = flow.arange(13, device=device, dtype=dtype)
+    test_case.assertTrue(np.allclose(of_out.numpy(), of_cpu_out.numpy(), 1e-05, 1e-05))
 
 
-def _test_arange_step_prarm(test_case, device):
-    np_out = np.arange(0, 20, 2)
-    of_out = flow.arange(0, 20, step=2, device=device)
-    test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 1e-05, 1e-05))
+def _test_arange_step_prarm(test_case, device, dtype):
+    of_cpu_out = flow.arange(0, 20, 2, device="cpu", dtype=dtype if dtype!=flow.float16 else flow.float32)
+    of_out = flow.arange(0, 20, step=2, device=device, dtype=dtype)
+    test_case.assertTrue(np.allclose(of_out.numpy(), of_cpu_out.numpy(), 1e-05, 1e-05))
 
 
-def _test_arange_more_params(test_case, device):
-    np_out = np.arange(0, 100, 3)
-    of_out = flow.arange(start=0, end=100, step=3, device=device)
-    test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 1e-05, 1e-05))
+def _test_arange_more_params(test_case, device, dtype):
+    of_cpu_out = flow.arange(0, 100, 3, device="cpu", dtype=dtype if dtype!=flow.float16 else flow.float32)
+    of_out = flow.arange(start=0, end=100, step=3, device=device, dtype=dtype)
+    test_case.assertTrue(np.allclose(of_out.numpy(), of_cpu_out.numpy(), 1e-05, 1e-05))
 
 
 @flow.unittest.skip_unless_1n1d()
@@ -52,6 +52,7 @@ class TestArange(flow.unittest.TestCase):
             _test_arange_more_params,
         ]
         arg_dict["device"] = ["mlu"]
+        arg_dict["dtype"] = [flow.float32, flow.int8, flow.int32, flow.int64]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
