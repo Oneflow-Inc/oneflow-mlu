@@ -65,6 +65,19 @@ def _test_scalar_sub_forward(test_case, shape, device, dtype):
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, diff, diff))
 
 
+def _test_scalar_pow_forward(test_case, shape, device, dtype):
+    if dtype == flow.int:
+        return
+    array, y = _get_data(shape, dtype)
+    x = flow.tensor(array, device=flow.device(device), dtype=dtype)
+    x_cpu = x.cpu()
+    mlu_out = flow.pow(x, y)
+    cpu_out = flow.pow(x_cpu, y)
+    test_case.assertTrue(
+        np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001, equal_nan=True)
+    )
+
+
 @flow.unittest.skip_unless_1n1d()
 class TestScalarMathCambriconModule(flow.unittest.TestCase):
     def test_scalar_math(test_case):
@@ -73,6 +86,7 @@ class TestScalarMathCambriconModule(flow.unittest.TestCase):
             _test_scalar_add_forward,
             _test_scalar_mul_forward,
             _test_scalar_sub_forward,
+            _test_scalar_pow_forward,
         ]
         arg_dict["shape"] = [(4,), (4, 8), (2, 4, 8), (2, 4, 8, 2)]
         arg_dict["device"] = ["mlu"]

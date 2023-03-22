@@ -25,60 +25,75 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_nll_loss_forward(test_case, shape, reduction, device, dtype, has_weight):
+def _test_avg_pool2d_forward(
+    test_case,
+    shape,
+    kernel,
+    stride,
+    padding,
+    count_include_pad,
+    ceil_mode,
+    device,
+    dtype,
+):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
-    C = shape[1]
-
-    target_dims = [shape[0]] + list(shape[2:])
-    target = flow.randint(0, C, target_dims, dtype=flow.int).to(flow.device(device))
-
-    weight = None
-    weight_cpu = None
-    if has_weight:
-        weight = flow.randn(C, dtype=dtype).to(flow.device(device))
-        weight_cpu = weight.cpu()
-        if dtype == flow.float16:
-            weight_cpu = weight_cpu.float()
-
-    nll = flow.nn.NLLLoss(weight=weight, reduction=reduction)
-    mlu_out = nll(x, target)
-
+    kwargs = {
+        "kernel_size": kernel,
+        "stride": stride,
+        "padding": padding,
+        "count_include_pad": count_include_pad,
+        "ceil_mode": ceil_mode,
+    }
+    mlu_result = flow.nn.functional.avg_pool2d(x, **kwargs)
+    cpu_result = flow.nn.functional.avg_pool2d(x.cpu().float(), **kwargs)
     if dtype == flow.float16:
-        nll = flow.nn.NLLLoss(weight=weight_cpu, reduction=reduction)
-        cpu_out = nll(x.cpu().float(), target.cpu())
         test_case.assertTrue(
-            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.001, 0.001)
+            np.allclose(mlu_result.cpu().numpy(), cpu_result.numpy(), 0.001, 0.001)
         )
     else:
-        nll = flow.nn.NLLLoss(weight=weight_cpu, reduction=reduction)
-        cpu_out = nll(x.cpu(), target.cpu())
+        if not np.allclose(
+            mlu_result.cpu().numpy(), cpu_result.numpy(), 0.0001, 0.0001
+        ):
+            print("Failed")
         test_case.assertTrue(
-            np.allclose(cpu_out.numpy(), mlu_out.numpy(), 0.0001, 0.0001)
+            np.allclose(mlu_result.cpu().numpy(), cpu_result.numpy(), 0.0001, 0.0001)
         )
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestNLLLossCambriconModule(flow.unittest.TestCase):
-    def test_nll_loss(test_case):
+class TestMaxPoolCambriconModule(flow.unittest.TestCase):
+    def test_avg_pool2d(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_nll_loss_forward,
+            _test_avg_pool2d_forward,
         ]
         arg_dict["shape"] = [
-            (16, 32,),
-            (8, 12, 24),
+            (1, 3, 24, 24),
+            (3, 3, 112, 112),
         ]
-        arg_dict["reduction"] = [
-            "mean",
-            "sum",
-            "none",
+        arg_dict["kernel"] = [
+            2,
+            3,
+            [2, 3],
         ]
+        arg_dict["stride"] = [
+            None,
+            2,
+            3,
+            [2, 3],
+        ]
+        arg_dict["padding"] = [
+            0,
+            1,
+            [0, 1],
+        ]
+        arg_dict["count_include_pad"] = [True, False]
+        arg_dict["ceil_mode"] = [True, False]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
             flow.float16,
         ]
-        arg_dict["has_weight"] = [True, False]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 
