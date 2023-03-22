@@ -74,7 +74,8 @@ class MluArangeKernel final : public user_op::OpKernel {
       step_int = static_cast<int32_t>(ctx->Attr<int64_t>("integer_delta"));
       OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                   CNNL_COMPUTATION_HIGH_PRECISION, (void*)&start_int,
-                                  (void*)&step_int, tmp_out_desc.desc(), tmp_out_ptr));    }
+                                  (void*)&step_int, tmp_out_desc.desc(), tmp_out_ptr));
+    }
 
     if (tmp_out_data_type != dtype) {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(tmp_out_data_type, dtype);

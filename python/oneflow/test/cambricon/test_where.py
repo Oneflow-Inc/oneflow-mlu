@@ -104,6 +104,7 @@ def _test_where_dim4(test_case, device):
     np_out = np.array([[[[1.0, 0.3139], [0.3898, 1.0], [0.0478, 1.0]]]])
     test_case.assertTrue(np.allclose(of_out.numpy(), np_out, 1e-05, 1e-05))
 
+
 def _test_where_scalar(test_case, device):
     x = flow.randn(5, 5)
     y = flow.where(x > 0, x, 0.0)
