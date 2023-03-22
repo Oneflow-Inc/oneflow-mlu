@@ -25,10 +25,29 @@ limitations under the License.
 
 namespace oneflow {
 
+namespace{
+
 template<typename Context>
 std::unique_ptr<ep::primitive::Permute> NewPermutePrimitive(Context* ctx, const int& num_dims) {
   return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(ctx->device_type(), num_dims);
 }
+
+void infer_channel_sizes(const ShapeView& shape, int* n, int* c, int* h, int* w){
+  if (shape.NumAxes() == 2) {
+    *n = shape.At(0);
+    *h = 1;
+    *w = 1;
+    *c = shape.At(1);
+  } else {
+    *n = shape.At(0);
+    *c = shape.At(1);
+    *h = shape.At(2);
+    *w = shape.At(3);
+  }
+}
+
+} // namespace
+
 
 template<typename T>
 class MluNormalizationInferenceKernel final : public user_op::OpKernel {
@@ -54,18 +73,8 @@ class MluNormalizationInferenceKernel final : public user_op::OpKernel {
     const auto epsilon = ctx->Attr<float>("epsilon");
 
     int n = 0, c = 0, h = 0, w = 0;
-    if (x->shape_view().NumAxes() == 2) {
-      n = x->shape_view().At(0);
-      h = 1;
-      w = 1;
-      c = x->shape_view().At(1);
-    } else {
-      n = x->shape_view().At(0);
-      c = x->shape_view().At(1);
-      h = x->shape_view().At(2);
-      w = x->shape_view().At(3);
-    }
-
+    infer_channel_sizes(x->shape_view(), &n, &c, &h, &w);
+    
     size_t tmp_in_size = x->shape_view().elem_cnt() * GetSizeOfDataType(x->data_type());
     size_t tmp_out_size = y->shape_view().elem_cnt() * GetSizeOfDataType(y->data_type());
     CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
@@ -163,17 +172,7 @@ class MluNormalizationTrainingKernel final : public user_op::OpKernel {
     }
 
     int n = 0, c = 0, h = 0, w = 0;
-    if (x->shape_view().NumAxes() == 2) {
-      n = x->shape_view().At(0);
-      h = 1;
-      w = 1;
-      c = x->shape_view().At(1);
-    } else {
-      n = x->shape_view().At(0);
-      c = x->shape_view().At(1);
-      h = x->shape_view().At(2);
-      w = x->shape_view().At(3);
-    }
+    infer_channel_sizes(x->shape_view(), &n, &c, &h, &w);
 
     size_t tmp_in_size = x->shape_view().elem_cnt() * GetSizeOfDataType(x->data_type());
     size_t tmp_out_size = y->shape_view().elem_cnt() * GetSizeOfDataType(y->data_type());
