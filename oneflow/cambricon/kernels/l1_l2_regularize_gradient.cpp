@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "cnnl.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
@@ -30,23 +29,6 @@ limitations under the License.
 
 namespace oneflow {
 
-// namespace {
-// template<typename Context>
-// auto NewPrimitive(Context* ctx) -> std::unique_ptr<ep::primitive::Where> {
-//   const user_op::TensorDesc* cond_desc = ctx->TensorDesc4ArgNameAndIndex("condition", 0);
-//   const user_op::TensorDesc* out_desc = ctx->TensorDesc4ArgNameAndIndex("out", 0);
-//   return ep::primitive::NewPrimitive<ep::primitive::WhereFactory>(
-//       ctx->device_type(), cond_desc->data_type(), out_desc->data_type(),
-//       out_desc->shape().NumAxes());
-// }
-
-// auto PrimitiveExists() {
-//   return hob::make_custom("PrimitiveExists", [](const user_op::KernelRegContext& ctx) -> bool {
-//     return NewPrimitive(&ctx).operator bool();
-//   });
-// }
-// }
-
 template<typename T>
 class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
  public:
@@ -56,12 +38,14 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
  private:
   using user_op::OpKernel::Compute;
 
-  // out[i] = model_diff[i] + l1 * (model[i] >= 0 ? 1 : -1) + l2 * model[i];
+  // formula: out = model_diff + l1 * (model >= 0 ? 1 : -1) + l2 * model
   // 1. create workspace filled by l1
-  // 2. create workspace to store l1 * (model >= 0 ? 1 : -1)
+  // 2. create workspace to store signed_l1 = l1 * (model >= 0 ? 1 : -1)
   // 3. calculate signed_l1 = l1 * (model >= 0 ? 1 : -1) with CopySign
-  // 4. calculate regularization = signed_l1 + l2 * model with AddCMul
-  // 5. calucate out = diff + regularization
+  //    CopySign uses the sign of model and absolute value of l1 to calculate signed_l1
+  // 4. calculate regularization = signed_l1 + l2 * model with AddCMul,
+  //    reuse l1_workspace to save l2
+  // 5. calucate out = model_diff + regularization
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* model = ctx->Tensor4ArgNameAndIndex("model", 0);
     const user_op::Tensor* model_diff = ctx->Tensor4ArgNameAndIndex("model_diff", 0);
@@ -69,12 +53,13 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
     const auto l1 = ctx->Attr<float>("l1");
     const auto l2 = ctx->Attr<float>("l2");
 
-    CnnlTensorDescriptor model_desc, model_diff_desc, out_desc, l1_desc, signed_l1_desc;
+    CnnlTensorDescriptor model_desc, model_diff_desc, out_desc;
     model_desc.set(model);
     model_diff_desc.set(model_diff);
     out_desc.set(out);
 
     // 1. create workspace filled by l1
+    CnnlTensorDescriptor l1_desc;
     l1_desc.set(model);
     CnnlWorkspace l1_workspace(
         ctx->stream()->As<ep::MluStream>(),
@@ -87,23 +72,23 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
         /* output_desc  */ l1_desc.desc(),
         /* output       */ l1_workspace.dptr()));
 
-    // 2. create workspace to store l1 * (model[i] >= 0 ? 1 : -1)
+    // 2. create workspace to store signed_l1 = l1 * (model[i] >= 0 ? 1 : -1)
+    CnnlTensorDescriptor signed_l1_desc;
     signed_l1_desc.set(model);
     CnnlWorkspace signed_l1_workspace(
         ctx->stream()->As<ep::MluStream>(),
         model->shape_view().elem_cnt() * GetSizeOfDataType(model->data_type()));
 
-    // 3. calculate l1 * (model[i] >= 0 ? 1 : -1) with CopySign
+    // 3. calculate signed_l1 = l1 * (model >= 0 ? 1 : -1) with CopySign
+    // CopySign uses the sign of model and absolute value of l1 to calculate signed_l1
     size_t copy_sign_workspace_size = 0;
-    CnnlWorkspace copy_sign_workspace(
-        ctx->stream()->As<ep::MluStream>(),
-        copy_sign_workspace_size * GetSizeOfDataType(model->data_type()));
     OF_CNNL_CHECK(cnnlGetCopySignWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ l1_desc.desc(),
         /* other_desc     */ model_desc.desc(),
         /* output_desc    */ signed_l1_desc.desc(),
         /* workspace_size */ &copy_sign_workspace_size));
+    CnnlWorkspace copy_sign_workspace(ctx->stream()->As<ep::MluStream>(), copy_sign_workspace_size);
     OF_CNNL_CHECK(cnnlCopySign(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ l1_desc.desc(),
@@ -115,9 +100,17 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
         /* output_desc    */ signed_l1_desc.desc(),
         /* output         */ signed_l1_workspace.dptr()));
 
-    // 4. calculate regularization = l1_regularization + l2 * model with AddCMul
-    // a + b * c * alpha where a is signed_l1, alpha is l2,
-    // b is l1_workspace (filled by 1.0f), c is model
+    // 4. calculate regularization = signed_l1 + l2 * model with AddCMul.
+    // The formula of AddCMul is (a + b * c * alpha) where a is signed_l1,
+    // alpha is l2, b is 1.0f (reuse l1_workspace), c is model
+    T one = static_cast<T>(1.0f);
+    OF_CNNL_CHECK(cnnlFill_v3(
+        /* handle       */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        /* pointer_mode */ CNNL_POINTER_MODE_HOST,
+        /* value        */ &one,
+        /* output_desc  */ l1_desc.desc(),
+        /* output       */ l1_workspace.dptr()));
+    
     CnnlWorkspace regularization_workspace(
         ctx->stream()->As<ep::MluStream>(),
         model->shape_view().elem_cnt() * GetSizeOfDataType(model->data_type()));
@@ -132,13 +125,15 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
         /* desc_c */ model_desc.desc(),
         /* size   */ &addcmul_workspace_size));
     CnnlWorkspace addcmul_workspace(ctx->stream()->As<ep::MluStream>(),
-                                    addcmul_workspace_size * GetSizeOfDataType(model->data_type()));
-    T alpha = static_cast<T>(l2);
+                                    addcmul_workspace_size);
+    T l2_value = static_cast<T>(l2);
+    // regulazion = a         + b    * c     * alpha
+    //            = signed_l1 + 1.0f * model * l2
     OF_CNNL_CHECK(cnnlAddcmul(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* desc_a         */ signed_l1_desc.desc(),
         /* a              */ signed_l1_workspace.dptr(),
-        /* alpha          */ &alpha,
+        /* alpha          */ &l2_value,
         /* desc_b         */ l1_desc.desc(),
         /* b              */ l1_workspace.dptr(),
         /* desc_c         */ model_desc.desc(),
@@ -159,8 +154,7 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
         /* input_num      */ 2,
         /* output_desc    */ out_desc.desc(),
         /* workspace_size */ &out_workspace_size));
-    CnnlWorkspace out_workspace(ctx->stream()->As<ep::MluStream>(),
-                                out_workspace_size * GetSizeOfDataType(out->data_type()));
+    CnnlWorkspace out_workspace(ctx->stream()->As<ep::MluStream>(), out_workspace_size);
     OF_CNNL_CHECK(cnnlAddN_v2(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_descs    */ input_descs.data(),
@@ -181,7 +175,6 @@ class MluL1L2RegularizeGradientKernel final : public user_op::OpKernel {
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
                        && (user_op::HobDataType("model", 0) == GetDataType<dtype>::value));
 
-// target only supports int32
 REGISTER_L1_L2_REGULARIZE_GRADIENT_MLU_KERNEL(float)
 REGISTER_L1_L2_REGULARIZE_GRADIENT_MLU_KERNEL(float16)
 
