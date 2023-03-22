@@ -44,19 +44,33 @@ class MluCastKernel final : public user_op::OpKernel {
     const DataType out_data_type = ctx->TensorDesc4ArgNameAndIndex("out", 0)->data_type();
     CnnlTensorDescriptor in_desc(in), out_decs(out);
 
-    if (in_data_type == kUInt8 && out_data_type == kBool) {
+    if ((in_data_type == kUInt8 && out_data_type == kBool) || (in_data_type == kBool && out_data_type == kInt64)) {
       size_t tmp_out_workspace_size = out->shape_view().elem_cnt() * sizeof(kInt32);
       CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                            tmp_out_workspace_size);
       void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
       CnnlTensorDescriptor tmp_out_desc;
       tmp_out_desc.set(out, ConvertToCnnlDataType(kInt32));
-      OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+      if (in_data_type == kUInt8){
+        OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                      in_desc.desc(), in->dptr(), CNNL_CAST_UINT8_TO_INT32,
                                      tmp_out_desc.desc(), tmp_out_ptr));
-      OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                     tmp_out_desc.desc(), tmp_out_ptr, CNNL_CAST_INT32_TO_BOOL,
-                                     out_decs.desc(), out->mut_dptr()));
+      }
+      else{
+        OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                     in_desc.desc(), in->dptr(), CNNL_CAST_BOOL_TO_INT32,
+                                     tmp_out_desc.desc(), tmp_out_ptr));
+      }
+      if(out_data_type == kBool){
+        OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                tmp_out_desc.desc(), tmp_out_ptr, CNNL_CAST_INT32_TO_BOOL,
+                                out_decs.desc(), out->mut_dptr()));
+      }
+      else{
+        OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                tmp_out_desc.desc(), tmp_out_ptr, CNNL_CAST_INT32_TO_INT64,
+                                out_decs.desc(), out->mut_dptr()));
+      }
       return;
     }
 
@@ -76,10 +90,12 @@ class MluCastKernel final : public user_op::OpKernel {
       (user_op::HobDeviceType() == DeviceType::kMLU)                                \
       && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
 
+REGISTER_CAST_MLU_KERNEL(bool)
 REGISTER_CAST_MLU_KERNEL(float)
 REGISTER_CAST_MLU_KERNEL(float16)
 REGISTER_CAST_MLU_KERNEL(int8_t)
 REGISTER_CAST_MLU_KERNEL(uint8_t)
 REGISTER_CAST_MLU_KERNEL(int32_t)
+REGISTER_CAST_MLU_KERNEL(int64_t)
 
 }  // namespace oneflow
