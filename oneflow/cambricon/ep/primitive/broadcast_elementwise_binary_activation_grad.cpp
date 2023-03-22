@@ -28,23 +28,6 @@ namespace mlu {
 
 namespace {
 
-template<typename T>
-static void SetCnnlTensorDescriptor(CnnlTensorDescriptor& desc, size_t num_dims,
-                                    const int64_t* dims) {
-  cnnlDataType_t data_type = ConvertToCnnlDataType(GetDataType<T>::value);
-  if (!num_dims) {
-    num_dims = 1;
-    std::vector<int> dim_array(1, 1);
-    OF_CNNL_CHECK(cnnlSetTensorDescriptorEx(desc.mut_desc(), CNNL_LAYOUT_ARRAY, data_type, num_dims,
-                                            dim_array.data(), dim_array.data()));
-    return;
-  }
-  std::vector<int> shape_info(num_dims);
-  for (size_t i = 0; i < num_dims; ++i) { shape_info[i] = static_cast<int>(dims[i]); }
-  OF_CNNL_CHECK(cnnlSetTensorDescriptor(desc.mut_desc(), CNNL_LAYOUT_ARRAY, data_type, num_dims,
-                                        shape_info.data()));
-}
-
 template<BinaryOp op>
 cnnlActivationMode_t GetCnnlActivationMode();
 
@@ -72,11 +55,11 @@ class BinaryActivationBackwardGrad : public BroadcastElementwiseBinary {
     // when op is relu, src0 is diff_y, src1 is y.
     // when op is gelu, src0 is diff_y, src1 is x.
     CnnlTensorDescriptor diff_y_desc;
-    SetCnnlTensorDescriptor<T>(diff_y_desc, num_src0_dims, src0_dims);
+    diff_y_desc.set(num_src0_dims, src0_dims, ConvertToCnnlDataType(GetDataType<T>::value));
     CnnlTensorDescriptor x_desc;
-    SetCnnlTensorDescriptor<T>(x_desc, num_src1_dims, src1_dims);
+    x_desc.set(num_src1_dims, src1_dims, ConvertToCnnlDataType(GetDataType<T>::value));
     CnnlTensorDescriptor diff_x_desc;
-    SetCnnlTensorDescriptor<T>(diff_x_desc, num_src1_dims, src1_dims);
+    diff_x_desc.set(num_src1_dims, src1_dims, ConvertToCnnlDataType(GetDataType<T>::value));
 
     auto handle = stream->As<ep::MluStream>()->cnnl_handle();
     CnnlActivationDescriptor activation_desc;
