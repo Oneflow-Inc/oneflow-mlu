@@ -25,28 +25,42 @@ import oneflow.unittest
 
 
 def _get_data(shape, dtype):
-    array = np.random.randn(*shape)
-    if dtype == flow.int:
-        array = array.astype(int)
-    return array
+    return np.random.randn(*shape)
 
 
 def _test_activation_backward_grad(test_case, op, shape, device, dtype):
     array = _get_data(shape, dtype)
+    array_grad_y = _get_data(shape, dtype)
     # mlu
     x_mlu = flow.tensor(
         array, dtype=dtype, device=flow.device(device), requires_grad=True
     )
     y_mlu = op(x_mlu)
-    y_mlu.backward(flow.ones(*y_mlu.shape, dtype=dtype, device=flow.device(device)))
-    grad_mlu = x_mlu.grad
+    grad_y_mlu = flow.tensor(
+        array_grad_y, dtype=dtype, device="mlu", requires_grad=True
+    )
+    grad_mlu = flow.autograd.grad(
+        outputs=y_mlu,
+        inputs=x_mlu,
+        grad_outputs=grad_y_mlu,
+        create_graph=True,
+        retain_graph=True,
+    )[0]
     # cpu
     x_cpu = flow.tensor(
         array, dtype=dtype, device=flow.device("cpu"), requires_grad=True
     )
     y_cpu = op(x_cpu)
-    y_cpu.backward(flow.ones(*y_cpu.shape, dtype=dtype, device=flow.device("cpu")))
-    grad_cpu = x_cpu.grad
+    grad_y_cpu = flow.tensor(
+        array_grad_y, dtype=dtype, device="cpu", requires_grad=True
+    )
+    grad_cpu = flow.autograd.grad(
+        outputs=y_cpu,
+        inputs=x_cpu,
+        grad_outputs=grad_y_cpu,
+        create_graph=True,
+        retain_graph=True,
+    )[0]
     # compare
     diff = 0.001 if dtype == flow.float16 else 0.0001
     test_case.assertTrue(np.allclose(grad_mlu.numpy(), grad_cpu.numpy(), diff, diff))
