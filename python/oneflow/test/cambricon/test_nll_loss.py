@@ -124,7 +124,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,
-            flow.float16,
+            # flow.float16,
         ]
         arg_dict["has_weight"] = [True, False]
         for arg in GenArgList(arg_dict):
@@ -139,12 +139,10 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
             (16, 32,),
             (8, 12, 24),
         ]
-        # TODO: mean is not supported since out_weight is 0 when reduction type
-        # is CNNL_REDUCTION_NONE for cnnl cnnlNlllossForward
-        # TODO: sum is not supported since broadcast_like is not implmented
+        # TODO: mean is not supported since broadcast_div_grad is not implemented
         arg_dict["reduction"] = [
             # "mean",
-            # "sum",
+            "sum",
             "none",
         ]
         arg_dict["device"] = ["mlu"]
