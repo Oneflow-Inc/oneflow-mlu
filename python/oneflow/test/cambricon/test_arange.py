@@ -52,7 +52,7 @@ class TestArange(flow.unittest.TestCase):
             _test_arange_more_params,
         ]
         arg_dict["device"] = ["mlu"]
-        arg_dict["dtype"] = [flow.float32, flow.int8, flow.int32, flow.int64]
+        arg_dict["dtype"] = [flow.float32, flow.float16, flow.int8, flow.int32, flow.int64]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
 

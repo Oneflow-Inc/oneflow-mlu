@@ -45,19 +45,22 @@ class MluArangeKernel final : public user_op::OpKernel {
     CnnlTensorDescriptor tmp_out_desc, out_decs;
     out_decs.set(out);
 
+    DataType tmp_out_data_type;
     size_t tmp_out_workspace_size = out->shape_view().elem_cnt();
     if constexpr (std::is_same_v<T, float>) {
       tmp_out_workspace_size *= GetSizeOfDataType(kFloat);
+      tmp_out_data_type = kFloat;
     } else if constexpr (std::is_same_v<T, float16>) {
       tmp_out_workspace_size *= GetSizeOfDataType(kFloat16);
+      tmp_out_data_type = kFloat16;
     } else {
       tmp_out_workspace_size *= GetSizeOfDataType(kInt32);
+      tmp_out_data_type = kInt32;
     }
     CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                          tmp_out_workspace_size);
     void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
 
-    DataType tmp_out_data_type;
     if constexpr (std::is_same_v<T, float> || std::is_same_v<T, float16>) {
       tmp_out_desc.set(out, ConvertToCnnlDataType(GetDataType<T>::value));
       start_float = static_cast<float>(ctx->Attr<double>("float_start"));
@@ -65,16 +68,13 @@ class MluArangeKernel final : public user_op::OpKernel {
       OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                   CNNL_COMPUTATION_HIGH_PRECISION, (void*)&start_float,
                                   (void*)&step_float, tmp_out_desc.desc(), tmp_out_ptr));
-      tmp_out_data_type = kFloat;
     } else {
       tmp_out_desc.set(out, ConvertToCnnlDataType(kInt32));
       start_int = static_cast<int32_t>(ctx->Attr<int64_t>("integer_start"));
       step_int = static_cast<int32_t>(ctx->Attr<int64_t>("integer_delta"));
       OF_CNNL_CHECK(cnnlArange_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                   CNNL_COMPUTATION_HIGH_PRECISION, (void*)&start_int,
-                                  (void*)&step_int, tmp_out_desc.desc(), tmp_out_ptr));
-      tmp_out_data_type = kInt32;
-    }
+                                  (void*)&step_int, tmp_out_desc.desc(), tmp_out_ptr));    }
 
     if (tmp_out_data_type != dtype) {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(tmp_out_data_type, dtype);
