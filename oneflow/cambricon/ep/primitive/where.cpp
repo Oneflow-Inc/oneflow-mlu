@@ -22,6 +22,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/core/common/constant.h"
 #include "oneflow/core/common/data_type.h"
+#include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/maybe.h"
 #include "oneflow/core/common/throw.h"
 #include "oneflow/core/ep/common/primitive/where.h"
@@ -45,41 +46,56 @@ class WhereImpl : public Where {
   void Launch(Stream* stream, size_t num_cond_dims, const int64_t* cond_dims, const void* cond,
               size_t num_x_dims, const int64_t* x_dims, const void* x, size_t num_y_dims,
               const int64_t* y_dims, const void* y, void* z) override {
-    if constexpr (
-        (std::is_same_v<CondT, bool> || std::is_same_v<CondT, uint8_t>)&&(
-            std::is_same_v<
-                T,
-                int8_t> || std::is_same_v<T, int16_t> || std::is_same_v<T, int32_t> || std::is_same_v<T, int64_t> || std::is_same_v<T, float> || std::is_same_v<T, float16>)) {
-      cnnlDataType_t cnnl_cond_data_type = ConvertToCnnlDataType(GetDataType<CondT>::value);
-      cnnlDataType_t cnnl_xy_data_type = ConvertToCnnlDataType(GetDataType<T>::value);
-      CnnlTensorDescriptor condition_desc, x_desc, y_desc, z_desc;
-      condition_desc.set(num_cond_dims, cond_dims, cnnl_cond_data_type);
-      x_desc.set(num_x_dims, x_dims, cnnl_xy_data_type);
-      y_desc.set(num_y_dims, y_dims, cnnl_xy_data_type);
-      // get z_desc
-      int64_t z_dims[kMaxNumDims];
-      size_t max_dims = std::max(num_x_dims, num_y_dims);
-      for (int i = max_dims - 1; i >= 0; i--) {
-        if (num_x_dims > i && num_y_dims > i) {
-          z_dims[i] = std::max(x_dims[i], y_dims[i]);
-        } else if (num_x_dims > i) {
-          z_dims[i] = x_dims[i];
-        } else {
-          z_dims[i] = y_dims[i];
+    cnnlDataType_t cnnl_cond_data_type, cnnl_xy_data_type;
+    if (std::is_same_v<CondT, bool>) {
+        cnnl_cond_data_type = ConvertToCnnlDataType(kBool); 
+        switch(sizeof(T)) {
+            case 1:
+                cnnl_xy_data_type = ConvertToCnnlDataType(kInt8);
+                break;
+            case 2:
+                cnnl_xy_data_type = ConvertToCnnlDataType(kInt16);
+                break;
+            case 4:
+                cnnl_xy_data_type = ConvertToCnnlDataType(kInt32);
+                break;
+            case 8:
+                cnnl_xy_data_type = ConvertToCnnlDataType(kInt64);
+                break;
+            default:
+                UNIMPLEMENTED_THEN_THROW();
         }
-      }
-      z_desc.set(max_dims, z_dims, cnnl_xy_data_type);
-      size_t workspace_size = 0;
-      OF_CNNL_CHECK(cnnlGetSelectV2WorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
-                                                 condition_desc.desc(), x_desc.desc(),
-                                                 y_desc.desc(), &workspace_size));
-      CnnlWorkspace workspace(stream->As<ep::MluStream>(), workspace_size);
-      OF_CNNL_CHECK(cnnlSelectV2(stream->As<ep::MluStream>()->cnnl_handle(), condition_desc.desc(),
-                                 cond, x_desc.desc(), x, y_desc.desc(), y, workspace.dptr(),
-                                 workspace_size, z_desc.desc(), z));
-    } else {
-      UNIMPLEMENTED_THEN_THROW();
     }
+    else{
+        UNIMPLEMENTED_THEN_THROW();
+    }
+
+    CnnlTensorDescriptor condition_desc, x_desc, y_desc, z_desc;
+    condition_desc.set(num_cond_dims, cond_dims, cnnl_cond_data_type);
+    x_desc.set(num_x_dims, x_dims, cnnl_xy_data_type);
+    y_desc.set(num_y_dims, y_dims, cnnl_xy_data_type);
+    // get z_desc
+    int64_t z_dims[kMaxNumDims];
+    size_t max_dims = std::max(num_x_dims, num_y_dims);
+    for (int i = max_dims - 1; i >= 0; i--) {
+    if (num_x_dims > i && num_y_dims > i) {
+        z_dims[i] = std::max(x_dims[i], y_dims[i]);
+    } else if (num_x_dims > i) {
+        z_dims[i] = x_dims[i];
+    } else {
+        z_dims[i] = y_dims[i];
+    }
+    }
+    z_desc.set(max_dims, z_dims, cnnl_xy_data_type);
+    size_t workspace_size = 0;
+    OF_CNNL_CHECK(cnnlGetSelectV2WorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
+                                                condition_desc.desc(), x_desc.desc(),
+                                                y_desc.desc(), &workspace_size));
+    CnnlWorkspace workspace(stream->As<ep::MluStream>(), workspace_size);
+    OF_CNNL_CHECK(cnnlSelectV2(stream->As<ep::MluStream>()->cnnl_handle(), condition_desc.desc(),
+                                cond, x_desc.desc(), x, y_desc.desc(), y, workspace.dptr(),
+                                workspace_size, z_desc.desc(), z));
+
   }
 };
 
