@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/core/ep/include/primitive/broadcast_elementwise_binary.h"
 #include "oneflow/core/kernel/kernel_util.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
@@ -20,7 +21,6 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
-
 
 namespace oneflow {
 
@@ -78,28 +78,19 @@ class MluSparseSoftmaxCrossEntropyGradKernel final : public user_op::OpKernel {
     user_op::Tensor* dy = ctx->Tensor4ArgNameAndIndex("dy", 0);
     user_op::Tensor* prediction_diff = ctx->Tensor4ArgNameAndIndex("prediction_diff", 0);
 
-    std::vector<int> expand_shape{};
+    std::vector<int64_t> expand_shape{};
     for (int i = 0; i < dy->shape_view().NumAxes(); i++) {
       expand_shape.push_back(dy->shape_view().At(i));
     }
     expand_shape.push_back(1);
 
-    CnnlTensorDescriptor prob_desc, dy_desc, diff_desc;
-    prob_desc.set(prob);
-    dy_desc.set_reshape(dy, expand_shape);
-    diff_desc.set(prediction_diff);
-    const auto cnnl_handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
-
-    OF_CNNL_CHECK(cnnlExpand(cnnl_handle, dy_desc.desc(), dy->dptr(), diff_desc.desc(),
-                             prediction_diff->mut_dptr()));
-
-    size_t workspace_size = 0;
-
-    OF_CNNL_CHECK(
-        cnnlGetAxWorkspaceSize(cnnl_handle, prob_desc.desc(), diff_desc.desc(), &workspace_size));
-    CnnlWorkspace cnnl_workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
-    OF_CNNL_CHECK(cnnlAx_v2(cnnl_handle, prob_desc.desc(), prob->dptr(), diff_desc.desc(),
-                            prediction_diff->mut_dptr(), cnnl_workspace.dptr(), workspace_size));
+    auto bcast_mul = ep::primitive::NewPrimitive<ep::primitive::BroadcastElementwiseBinaryFactory>(
+        ctx->device_type(), ep::primitive::BinaryOp::kMul, prediction_diff->data_type(),
+        prediction_diff->data_type(), prediction_diff->shape_view().NumAxes());
+    CHECK(bcast_mul);
+    bcast_mul->Launch(ctx->stream(), prob->shape_view().NumAxes(), prob->shape_view().ptr(),
+                      prob->dptr(), expand_shape.size(), expand_shape.data(), dy->dptr(),
+                      prediction_diff->mut_dptr());
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
