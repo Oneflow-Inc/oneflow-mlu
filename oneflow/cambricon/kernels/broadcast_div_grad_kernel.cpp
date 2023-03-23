@@ -17,6 +17,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/core/ep/include/primitive/broadcast_elementwise_binary.h"
 
 namespace oneflow {
@@ -76,21 +77,29 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
     tmp_desc.set_reduce(dz_tensor);
     dy_desc.set_reduce(dy_tensor);
 
-    CnnlReduceDescriptor reduce_desc;
-    auto cnnl_dtype = ConvertToCnnlDataType(dz_tensor->data_type());
     const auto& axis = ComputeReducedAxis(dz_tensor->shape_view(), dy_tensor->shape_view());
-    reduce_desc.set(cnnl_dtype, axis, CNNL_REDUCE_ADD, CNNL_REDUCE_NO_INDICES, CNNL_32BIT_INDICES);
 
-    size_t tmp_dy_workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                               tmp_desc.desc(), dy_desc.desc(),
-                                               reduce_desc.mut_desc(), &tmp_dy_workspace_size));
-    CnnlWorkspace tmp_dy_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dy_workspace_size);
+    if (!axis.empty()) {
+      CnnlReduceDescriptor reduce_desc;
+      auto cnnl_dtype = ConvertToCnnlDataType(dz_tensor->data_type());
+      reduce_desc.set(cnnl_dtype, axis, CNNL_REDUCE_ADD, CNNL_REDUCE_NO_INDICES,
+                      CNNL_32BIT_INDICES);
 
-    OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), reduce_desc.desc(),
-                             tmp_dy_workspace.dptr(), tmp_dy_workspace_size, nullptr,
-                             tmp_desc.desc(), tmp_ptr, 0, nullptr, nullptr, dy_desc.desc(),
-                             dy_tensor->mut_dptr()));
+      size_t tmp_dy_workspace_size = 0;
+      OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                                 tmp_desc.desc(), dy_desc.desc(),
+                                                 reduce_desc.mut_desc(), &tmp_dy_workspace_size));
+      CnnlWorkspace tmp_dy_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dy_workspace_size);
+
+      OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                               reduce_desc.desc(), tmp_dy_workspace.dptr(), tmp_dy_workspace_size,
+                               nullptr, tmp_desc.desc(), tmp_ptr, 0, nullptr, nullptr,
+                               dy_desc.desc(), dy_tensor->mut_dptr()));
+    } else {
+      Memcpy<DeviceType::kMLU>(
+          ctx->stream(), dy_tensor->mut_dptr(), tmp_ptr,
+          dy_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dy_tensor->data_type()));
+    }
 
     OF_CNNL_CHECK(cnnlNegTensor(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), dy_desc.desc(),
                                 dy_tensor->dptr(), dy_desc.desc(), dy_tensor->mut_dptr()));

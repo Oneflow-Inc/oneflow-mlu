@@ -25,16 +25,18 @@ import oneflow.unittest
 
 
 def _test_div_forward_backward(test_case, shape, device, dtype):
-    np_arry = np.random.randn(*shape)
-    requires_grad = True if dtype in [flow.float32, flow.float16] else False
-    x = flow.tensor(
-        np_arry, device=flow.device(device), dtype=dtype, requires_grad=requires_grad
+    x_arry = np.random.randn(*shape)
+    y_arry = np.random.randn(*shape)
+    # broadcast_div_grad of kCPU not support float16
+    requires_grad = True if dtype is flow.float32 else False
+    x = flow.tensor(x_arry, device=flow.device(device), dtype=dtype)
+    y = flow.tensor(
+        y_arry, device=flow.device(device), dtype=dtype, requires_grad=requires_grad
     )
-    y = flow.tensor(np_arry, device=flow.device(device), dtype=dtype)
-    x_cpu = flow.tensor(
-        np_arry, device=flow.device("cpu"), dtype=dtype, requires_grad=requires_grad
+    x_cpu = flow.tensor(x_arry, device=flow.device("cpu"), dtype=dtype)
+    y_cpu = flow.tensor(
+        y_arry, device=flow.device("cpu"), dtype=dtype, requires_grad=requires_grad
     )
-    y_cpu = flow.tensor(np_arry, device=flow.device("cpu"), dtype=dtype)
     of_out = flow.div(x, y)
     cpu_out = flow.div(x_cpu, y_cpu)
     test_case.assertTrue(
@@ -47,25 +49,25 @@ def _test_div_forward_backward(test_case, shape, device, dtype):
         s.backward()
         s_cpu.backward()
         test_case.assertTrue(
-            np.allclose(x.grad.numpy(), x_cpu.grad.numpy(), 0.0001, 0.0001)
+            np.allclose(y.grad.numpy(), y_cpu.grad.numpy(), 0.0001, 0.0001)
         )
 
 
 def _test_broadcast_div_forward_backward(test_case, shapes, device, dtype):
     shape1 = shapes[0]
     shape2 = shapes[1]
-    assert len(shape1) == len(shape2)
-    requires_grad = True if dtype in [flow.float32, flow.float16] else False
+    # broadcast_div_grad of kCPU not support float16
+    requires_grad = True if dtype is flow.float32 else False
     x_arry = np.random.randn(*shape1)
     y_arry = np.random.randn(*shape2)
-    x = flow.tensor(
-        x_arry, device=flow.device(device), dtype=dtype, requires_grad=requires_grad
+    x = flow.tensor(x_arry, device=flow.device(device), dtype=dtype)
+    y = flow.tensor(
+        y_arry, device=flow.device(device), dtype=dtype, requires_grad=requires_grad
     )
-    y = flow.tensor(y_arry, device=flow.device(device), dtype=dtype)
-    x_cpu = flow.tensor(
-        x_arry, device=flow.device("cpu"), dtype=dtype, requires_grad=requires_grad
+    x_cpu = flow.tensor(x_arry, device=flow.device("cpu"), dtype=dtype)
+    y_cpu = flow.tensor(
+        y_arry, device=flow.device("cpu"), dtype=dtype, requires_grad=requires_grad
     )
-    y_cpu = flow.tensor(y_arry, device=flow.device("cpu"), dtype=dtype)
     of_out = flow.div(x, y)
     cpu_out = flow.div(x_cpu, y_cpu)
     test_case.assertTrue(
@@ -78,7 +80,7 @@ def _test_broadcast_div_forward_backward(test_case, shapes, device, dtype):
         s.backward()
         s_cpu.backward()
         test_case.assertTrue(
-            np.allclose(x.grad.numpy(), x_cpu.grad.numpy(), 0.0001, 0.0001)
+            np.allclose(y.grad.numpy(), y_cpu.grad.numpy(), 0.0001, 0.0001)
         )
 
 
@@ -108,8 +110,16 @@ class TestDivCambriconModule(flow.unittest.TestCase):
         ]
         arg_dict["shapes"] = list(
             zip(
-                [(2,), (2, 3), (2, 3, 4), (2, 3, 4, 5)],
-                [(1,), (2, 1), (2, 1, 4), (2, 1, 1, 5)],
+                [
+                    (2,),
+                    (1, 3),
+                    (2, 3, 4),
+                    (2, 3, 4, 5),
+                    (2, 1, 4, 5),
+                    (2, 3, 4, 1),
+                    (2, 3, 1, 5),
+                ],
+                [(1,), (2, 1), (2, 1, 4), (2, 1, 1, 5), (4, 5), (1, 5), (4, 5)],
             )
         )
         arg_dict["device"] = ["mlu"]
