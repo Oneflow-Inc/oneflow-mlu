@@ -43,7 +43,6 @@ cnclReduceOp_t GetCnclReduceOp(ReduceMethod reduce_method) {
     return cnclReduceOp_t::cnclSum;
   } else {
     UNIMPLEMENTED();
-    return cnclReduceOp_t{};
   }
 }
 
@@ -169,7 +168,7 @@ class CommGroup final {
     for (int32_t local_rank = 0; local_rank < local_ranks.size(); ++local_rank) {
       const int32_t global_rank = local_ranks.at(local_rank);
       const int32_t device_id = device_set.device(global_rank).device_id();
-      OF_MLU_CHECK(cnrtSetDevice(device_id));
+      MluCurrentDeviceGuard guard(device_id);
       rank_vec_.emplace_back(device_id, global_rank, global_rank_count_, local_rank,
                              local_rank_count);
       rank_vec_.at(local_rank).InitRank(cncl_clique_id, global_rank_count_);
@@ -280,14 +279,14 @@ void LaunchFusedAllReduce(const CommGroup& comm_group,
                              request_entry->GetRuntimeRequest(local_rank)->send_buff,
                              request_entry->size_in_bytes());
         });
-    OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
+    MluCurrentDeviceGuard guard(comm_rank.device_id());
     MultiCopy(stream_ctx->stream(), copy_in_params);
   }
 
   for (int32_t local_rank = 0; local_rank < comm_group.local_rank_count(); ++local_rank) {
     const CommRank& comm_rank = comm_group.GetCommRank(local_rank);
     const StreamCtx* stream_ctx = device_id2stream_ctx.at(comm_rank.device_id()).get();
-    OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
+    MluCurrentDeviceGuard guard((comm_rank.device_id()));
     OF_CNCL_CHECK(cnclAllReduce(stream_ctx->fusion_buffer(), stream_ctx->fusion_buffer(), elem_cnt,
                                 cncl_data_type, cncl_reduce_op, comm_rank.cncl_comm(),
                                 stream_ctx->stream()));
@@ -303,7 +302,7 @@ void LaunchFusedAllReduce(const CommGroup& comm_group,
                               stream_ctx->fusion_buffer() + offset_vec.at(i),
                               request_entry->size_in_bytes());
         });
-    OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
+    MluCurrentDeviceGuard guard(comm_rank.device_id());
     MultiCopy(stream_ctx->stream(), copy_out_params);
   }
 }
@@ -316,7 +315,7 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
     const CommRank& comm_rank = comm_group.GetCommRank(local_rank);
     const auto comm = comm_rank.cncl_comm();
     const StreamCtx* stream_ctx = device_id2stream_ctx.at(comm_rank.device_id()).get();
-    OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
+    MluCurrentDeviceGuard guard(comm_rank.device_id());
     request_store->ForEachMutRequestEntryForIdsInJob(request_ids, [&](RequestEntry* request_entry,
                                                                       int32_t i,
                                                                       const RequestId& request_id) {
@@ -390,7 +389,7 @@ void AddCallbackAndResetRuntimeRequest(
           runtime_request_info_vec->emplace_back(
               std::move(saved_runtime_request_info.at(i).at(local_rank)));
         });
-    OF_MLU_CHECK(cnrtSetDevice(comm_rank.device_id()));
+    MluCurrentDeviceGuard guard(comm_rank.device_id());
     stream_ctx->AddCallback([runtime_request_info_vec]() {
       for (auto& runtime_request_info : *runtime_request_info_vec) {
         runtime_request_info->callback(Maybe<void>::Ok());
