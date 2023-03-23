@@ -273,11 +273,10 @@ class EagerCclBroadcastKernel final : public user_op::OpKernel {
     const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", index);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", index);
     int64_t root = ctx->Attr<int64_t>("root");
-    const void* in_ptr = nullptr;
+    const void* in_ptr = in->dptr();
     if (GlobalProcessCtx::Rank() == root) {
       CHECK_EQ(in->shape_view(), out->shape_view());
       CHECK_EQ(in->data_type(), out->data_type());
-      in_ptr = in->dptr();
     }
     std::unique_ptr<ccl::Broadcast> broadcast =
         ccl::NewCollectiveCommunication<ccl::Broadcast>(ctx->device_type(), out->data_type());
