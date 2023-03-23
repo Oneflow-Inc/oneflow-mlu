@@ -80,6 +80,7 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
     const auto& axis = ComputeReducedAxis(dz_tensor->shape_view(), dy_tensor->shape_view());
 
     if (axis.empty()) {
+      // axis being empty means that dz has the same shape as dy, no reduction needed.
       Memcpy<DeviceType::kMLU>(
           ctx->stream(), dy_tensor->mut_dptr(), tmp_ptr,
           dy_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dy_tensor->data_type()));
