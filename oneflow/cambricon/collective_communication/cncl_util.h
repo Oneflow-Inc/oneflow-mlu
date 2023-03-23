@@ -45,7 +45,7 @@ inline cnclDataType_t GetCnclDataType(const DataType& dt) {
     case DataType::kUInt16: return cnclUint16;
     case DataType::kUInt32: return cnclUint32;
     case DataType::kInvalidDataType: return cnclInvalid;
-    default: LOG(FATAL) << "UNIMPLEMENTED";
+    default: LOG(FATAL) << "No corresponding cncl dtype: " << DataType_Name(dt);
   }
   return cnclDataType_t::cnclFloat;
 }
