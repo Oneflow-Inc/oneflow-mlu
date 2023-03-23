@@ -13,47 +13,28 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
+#include "oneflow/cambricon/cnnl/cnnl_workspace.h"
+#include "oneflow/cambricon/ep/mlu_random_generator.h"
+#include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/framework/framework.h"
-#include "oneflow/user/kernels/op_kernel_wrapper.h"
+#include "oneflow/core/framework/random_generator.h"
 #include "oneflow/core/kernel/kernel_util.h"
 #include "oneflow/user/kernels/dropout_kernel.h"
+#include "oneflow/user/kernels/op_kernel_wrapper.h"
 #include "oneflow/core/ep/include/primitive/add.h"
 
 namespace oneflow {
 
-namespace {
-
 template<typename T>
-void MaskAndScale(ep::Stream* stream, const int64_t n, float scale, const T* x, const bool* mask,
-                  T* y) {
-  for (int64_t i = 0; i < n; ++i) { y[i] = x[i] * static_cast<T>(mask[i]) * scale; }
-}
-
-template<typename T>
-void FusedDropoutKernel(ep::Stream* stream, const int64_t elem_cnt,
-                        const std::shared_ptr<ep::CPUGenerator>& cpu_gen, const float rate,
-                        float scale, const T* x, bool* mask, T* y) {
-  /*
-  `uniform_real_distribution` interval is [a, b).
-  And `curand_uniform4` interval is (0, 1.0], so we use > in CUDA and use >= in CPU.
-  */
-  std::uniform_real_distribution<float> random_distribution(GetZeroVal<float>(),
-                                                            GetOneVal<float>());
-  for (int64_t i = 0; i < elem_cnt; ++i) {
-    mask[i] = random_distribution(cpu_gen->engine()) >= rate;
-    y[i] = x[i] * static_cast<T>(mask[i]) * scale;
-  }
-}
-
-template<typename T>
-class DropoutKernelCPU final : public user_op::OpKernel {
+class MluDropoutKernel final : public user_op::OpKernel {
  public:
-  DropoutKernelCPU() = default;
-  ~DropoutKernelCPU() = default;
+  MluDropoutKernel() = default;
+  ~MluDropoutKernel() = default;
 
   std::shared_ptr<user_op::OpKernelState> CreateOpKernelState(
       user_op::KernelInitContext* ctx) const override {
-    const auto& generator = CHECK_JUST(one::MakeGenerator(DeviceType::kCPU));
+    const auto& generator = CHECK_JUST(one::MakeGenerator(DeviceType::kMLU));
     return std::make_shared<FusedDropoutKernelState>(generator);
   }
 
@@ -64,25 +45,28 @@ class DropoutKernelCPU final : public user_op::OpKernel {
     user_op::Tensor* mask = ctx->Tensor4ArgNameAndIndex("mask", 0);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     const float rate = ctx->Attr<float>("rate");
-    float scale = 0.0f;
-    if (rate < 1.0f) { scale = 1.0f / (1.0f - rate); }
 
-    auto* fused_dropout_kernel_state = dynamic_cast<FusedDropoutKernelState*>(state);
-    CHECK_NOTNULL(fused_dropout_kernel_state);
-    const auto& generator = fused_dropout_kernel_state->generator();
-    CHECK_NOTNULL(generator);
-    std::shared_ptr<ep::CPUGenerator> cpu_generator =
-        CHECK_JUST(generator->Get<ep::CPUGenerator>());
+    CnnlTensorDescriptor in_desc(in), out_desc(out);
+    CnnlTensorDescriptor mask_desc(mask, CNNL_DTYPE_UINT8);
 
-    FusedDropoutKernel<T>(ctx->stream(), in->shape_view().elem_cnt(), cpu_generator, rate, scale,
-                          in->dptr<T>(), mask->mut_dptr<bool>(), out->mut_dptr<T>());
+    auto* dropout_kernel_state = dynamic_cast<FusedDropoutKernelState*>(state);
+    CHECK_NOTNULL(dropout_kernel_state);
+    std::shared_ptr<ep::MLUGenerator> generator =
+        CHECK_JUST(dropout_kernel_state->generator()->Get<ep::MLUGenerator>());
+
+    auto cnnl_handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
+    // update generator state
+    if (generator->need_update_state()) { generator->update_state(cnnl_handle); }
+    OF_CNNL_CHECK(cnnlFusedDropout_v2(cnnl_handle, generator->cnnl_rng(), in_desc.desc(),
+                                      in->dptr(), rate, generator->state(), mask_desc.desc(),
+                                      mask->mut_dptr(), out_desc.desc(), out->mut_dptr()));
 
     if (ctx->has_input("_add_to_output", 0)) {
       const user_op::Tensor* add_to_output = ctx->Tensor4ArgNameAndIndex("_add_to_output", 0);
       CHECK_EQ(add_to_output->data_type(), out->data_type());
       CHECK_EQ(add_to_output->shape_view(), out->shape_view());
       std::unique_ptr<ep::primitive::Add> primitive =
-          ep::primitive::NewPrimitive<ep::primitive::AddFactory>(DeviceType::kCPU,
+          ep::primitive::NewPrimitive<ep::primitive::AddFactory>(DeviceType::kMLU,
                                                                  add_to_output->data_type());
       CHECK(primitive);
       primitive->Launch(ctx->stream(), out->dptr<T>(), add_to_output->dptr<T>(), out->mut_dptr<T>(),
@@ -92,10 +76,10 @@ class DropoutKernelCPU final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_DROPOUT_KERNEL_CPU(dtype)                                                      \
+#define REGISTER_MLU_DROPOUT_KERNEL(dtype)                                                      \
   REGISTER_USER_KERNEL("dropout")                                                               \
-      .SetCreateFn<DropoutKernelCPU<dtype>>()                                                   \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kCPU)                           \
+      .SetCreateFn<MluDropoutKernel<dtype>>()                                                   \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                           \
                        && (user_op::HobDataType("out", 0) == GetDataType<dtype>::value)         \
                        && (user_op::HobDataType("mask", 0) == GetDataType<bool>::value))        \
       .SetInplaceProposalFn([](const user_op::InferContext&,                                    \
@@ -104,14 +88,13 @@ class DropoutKernelCPU final : public user_op::OpKernel {
         return Maybe<void>::Ok();                                                               \
       });
 
-REGISTER_DROPOUT_KERNEL_CPU(float)
-REGISTER_DROPOUT_KERNEL_CPU(double)
+REGISTER_MLU_DROPOUT_KERNEL(float)
 
 template<typename T>
-class DropoutGradKernelCPU final : public user_op::OpKernel {
+class MluDropoutGradKernel final : public user_op::OpKernel {
  public:
-  DropoutGradKernelCPU() = default;
-  ~DropoutGradKernelCPU() = default;
+  MluDropoutGradKernel() = default;
+  ~MluDropoutGradKernel() = default;
 
  private:
   void Compute(user_op::KernelComputeContext* ctx) const override {
@@ -119,16 +102,29 @@ class DropoutGradKernelCPU final : public user_op::OpKernel {
     const user_op::Tensor* mask = ctx->Tensor4ArgNameAndIndex("mask", 0);
     user_op::Tensor* dx = ctx->Tensor4ArgNameAndIndex("dx", 0);
     const float scale = ctx->Attr<float>("scale");
-    MaskAndScale<T>(ctx->stream(), dy->shape_view().elem_cnt(), scale, dy->dptr<T>(),
-                    mask->dptr<bool>(), dx->mut_dptr<T>());
+
+    CnnlTensorDescriptor dy_desc(dy), dx_desc(dx);
+    CnnlTensorDescriptor mask_desc(mask, CNNL_DTYPE_UINT8);
+
+    auto cnnl_handle = ctx->stream()->As<ep::MluStream>()->cnnl_handle();
+    size_t workspace_size = 0;
+    OF_CNNL_CHECK(cnnlGetMaskedWorkspaceSize(cnnl_handle, CNNL_MASKED_SCALE, dy_desc.desc(),
+                                             mask_desc.desc(), nullptr, dx_desc.desc(),
+                                             &workspace_size));
+    CnnlWorkspace workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
+    OF_CNNL_CHECK(cnnlMasked_v4(cnnl_handle, CNNL_MASKED_SCALE, dy_desc.desc(), dy->dptr(),
+                                mask_desc.desc(), mask->dptr(), nullptr, nullptr, &scale,
+                                workspace.dptr(), workspace_size, dx_desc.desc(), dx->mut_dptr(),
+                                nullptr));
   }
+
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_DROPOUT_GRAD_KERNEL_CPU(dtype)                                                 \
+#define REGISTER_MLU_DROPOUT_GRAD_KERNEL(dtype)                                                 \
   REGISTER_USER_KERNEL("dropout_grad")                                                          \
-      .SetCreateFn<DropoutGradKernelCPU<dtype>>()                                               \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kCPU)                           \
+      .SetCreateFn<MluDropoutGradKernel<dtype>>()                                               \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                           \
                        && (user_op::HobDataType("dx", 0) == GetDataType<dtype>::value))         \
       .SetInplaceProposalFn([](const user_op::InferContext&,                                    \
                                user_op::AddInplaceArgPair AddInplaceArgPairFn) -> Maybe<void> { \
@@ -136,8 +132,6 @@ class DropoutGradKernelCPU final : public user_op::OpKernel {
         return Maybe<void>::Ok();                                                               \
       });
 
-REGISTER_DROPOUT_GRAD_KERNEL_CPU(float)
-REGISTER_DROPOUT_GRAD_KERNEL_CPU(double)
+REGISTER_MLU_DROPOUT_GRAD_KERNEL(float)
 
-}  // namespace
 }  // namespace oneflow
