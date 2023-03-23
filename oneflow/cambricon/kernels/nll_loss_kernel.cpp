@@ -171,7 +171,6 @@ class MluNLLGradKernel final : public user_op::OpKernel {
     CnnlTensorDescriptor weight_desc;
 
     const void* weight_dptr = nullptr;
-    CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(), 0);
     if (ctx->has_input("weight", 0)) {
       const user_op::Tensor* weight = ctx->Tensor4ArgNameAndIndex("weight", 0);
       weight_desc.set(weight);
