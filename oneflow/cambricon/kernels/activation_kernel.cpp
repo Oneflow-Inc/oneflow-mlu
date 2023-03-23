@@ -174,4 +174,17 @@ REGISTER_RELU_GRAD_USER_KERNEL(float16)
 REGISTER_GELU_GRAD_USER_KERNEL(float)
 REGISTER_GELU_GRAD_USER_KERNEL(float16)
 
+REGISTER_USER_KERNEL("tanh")
+    .SetCreateFn([]() {
+      return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
+        const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
+        user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
+        CnnlActivationDescriptor activation_desc;
+        activation_desc.set(CNNL_ACTIVATION_TANH, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
+                            /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
+        CnnlActivationForward(ctx, in, out, activation_desc);
+      });
+    })
+    .SetIsMatchedHob(BaseActivationIsMatched("x"));
+
 }  // namespace oneflow
