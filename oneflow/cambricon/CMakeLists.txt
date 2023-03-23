@@ -5,7 +5,6 @@ set(ONEFLOW_MLU_LIBS ${NEUWARE_LIBRARIES})
 
 file(GLOB_RECURSE ONEFLOW_MLU_BANG_SRCS *.mlu)
 if(ONEFLOW_MLU_BANG_SRCS)
-  message(STATUS "ONEFLOW_MLU_BANG_SRCS: ${ONEFLOW_MLU_BANG_SRCS}")
   include(cmake/bang.cmake)
   bang_add_library(custom_bangc STATIC ${ONEFLOW_MLU_BANG_SRCS})
   list(APPEND ONEFLOW_MLU_LIBS custom_bangc)
