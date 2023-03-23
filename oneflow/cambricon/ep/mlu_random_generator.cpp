@@ -17,13 +17,12 @@ limitations under the License.
 
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/core/common/util.h"
-#include "oneflow/core/ep/include/random_generator_registry.h"
 
 namespace oneflow {
 namespace ep {
 
 MLUGenerator::MLUGenerator(uint64_t seed, int device_index)
-    : Generator(), seed_(seed), device_index_(device_index), need_update_state_(true) {
+    : RandomGenerator(), seed_(seed), device_index_(device_index), need_update_state_(true) {
   OF_CNNL_CHECK(cnnlRandCreateGenerator(&cnnl_rng_, CNNL_RAND_RNG_MTGP32));
   this->set_current_seed(seed);
   OF_CNNL_CHECK(cnnlRandGetMTGP32StateSize(nullptr, &state_size_));
@@ -67,6 +66,7 @@ void MLUGenerator::SetState(size_t state_size, const void* state) {
 }
 
 void MLUGenerator::update_state(cnnlHandle_t handle) {
+  std::lock_guard<std::mutex> lock(mutex_);
   if (need_update_state_) {
     OF_CNNL_CHECK(cnnlRandMakeMTGP32KernelState(handle, state_, nullptr, nullptr, seed_));
     need_update_state_ = false;
@@ -74,11 +74,9 @@ void MLUGenerator::update_state(cnnlHandle_t handle) {
 }
 
 template<>
-std::string GetRandomGeneratorDevice<MLUGenerator>() {
+std::string GetRandomGeneratorDeviceTypeName<MLUGenerator>() {
   return "mlu";
 }
-
-REGISTER_RANDOM_GENERATOR("mlu", MLUGenerator);
 
 }  // namespace ep
 }  // namespace oneflow

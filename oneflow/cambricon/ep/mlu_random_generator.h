@@ -24,7 +24,7 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-class MLUGenerator : public Generator {
+class MLUGenerator : public RandomGenerator {
  public:
   explicit MLUGenerator(uint64_t seed, int device_index);
   virtual ~MLUGenerator();
@@ -32,7 +32,7 @@ class MLUGenerator : public Generator {
   uint64_t current_seed() const override { return seed_; }
   void set_current_seed(uint64_t seed) override;
 
-  std::string device() const override { return "mlu"; }
+  std::string device_type_name() const override { return "mlu"; }
   int64_t device_index() const override { return device_index_; }
 
   size_t GetStateSize() const override;
