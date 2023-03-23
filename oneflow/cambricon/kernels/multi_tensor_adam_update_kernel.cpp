@@ -138,9 +138,11 @@ class MluMultiTensorAdamUpdateKernel final : public user_op::OpKernel {
     AddressList g, m, v, p;
     SizeList sizes;
     int tensor_count = 0;
-    int mode = 0;
+    int adam_w_mode = 0;
 
     int32_t total_elem_cnt = 0;
+    cnrtQueue_t queue = nullptr;
+    OF_CNNL_CHECK(cnnlGetQueue(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), &queue));
     for (int tensor_idx = 0; tensor_idx < n_tensor; tensor_idx++) {
       const int64_t tensor_elem_cnt =
           ctx->Tensor4ArgNameAndIndex("model", tensor_idx)->shape_view().elem_cnt();
@@ -151,14 +153,11 @@ class MluMultiTensorAdamUpdateKernel final : public user_op::OpKernel {
       ;
       sizes.sizes[tensor_count] = tensor_elem_cnt;
 
-      cnrtQueue_t queue = nullptr;
-      OF_CNNL_CHECK(cnnlGetQueue(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), &queue));
-
       tensor_count += 1;
       total_elem_cnt += tensor_elem_cnt;
       if (tensor_count == kMaxTuples || tensor_idx == n_tensor - 1) {
         bang_fused_adam_internal(g, m, v, p, sizes, tensor_count, beta1, beta2, epsilon_correction,
-                                 learning_rate_correction, mode, weight_decay,
+                                 learning_rate_correction, adam_w_mode, weight_decay,
                                  weight_decay_correction, k_dim, k_type, queue, cnrt_type);
         tensor_count = 0;
         total_elem_cnt = 0;
