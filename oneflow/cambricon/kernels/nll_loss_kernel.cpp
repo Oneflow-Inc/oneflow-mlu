@@ -48,15 +48,8 @@ class MluNLLKernel final : public user_op::OpKernel {
     const int64_t C = input->shape_view().At(input->shape_view().NumAxes() - 1);
     const K ignore_index = static_cast<K>(ctx->Attr<int64_t>("ignore_index"));
 
-    CnnlTensorDescriptor input_desc;
-    CnnlTensorDescriptor target_desc;
-    CnnlTensorDescriptor weight_desc;
-    CnnlTensorDescriptor output_desc;
-    CnnlTensorDescriptor out_weight_desc;
-
-    input_desc.set(input);
-    target_desc.set(target);
-    output_desc.set(output);
+    CnnlTensorDescriptor input_desc(input), target_desc(target), output_desc(output);
+    CnnlTensorDescriptor weight_desc, out_weight_desc;
 
     int64_t out_weight_size[1] = {1};
     out_weight_desc.set(1, out_weight_size, ConvertToCnnlDataType(out_weight->data_type()));
@@ -173,16 +166,9 @@ class MluNLLGradKernel final : public user_op::OpKernel {
     user_op::Tensor* in_grad = ctx->Tensor4ArgNameAndIndex("in_grad", 0);
     const K ignore_index = static_cast<K>(ctx->Attr<int64_t>("ignore_index"));
 
-    CnnlTensorDescriptor input_desc;
-    CnnlTensorDescriptor target_desc;
-    CnnlTensorDescriptor out_grad_desc;
-    CnnlTensorDescriptor in_grad_desc;
+    CnnlTensorDescriptor input_desc(input), target_desc(target), out_grad_desc(out_grad),
+        in_grad_desc(in_grad);
     CnnlTensorDescriptor weight_desc;
-
-    input_desc.set(input);
-    target_desc.set(target);
-    out_grad_desc.set(out_grad);
-    in_grad_desc.set(in_grad);
 
     const void* weight_dptr = nullptr;
     CnnlWorkspace cnnl_workspace_for_weight(ctx->stream()->As<ep::MluStream>(), 0);
