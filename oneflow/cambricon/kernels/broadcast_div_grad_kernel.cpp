@@ -79,7 +79,11 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
 
     const auto& axis = ComputeReducedAxis(dz_tensor->shape_view(), dy_tensor->shape_view());
 
-    if (!axis.empty()) {
+    if (axis.empty()) {
+      Memcpy<DeviceType::kMLU>(
+          ctx->stream(), dy_tensor->mut_dptr(), tmp_ptr,
+          dy_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dy_tensor->data_type()));
+    } else {
       CnnlReduceDescriptor reduce_desc;
       auto cnnl_dtype = ConvertToCnnlDataType(dz_tensor->data_type());
       reduce_desc.set(cnnl_dtype, axis, CNNL_REDUCE_ADD, CNNL_REDUCE_NO_INDICES,
@@ -95,10 +99,6 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
                                reduce_desc.desc(), tmp_dy_workspace.dptr(), tmp_dy_workspace_size,
                                nullptr, tmp_desc.desc(), tmp_ptr, 0, nullptr, nullptr,
                                dy_desc.desc(), dy_tensor->mut_dptr()));
-    } else {
-      Memcpy<DeviceType::kMLU>(
-          ctx->stream(), dy_tensor->mut_dptr(), tmp_ptr,
-          dy_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dy_tensor->data_type()));
     }
 
     OF_CNNL_CHECK(cnnlNegTensor(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), dy_desc.desc(),
