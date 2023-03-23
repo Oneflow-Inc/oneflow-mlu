@@ -14,21 +14,9 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-#include <unordered_map>
-#include <vector>
-#include "cnnl.h"
-#include "oneflow/cambricon/cnnl/cnnl_types.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
-#include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
-#include "oneflow/core/common/data_type.h"
-#include "oneflow/core/common/data_type.pb.h"
-#include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
-#include "oneflow/core/kernel/new_kernel_util.h"
-#include "oneflow/core/ep/include/primitive/permute.h"
 
 namespace oneflow {
 
@@ -44,8 +32,7 @@ class MluArgmaxKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
-    CnnlTensorDescriptor in_desc, out_desc;
-    in_desc.set(in);
+    CnnlTensorDescriptor in_desc(in), out_desc;
 
     // cnnlTopKTensor_v3 requires output and index have the same ndim as input,
     // but the size of the dim to be reduced should be 1
