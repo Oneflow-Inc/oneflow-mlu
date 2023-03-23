@@ -51,7 +51,7 @@ def do_test_dropout_numpy_p1(test_case, shape, device, dtype):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestDropout(flow.unittest.TestCase):
+class TestMluDropout(flow.unittest.TestCase):
     def test_dropout(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
