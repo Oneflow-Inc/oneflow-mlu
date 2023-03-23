@@ -47,6 +47,10 @@ class ExecutorBackend {
   virtual void DestroyGroupToken(void* group_token) = 0;
 };
 
+const std::vector<DeviceType>& VaildExecutorDeviceTypes();
+
+void RegisterExecutorDeviceType(DeviceType device_type);
+
 template<typename... Args>
 static std::unique_ptr<ExecutorBackend> NewExecutorBackend(DeviceType device_type, Args&&... args) {
   std::unique_ptr<ExecutorBackend> executor_backend_entry =
@@ -56,6 +60,7 @@ static std::unique_ptr<ExecutorBackend> NewExecutorBackend(DeviceType device_typ
 }
 
 #define REGISTER_EXECUTOR_BACKEND(device, Derived) \
+  COMMAND(RegisterExecutorDeviceType(device));     \
   REGISTER_CLASS(DeviceType, device, ExecutorBackend, Derived)
 
 }  // namespace collective

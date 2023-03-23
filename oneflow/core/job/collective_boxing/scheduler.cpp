@@ -120,41 +120,34 @@ class ExecutorImpl : public Executor {
 void ExecutorImpl::Init(std::shared_ptr<RequestStore> request_store) {
   request_store_ = request_store;
   backends_.resize(DeviceType_ARRAYSIZE);
-  int32_t valid_backend_count = 0;
-  for (int i = DeviceType_MIN; i < DeviceType_ARRAYSIZE; ++i) {
-    if (DeviceType_IsValid(i)) {
-      DeviceType device_type = DeviceType(i);
-      if (device_type != DeviceType::kCPU && device_type != DeviceType::kMockDevice) {
-        size_t dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(device_type);
-        if (dev_count > 0) {
-          std::unique_ptr<ExecutorBackend> backend = NewExecutorBackend(device_type);
-          if (backend) {
-            valid_backend_count += 1;
-            backend->Init(request_store_);
-            backends_.at(device_type) = std::move(backend);
-          }
-        }
-      }
+  const auto& vaild_executor_device_types = VaildExecutorDeviceTypes();
+  CHECK_EQ(vaild_executor_device_types.size(), 1)
+      << "Currently only one backend is supported at the same time";
+
+  for (DeviceType device_type : vaild_executor_device_types) {
+    size_t dev_count = Singleton<ep::DeviceManagerRegistry>::Get()->GetDeviceCount(device_type);
+    if (dev_count > 0) {
+      std::unique_ptr<ExecutorBackend> backend = NewExecutorBackend(device_type);
+      CHECK(backend);
+      backend->Init(request_store_);
+      backends_.at(device_type) = std::move(backend);
     }
   }
-  CHECK_EQ(valid_backend_count, 1) << "Currently only one backend is supported at the same time";
 }
 
 void ExecutorImpl::InitJob(int64_t job_id) {
-  for (int i = DeviceType_MIN; i < DeviceType_ARRAYSIZE; ++i) {
-    if (DeviceType_IsValid(i)) {
-      DeviceType device_type = DeviceType(i);
-      if (backends_.at(device_type)) { backends_.at(device_type)->InitJob(job_id); }
-    }
+  const auto& vaild_executor_device_types = VaildExecutorDeviceTypes();
+  for (DeviceType device_type : vaild_executor_device_types) {
+    CHECK(backends_.at(device_type));
+    backends_.at(device_type)->InitJob(job_id);
   }
 }
 
 void ExecutorImpl::DeinitJob(int64_t job_id) {
-  for (int i = DeviceType_MIN; i < DeviceType_ARRAYSIZE; ++i) {
-    if (DeviceType_IsValid(i)) {
-      DeviceType device_type = DeviceType(i);
-      if (backends_.at(device_type)) { backends_.at(device_type)->DeinitJob(job_id); }
-    }
+  const auto& vaild_executor_device_types = VaildExecutorDeviceTypes();
+  for (DeviceType device_type : vaild_executor_device_types) {
+    CHECK(backends_.at(device_type));
+    backends_.at(device_type)->DeinitJob(job_id);
   }
 }
 
@@ -164,13 +157,10 @@ GroupToken* ExecutorImpl::CreateGroupToken(const std::vector<RequestId>& group,
 }
 
 void ExecutorImpl::DestroyGroupToken(GroupToken* group_token) {
-  for (int i = DeviceType_MIN; i < DeviceType_ARRAYSIZE; ++i) {
-    if (DeviceType_IsValid(i)) {
-      DeviceType device_type = DeviceType(i);
-      if (backends_.at(device_type)) {
-        backends_.at(device_type)->DestroyGroupToken(group_token->backend_group_token());
-      }
-    }
+  const auto& vaild_executor_device_types = VaildExecutorDeviceTypes();
+  for (DeviceType device_type : vaild_executor_device_types) {
+    CHECK(backends_.at(device_type));
+    backends_.at(device_type)->DestroyGroupToken(group_token->backend_group_token());
   }
   delete group_token;
 }
