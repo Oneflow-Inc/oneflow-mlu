@@ -25,14 +25,14 @@ limitations under the License.
 
 namespace oneflow {
 
-namespace{
+namespace {
 
 template<typename Context>
 std::unique_ptr<ep::primitive::Permute> NewPermutePrimitive(Context* ctx, const int& num_dims) {
   return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(ctx->device_type(), num_dims);
 }
 
-void infer_channel_sizes(const ShapeView& shape, int* n, int* c, int* h, int* w){
+void infer_channel_sizes(const ShapeView& shape, int* n, int* c, int* h, int* w) {
   if (shape.NumAxes() == 2) {
     *n = shape.At(0);
     *h = 1;
@@ -46,8 +46,7 @@ void infer_channel_sizes(const ShapeView& shape, int* n, int* c, int* h, int* w)
   }
 }
 
-} // namespace
-
+}  // namespace
 
 template<typename T>
 class MluNormalizationInferenceKernel final : public user_op::OpKernel {
@@ -74,7 +73,7 @@ class MluNormalizationInferenceKernel final : public user_op::OpKernel {
 
     int n = 0, c = 0, h = 0, w = 0;
     infer_channel_sizes(x->shape_view(), &n, &c, &h, &w);
-    
+
     size_t tmp_in_size = x->shape_view().elem_cnt() * GetSizeOfDataType(x->data_type());
     size_t tmp_out_size = y->shape_view().elem_cnt() * GetSizeOfDataType(y->data_type());
     CnnlWorkspace tmp_in_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_size);
@@ -225,5 +224,85 @@ REGISTER_BN_TRAINING_MLU_KERNEL(float)
 REGISTER_BN_TRAINING_MLU_KERNEL(float16)
 
 #undef REGISTER_BN_TRAINING_MLU_KERNEL
+
+template<typename T>
+class MluNormalizationGradKernel final : public user_op::OpKernel {
+ public:
+  MluNormalizationGradKernel() = default;
+  ~MluNormalizationGradKernel() = default;
+
+ private:
+  using user_op::OpKernel::Compute;
+
+  void Compute(user_op::KernelComputeContext* ctx) const override {
+    const auto* x = ctx->Tensor4ArgNameAndIndex("x", 0);
+    const auto* dy = ctx->Tensor4ArgNameAndIndex("dy", 0);
+    const auto* mean = ctx->Tensor4ArgNameAndIndex("mean", 0);
+    const auto* inv_variance = ctx->Tensor4ArgNameAndIndex("inv_variance", 0);
+    const auto* gamma = ctx->Tensor4ArgNameAndIndex("gamma", 0);
+
+    auto* gamma_diff = ctx->Tensor4ArgNameAndIndex("gamma_diff", 0);
+    auto* beta_diff = ctx->Tensor4ArgNameAndIndex("beta_diff", 0);
+    auto* dx = ctx->Tensor4ArgNameAndIndex("dx", 0);
+
+    const auto epsilon = ctx->Attr<float>("epsilon");
+
+    const auto stream = ctx->stream()->As<ep::MluStream>();
+
+    CnnlWorkspace workspace_x(stream, x->shape_view().Count(0) * GetSizeOfDataType(x->data_type()));
+    CnnlWorkspace workspace_dy(stream,
+                               dy->shape_view().Count(0) * GetSizeOfDataType(dy->data_type()));
+    CnnlWorkspace workspace_dx(stream,
+                               dx->shape_view().Count(0) * GetSizeOfDataType(dx->data_type()));
+
+    const auto get_nhwc_shape = [](const user_op::Tensor* x) {
+      const auto shape_view = x->shape_view();
+      std::vector<int64_t> shape_vec(shape_view.begin(), shape_view.end());
+      std::swap(shape_vec[1], shape_vec[2]);
+      std::swap(shape_vec[2], shape_vec[3]);
+      return shape_vec;
+    };
+
+    const auto new_x_shape = get_nhwc_shape(x);
+    const auto new_dy_shape = get_nhwc_shape(dy);
+    const auto new_dx_shape = get_nhwc_shape(dx);
+
+    const auto transpose = NewPermutePrimitive(ctx, x->shape_view().NumAxes());
+    std::array<int, 4> nchw_to_nhwc{0, 2, 3, 1};
+    std::array<int, 4> nhwc_to_nchw{0, 3, 1, 2};
+    transpose->Launch(ctx->stream(), x->data_type(), x->shape_view().NumAxes(),
+                      x->shape_view().data(), x->dptr<T>(), nchw_to_nhwc.data(),
+                      workspace_x.dptr());
+    transpose->Launch(ctx->stream(), dy->data_type(), dy->shape_view().NumAxes(),
+                      dy->shape_view().data(), dy->dptr<T>(), nchw_to_nhwc.data(),
+                      workspace_dy.dptr());
+
+    CnnlTensorDescriptor x_desc, dy_desc, gamma_desc(gamma), dx_desc;
+    x_desc.set(4, new_x_shape.data(), ConvertToCnnlDataType(x->data_type()), CNNL_LAYOUT_NHWC);
+    dy_desc.set(4, new_dy_shape.data(), ConvertToCnnlDataType(dy->data_type()), CNNL_LAYOUT_NHWC);
+    dx_desc.set(4, new_dx_shape.data(), ConvertToCnnlDataType(dx->data_type()), CNNL_LAYOUT_NHWC);
+
+    cnnlBatchNormBackward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), nullptr, nullptr,
+                          nullptr, nullptr, x_desc.desc(), workspace_x.dptr(), dy_desc.desc(),
+                          workspace_dy.dptr(), gamma_desc.desc(), gamma->dptr(), mean->dptr(),
+                          inv_variance->dptr(), epsilon, dx_desc.desc(), workspace_dx.dptr(),
+                          gamma_diff->mut_dptr(), beta_diff->mut_dptr());
+    transpose->Launch(ctx->stream(), dx->data_type(), dx->shape_view().NumAxes(),
+                      new_dx_shape.data(), workspace_dx.dptr(), nhwc_to_nchw.data(),
+                      dx->mut_dptr());
+  }
+  bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
+};
+
+#define REGISTER_BN_GRAD_KERNEL(dtype)                                \
+  REGISTER_USER_KERNEL("normalization_grad")                          \
+      .SetCreateFn<MluNormalizationGradKernel<dtype>>()               \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
+
+REGISTER_BN_GRAD_KERNEL(float)
+REGISTER_BN_GRAD_KERNEL(float16)
+
+#undef REGISTER_BN_GRAD_KERNEL
 
 }  // namespace oneflow
