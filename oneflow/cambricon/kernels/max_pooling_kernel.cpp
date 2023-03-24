@@ -169,45 +169,44 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
     cnnlPoolingMode_t mode = CNNL_POOLING_MAX;
 
     CnnlTensorDescriptor x_desc, indice_desc, dy_desc, dx_desc;
-    const void* temp_x;
-    const void* temp_indice;
-    const void* temp_dy;
-    void* temp_dx;
+    const void* temp_x = nullptr;
+    const void* temp_indice = nullptr;
+    const void* temp_dy = nullptr;
+    void* temp_dx = nullptr;
     CnnlWorkspace temp_x_cnnl_workspace(ctx->stream()->As<ep::MluStream>());
     CnnlWorkspace temp_indice_cnnl_workspace(ctx->stream()->As<ep::MluStream>());
     CnnlWorkspace temp_dy_cnnl_workspace(ctx->stream()->As<ep::MluStream>());
     CnnlWorkspace temp_dx_cnnl_workspace(ctx->stream()->As<ep::MluStream>());
 
     if (layout == CNNL_LAYOUT_NCHW) {
-    std::vector<int> permute_NCHW2NHWC{0, 2, 3, 1};
-    auto transpose2NHWC = [&ctx, &permute_NCHW2NHWC](const user_op::Tensor* tensor,
-                                                     CnnlWorkspace& workspace,
-                                                     CnnlTensorDescriptor& desc) {
-      size_t workspace_size =
-          tensor->shape_view().elem_cnt() * GetSizeOfDataType(tensor->data_type());
-      workspace.resize(workspace_size);
-      std::vector<int64_t> shape({tensor->shape_view().At(0), tensor->shape_view().At(1),
-                                  tensor->shape_view().At(2), tensor->shape_view().At(3)});
-      std::vector<int64_t> target_shape({tensor->shape_view().At(0), tensor->shape_view().At(2),
-                                         tensor->shape_view().At(3), tensor->shape_view().At(1)});
+      std::vector<int> permute_NCHW2NHWC{0, 2, 3, 1};
+      auto transpose2NHWC = [&ctx, &permute_NCHW2NHWC](const user_op::Tensor* tensor,
+                                                       CnnlWorkspace& workspace,
+                                                       CnnlTensorDescriptor& desc) {
+        size_t workspace_size =
+            tensor->shape_view().elem_cnt() * GetSizeOfDataType(tensor->data_type());
+        workspace.resize(workspace_size);
+        std::vector<int64_t> target_shape({tensor->shape_view().At(0), tensor->shape_view().At(2),
+                                           tensor->shape_view().At(3), tensor->shape_view().At(1)});
 
-      auto transpose = NewPermutePrimitive(ctx, tensor->shape_view().NumAxes());
-      CHECK(transpose);
-      transpose->Launch(ctx->stream(), tensor->data_type(), tensor->shape_view().NumAxes(),
-                        shape.data(), tensor->dptr(), permute_NCHW2NHWC.data(), workspace.dptr());
-      desc.set(shape.size(), target_shape.data(), ConvertToCnnlDataType(tensor->data_type()),
-               CNNL_LAYOUT_NHWC);
-    };
+        auto transpose = NewPermutePrimitive(ctx, tensor->shape_view().NumAxes());
+        CHECK(transpose);
+        transpose->Launch(ctx->stream(), tensor->data_type(), tensor->shape_view().NumAxes(),
+                          tensor->shape_view().data(), tensor->dptr(), permute_NCHW2NHWC.data(),
+                          workspace.dptr());
+        desc.set(target_shape.size(), target_shape.data(),
+                 ConvertToCnnlDataType(tensor->data_type()), CNNL_LAYOUT_NHWC);
+      };
 
-    transpose2NHWC(x, temp_x_cnnl_workspace, x_desc);
-    transpose2NHWC(indice, temp_indice_cnnl_workspace, indice_desc);
-    transpose2NHWC(dy, temp_dy_cnnl_workspace, dy_desc);
-    transpose2NHWC(dx, temp_dx_cnnl_workspace, dx_desc);
+      transpose2NHWC(x, temp_x_cnnl_workspace, x_desc);
+      transpose2NHWC(indice, temp_indice_cnnl_workspace, indice_desc);
+      transpose2NHWC(dy, temp_dy_cnnl_workspace, dy_desc);
+      transpose2NHWC(dx, temp_dx_cnnl_workspace, dx_desc);
 
-    temp_x = temp_x_cnnl_workspace.dptr();
-    temp_indice = temp_indice_cnnl_workspace.dptr();
-    temp_dy = temp_dy_cnnl_workspace.dptr();
-    temp_dx = temp_dx_cnnl_workspace.dptr();
+      temp_x = temp_x_cnnl_workspace.dptr();
+      temp_indice = temp_indice_cnnl_workspace.dptr();
+      temp_dy = temp_dy_cnnl_workspace.dptr();
+      temp_dx = temp_dx_cnnl_workspace.dptr();
 
     } else {
       temp_x = x->dptr();
@@ -235,18 +234,18 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
 
     std::vector<int> temp_indice_shape;
     if (layout == CNNL_LAYOUT_NCHW) {
-    temp_indice_shape = {
-        static_cast<int>(indice->shape_view().At(0)),
-        static_cast<int>(indice->shape_view().At(2)),
-        static_cast<int>(indice->shape_view().At(3)),
-        static_cast<int>(indice->shape_view().At(1)),
-    };
+      temp_indice_shape = {
+          static_cast<int>(indice->shape_view().At(0)),
+          static_cast<int>(indice->shape_view().At(2)),
+          static_cast<int>(indice->shape_view().At(3)),
+          static_cast<int>(indice->shape_view().At(1)),
+      };
     } else {
-       temp_indice_shape = {
-        static_cast<int>(indice->shape_view().At(0)),
-        static_cast<int>(indice->shape_view().At(1)),
-        static_cast<int>(indice->shape_view().At(2)),
-        static_cast<int>(indice->shape_view().At(3)),
+      temp_indice_shape = {
+          static_cast<int>(indice->shape_view().At(0)),
+          static_cast<int>(indice->shape_view().At(1)),
+          static_cast<int>(indice->shape_view().At(2)),
+          static_cast<int>(indice->shape_view().At(3)),
       };
     }
     local_index_desc.set(indice->shape_view().NumAxes(), temp_indice_shape.data(),
@@ -302,17 +301,19 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
         /* diff_x_desc  */ dx_desc.desc(),
         /* diff_x       */ temp_dx));
 
-    std::vector<int> permute_NHWC2NCHW{0, 3, 1, 2};
-    std::vector<int64_t> temp_dx_shape = {
-        dx->shape_view().At(0),
-        dx->shape_view().At(2),
-        dx->shape_view().At(3),
-        dx->shape_view().At(1),
-    };
-    auto transpose = NewPermutePrimitive(ctx, dx->shape_view().NumAxes());
-    CHECK(transpose);
-    transpose->Launch(ctx->stream(), dx->data_type(), dx->shape_view().NumAxes(),
-                      temp_dx_shape.data(), temp_dx, permute_NHWC2NCHW.data(), dx->mut_dptr());
+    if (layout == CNNL_LAYOUT_NCHW) {
+      std::vector<int> permute_NHWC2NCHW{0, 3, 1, 2};
+      std::vector<int64_t> temp_dx_shape = {
+          dx->shape_view().At(0),
+          dx->shape_view().At(2),
+          dx->shape_view().At(3),
+          dx->shape_view().At(1),
+      };
+      auto transpose = NewPermutePrimitive(ctx, dx->shape_view().NumAxes());
+      CHECK(transpose);
+      transpose->Launch(ctx->stream(), dx->data_type(), dx->shape_view().NumAxes(),
+                        temp_dx_shape.data(), temp_dx, permute_NHWC2NCHW.data(), dx->mut_dptr());
+    }
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
