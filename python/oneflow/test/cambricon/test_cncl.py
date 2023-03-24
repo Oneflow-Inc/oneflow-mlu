@@ -145,6 +145,28 @@ class TestCnclCambriconModule(flow.unittest.TestCase):
         test_case.assertTrue(np.array_equal(eager_out.to_local().numpy(), arr_out))
         test_case.assertTrue(np.array_equal(lazy_out.to_local().numpy(), arr_out))
 
+    def test_cncl_broadcast(test_case):
+        arr = np.array(
+            [
+                [4.0, 6.0, 5.0, 20.0],
+                [6.0, 2.0, 5.0, 7.0],
+                [3.0, 7.0, 5.0, 4.0],
+                [6.0, 8.0, 9.0, 4.0],
+            ],
+            dtype=np.float32,
+        )
+        arr_out = arr
+
+        x = flow.Tensor(arr, device="mlu")
+        y = x.to_global(
+            placement=flow.env.all_device_placement("mlu"), sbp=flow.sbp.broadcast
+        )
+        eager_out = y.to_global(
+            placement=flow.env.all_device_placement("mlu"), sbp=flow.sbp.broadcast
+        )
+
+        test_case.assertTrue(np.array_equal(eager_out.to_local().numpy(), arr_out))
+
 
 if __name__ == "__main__":
     unittest.main()
