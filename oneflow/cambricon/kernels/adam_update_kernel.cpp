@@ -133,8 +133,7 @@ class MluAdamUpdateKernel final : public user_op::OpKernel {
                        && (user_op::HobDataType("model_diff", 0) == GetDataType<gtype>::value));
 
 REGISTER_ADAM_UPDATE_KERNEL(DeviceType::kMLU, float, float);
-// REGISTER_ADAM_UPDATE_KERNEL(DeviceType::kMLU, float, float16);
-// REGISTER_ADAM_UPDATE_KERNEL(DeviceType::kMLU, double, double, float16);
+
 
 }  // namespace
 }  // namespace oneflow
