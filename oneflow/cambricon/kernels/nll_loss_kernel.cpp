@@ -58,10 +58,7 @@ class MluNLLKernel final : public user_op::OpKernel {
     void* tmp_target_ptr = tmp_target_cnnl_workspace.dptr();
     if (target->data_type() == kInt32) {
       tmp_target_desc.set(target);
-      OF_MLU_CHECK(cnrtMemcpyAsync(tmp_target_ptr, target->mut_dptr(),
-                                   target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
-                                   ctx->stream()->As<ep::MluStream>()->mlu_stream(),
-                                   cnrtMemcpyDevToDev));
+      tmp_target_ptr = target->mut_dptr();
     } else {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(kInt64, kInt32);
       tmp_target_desc.set(target, ConvertToCnnlDataType(kInt32));
@@ -198,10 +195,7 @@ class MluNLLGradKernel final : public user_op::OpKernel {
     void* tmp_target_ptr = tmp_target_cnnl_workspace.dptr();
     if (target->data_type() == kInt32) {
       tmp_target_desc.set(target);
-      OF_MLU_CHECK(cnrtMemcpyAsync(tmp_target_ptr, target->mut_dptr(),
-                                   target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
-                                   ctx->stream()->As<ep::MluStream>()->mlu_stream(),
-                                   cnrtMemcpyDevToDev));
+      tmp_target_ptr = target->mut_dptr();
     } else {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(kInt64, kInt32);
       tmp_target_desc.set(target, ConvertToCnnlDataType(kInt32));
