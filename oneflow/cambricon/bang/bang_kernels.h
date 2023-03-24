@@ -20,8 +20,8 @@ limitations under the License.
 
 namespace oneflow {
 
-// input is a 3D tensor with shape is [batch, N, length]
-// indices is a 1D tensor with shape is [index_size]
+// input is a 3D tensor with shape [batch, N, length]
+// indices is a 1D tensor with shape [index_size]
 template<typename T, typename K>
 void bang_gather_kernel(BangHandle& handle, const T* input, int64_t batch, int64_t N,
                         int64_t length, const K* index, int64_t index_size, T* output,
