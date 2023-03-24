@@ -53,7 +53,8 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
     const user_op::Tensor* dz_tensor = ctx->Tensor4ArgNameAndIndex("dz", 0);
     user_op::Tensor* dy_tensor = ctx->Tensor4ArgNameAndIndex("dy", 0);
 
-    size_t tmp_workspace_size = z_tensor->shape_view().elem_cnt() * sizeof(z_tensor->data_type());
+    size_t tmp_workspace_size =
+        z_tensor->shape_view().elem_cnt() * GetSizeOfDataType(z_tensor->data_type());
     CnnlWorkspace tmp_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_workspace_size);
     void* tmp_ptr = tmp_cnnl_workspace.dptr();
 
@@ -85,10 +86,19 @@ class BroadcastDivGradKernel final : public user_op::OpKernel {
           ctx->stream(), dy_tensor->mut_dptr(), tmp_ptr,
           dy_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dy_tensor->data_type()));
     } else {
+      auto reduce_mode = CNNL_REDUCE_ADD;
+      auto reduce_indices = CNNL_REDUCE_NO_INDICES;
+      auto reduce_indices_type = CNNL_32BIT_INDICES;
       CnnlReduceDescriptor reduce_desc;
       auto cnnl_dtype = ConvertToCnnlDataType(dz_tensor->data_type());
-      reduce_desc.set(cnnl_dtype, axis, CNNL_REDUCE_ADD, CNNL_REDUCE_NO_INDICES,
-                      CNNL_32BIT_INDICES);
+      if (axis.size() == dz_tensor->shape_view().NumAxes()) {
+        std::vector<int32_t> full_reduce(1, -1);
+        std::vector<int32_t> fake_size(dz_tensor->shape_view().NumAxes(), 1);
+        reduce_desc.set(cnnl_dtype, full_reduce, reduce_mode, reduce_indices, reduce_indices_type);
+        dy_desc.set(fake_size.size(), fake_size.data(), cnnl_dtype, CNNL_LAYOUT_NCHW);
+      } else {
+        reduce_desc.set(cnnl_dtype, axis, reduce_mode, reduce_indices, reduce_indices_type);
+      }
 
       size_t tmp_dy_workspace_size = 0;
       OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
