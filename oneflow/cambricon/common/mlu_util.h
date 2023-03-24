@@ -20,7 +20,7 @@ limitations under the License.
 #include "cnrt.h"
 #include "cnnl.h"
 
-namespace oneflow{
+namespace oneflow {
 
 constexpr uint32_t rem_for_stack = 128 * 1024;
 
@@ -39,5 +39,5 @@ uint32_t getDeviceAttr(cnrtDeviceAttr_t attr);
 
 cnrtDataType_t fromCnnlType2CnrtType(cnnlDataType_t cnnl_data_type);
 
-} // oneflow
+}  // namespace oneflow
 #endif  // ONEFLOW_CAMBRICON_COMMON_MLU_UTIL_H_

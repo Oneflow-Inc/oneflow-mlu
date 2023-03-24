@@ -151,8 +151,6 @@ def compare_with_numpy_adam(
         numpy_res.append(train_by_numpy(i))
 
     for i in range(tensor_num):
-        print("oneflow >>>>>>>>>>>>>> \n", oneflow_res[i].numpy())
-        print("numpy   >>>>>>>>>>>>>> \n", numpy_res[i])
         test_case.assertTrue(
             np.allclose(
                 oneflow_res[i].numpy().flatten(),
@@ -180,8 +178,7 @@ class TestAdam(flow.unittest.TestCase):
         arg_dict["save_load_by_pickle"] = [False]
         arg_dict["contiguous_params"] = [False]
         arg_dict["fused"] = [False]
-        # arg_dict["tensor_num"] = [1, 4]
-        arg_dict["tensor_num"] = [1]
+        arg_dict["tensor_num"] = [1, 4]
 
         for arg in GenArgList(arg_dict):
             compare_with_numpy_adam(test_case, *arg)

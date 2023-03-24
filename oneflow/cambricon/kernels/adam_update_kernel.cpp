@@ -23,7 +23,6 @@ namespace oneflow {
 
 namespace {
 
-
 template<DeviceType device_type, typename T, typename G>
 class MluAdamUpdateKernel final : public user_op::OpKernel {
  public:
@@ -111,29 +110,27 @@ class MluAdamUpdateKernel final : public user_op::OpKernel {
     k_dim.y = union_number;
     k_dim.z = 1;
     cnrtFunctionType_t k_type = CNRT_FUNC_TYPE_UNION1;
-    cnrtDataType_t cnrt_type = fromCnnlType2CnrtType(
-        ConvertToCnnlDataType(model_diff->data_type()));
+    cnrtDataType_t cnrt_type =
+        fromCnnlType2CnrtType(ConvertToCnnlDataType(model_diff->data_type()));
 
     AdamUpdateKernelUtil(
-        queue, k_dim, k_type, cnrt_type,
-        model->shape_view().elem_cnt(), static_cast<T>(scale), l1, l2, beta1, beta2,
-        epsilon, weight_decay, amsgrad, do_bias_correction, learning_rate_val, lr_scale,
-        bias_correction1_val, bias_correction2_val, learning_rate_ptr, scale_by_ptr, skip_if_ptr,
-        bias_correction1_ptr, bias_correction2_ptr, model_diff->dptr<G>(), model->mut_dptr<T>(),
-        m->mut_dptr<T>(), v->mut_dptr<T>(), max_v_ptr);
+        queue, k_dim, k_type, cnrt_type, model->shape_view().elem_cnt(), static_cast<T>(scale), l1,
+        l2, beta1, beta2, epsilon, weight_decay, amsgrad, do_bias_correction, learning_rate_val,
+        lr_scale, bias_correction1_val, bias_correction2_val, learning_rate_ptr, scale_by_ptr,
+        skip_if_ptr, bias_correction1_ptr, bias_correction2_ptr, model_diff->dptr<G>(),
+        model->mut_dptr<T>(), m->mut_dptr<T>(), v->mut_dptr<T>(), max_v_ptr);
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return true; }
 };
 
-#define REGISTER_ADAM_UPDATE_KERNEL(device, dtype, gtype)                            \
-  REGISTER_USER_KERNEL("adam_update")                                        \
-      .SetCreateFn<MluAdamUpdateKernel<device, dtype, gtype>>()                        \
+#define REGISTER_ADAM_UPDATE_KERNEL(device, dtype, gtype)                                 \
+  REGISTER_USER_KERNEL("adam_update")                                                     \
+      .SetCreateFn<MluAdamUpdateKernel<device, dtype, gtype>>()                           \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                     \
                        && (user_op::HobDataType("model", 0) == GetDataType<dtype>::value) \
                        && (user_op::HobDataType("model_diff", 0) == GetDataType<gtype>::value));
 
 REGISTER_ADAM_UPDATE_KERNEL(DeviceType::kMLU, float, float);
-
 
 }  // namespace
 }  // namespace oneflow
