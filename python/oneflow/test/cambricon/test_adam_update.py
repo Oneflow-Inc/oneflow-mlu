@@ -172,11 +172,11 @@ class TestAdam(flow.unittest.TestCase):
         arg_dict["betas"] = [(0.99, 0.9)]
         arg_dict["weight_decay"] = [0.9, 0.000]
         arg_dict["eps"] = [1e-08]
-        arg_dict["do_bias_correction"] = [False]
+        arg_dict["do_bias_correction"] = [True, False]
         arg_dict["amsgrad"] = [False]
         arg_dict["reload_state_step"] = [5]  # save and load optim state
-        arg_dict["save_load_by_pickle"] = [False]
-        arg_dict["contiguous_params"] = [False]
+        arg_dict["save_load_by_pickle"] = [True, False]
+        arg_dict["contiguous_params"] = [True, False]
         arg_dict["fused"] = [False]
         arg_dict["tensor_num"] = [1, 4]
 
