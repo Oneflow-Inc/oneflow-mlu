@@ -3,45 +3,17 @@
 
 namespace oneflow {
 
-
 #define OF_DEVICE_FUNC __mlu_func__ inline
 
-template<typename T, typename G>
-struct CastScaleRegularizeGradientFunctor {
-  OF_DEVICE_FUNC
-  T operator()(G model_diff, T model, T scale, float l1, float l2) const {
-    return static_cast<T>(model_diff) * scale + l1 * ((model >= 0) - (model <= 0)) + l2 * model;
-  }
-};
 
-template<typename T, typename G>
-struct AdamUpdateFunctor {
-  OF_DEVICE_FUNC
-  void operator()(const G* model_diff, T* model, T* m, T* v, T* max_v, T scale, float l1, float l2,
-                  float beta1, float beta2, float epsilon, float weight_decay, bool amsgrad,
-                  float bias_correction1, float bias_correction2, float learning_rate) const {
-    const T model_val = *model;
-    T model_diff_t =
-        CastScaleRegularizeGradientFunctor<T, G>()(*model_diff, model_val, scale, l1, l2);
-
-    const T next_m = beta1 * *m + (1 - beta1) * model_diff_t;
-    *m = next_m;
-
-    const T next_v = beta2 * *v + (1 - beta2) * model_diff_t * model_diff_t;
-    *v = next_v;
-
-    T denom = 0;
-    if (amsgrad) {
-      const T next_max_v =
-          *max_v > next_v ? *max_v : next_v;  // use std::max has bug in GPU kernel.
-      *max_v = next_max_v;
-      denom = (sqrt(next_max_v) / sqrt(bias_correction2)) + epsilon;
-    } else {
-      denom = (sqrt(next_v) / sqrt(bias_correction2)) + epsilon;
-    }
-    const T step_size = learning_rate / bias_correction1;
-    *model = model_val - step_size * (next_m / denom) - learning_rate * weight_decay * model_val;
-  }
+__mlu_func__ inline float CastScaleRegularizeGradient(
+  float model_diff_nram, 
+  float model_nram, 
+  float scale, 
+  float l1, 
+  float l2) {
+  // model_diff * scale + l1 * ((model >= 0) - (model <= 0)) + l2 * model;
+  return model_diff_nram * scale + l1 * ((model_nram >= 0) - (model_nram <= 0)) + l2 * model_nram;
 };
 
 
@@ -60,17 +32,54 @@ __mlu_global__ void AdamUpdateGpu(cnrtDataType_t cnrt_type, int64_t n, float sca
   if (bias_correction2_ptr != nullptr) { bias_correction2_val = *bias_correction2_ptr; }
 
   learning_rate_val *= lr_scale;
+  
+  // Copy host memory to nram
+  __nram__ float model_diff_nram[128*256];
+  __nram__ float model_nram[128*256];
+  __nram__ float m_nram[128*256];
+  __nram__ float v_nram[128*256];
+  int dtype_size = sizeof(float);
+  __memcpy(model_diff_nram, model_diff, dtype_size, GDRAM2NRAM);
+  __memcpy(model_nram, model, dtype_size, GDRAM2NRAM);
+  __memcpy(m_nram, m, dtype_size, GDRAM2NRAM);
+  __memcpy(v_nram, v, dtype_size, GDRAM2NRAM);
       
-  // CUDA_1D_KERNEL_LOOP(i, n){...}
   if(cnrt_type == CNRT_FLOAT32){
-    for(int i=0; i<n; ++i){
-      AdamUpdateFunctor<float, float>()(model_diff + i, model + i, m + i, v + i, max_v + i, scale, l1, l2,
-                                  beta1, beta2, epsilon, weight_decay, amsgrad, bias_correction1_val,
-                                  bias_correction2_val, learning_rate_val);
+    for(int i=0; i<n; ++i) {
+      // const T model_val = *model;
+      // T model_diff_t =
+      //     CastScaleRegularizeGradientFunctor<float, float>()(*model_diff, model_val, scale, l1, l2);
+      float model_val = model_nram[i];
+      float model_diff_t = CastScaleRegularizeGradient(model_diff_nram[i], model_val, scale, l1, l2);
+
+      // const T next_m = beta1 * *m + (1 - beta1) * model_diff_t;
+      // *m = next_m;
+      const float next_m = beta1 * m_nram[i] + (1 - beta1) * model_diff_t;
+      m_nram[i] = next_m;
+
+      // const T next_v = beta2 * *v + (1 - beta2) * model_diff_t * model_diff_t;
+      // *v = next_v;
+      const  float next_v = beta2 * v_nram[i] + (1 - beta2) * model_diff_t * model_diff_t;
+      v_nram[i] = next_v;
+
+      // T denom = 0;
+      // denom = (sqrt(next_v) / sqrt(bias_correction2)) + epsilon;
+      // const T step_size = learning_rate / bias_correction1;
+      // *model = model_val - step_size * (next_m / denom) - learning_rate * weight_decay * model_val;
+      float denom = 0;
+      denom = (sqrt(next_v) / sqrt(bias_correction2_val)) + epsilon;
+      const float step_size = learning_rate_val / bias_correction1_val;
+      model_nram[i] = model_val - step_size * (next_m / denom) - learning_rate_val * weight_decay * model_val;
+
     }
   } else if(cnrt_type == CNRT_FLOAT16){
     // TODO
   }
+
+  // Copy nram memory to host
+  __memcpy(model, model_nram, dtype_size, NRAM2GDRAM);
+  __memcpy(m, m_nram, dtype_size, NRAM2GDRAM);
+  __memcpy(v, v_nram, dtype_size, NRAM2GDRAM);
 
 }
 
