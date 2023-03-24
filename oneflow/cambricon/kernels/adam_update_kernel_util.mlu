@@ -49,18 +49,18 @@ __mlu_global__ void AdamUpdateGpu(cnrtDataType_t cnrt_type, int64_t n, float sca
       // const T model_val = *model;
       // T model_diff_t =
       //     CastScaleRegularizeGradientFunctor<float, float>()(*model_diff, model_val, scale, l1, l2);
-      float model_val = model_nram[i];
-      float model_diff_t = CastScaleRegularizeGradient(model_diff_nram[i], model_val, scale, l1, l2);
+      float model_val = model_nram[i*dtype_size];
+      float model_diff_t = CastScaleRegularizeGradient(model_diff_nram[i*dtype_size], model_val, scale, l1, l2);
 
       // const T next_m = beta1 * *m + (1 - beta1) * model_diff_t;
       // *m = next_m;
-      const float next_m = beta1 * m_nram[i] + (1 - beta1) * model_diff_t;
-      m_nram[i] = next_m;
+      const float next_m = beta1 * m_nram[i*dtype_size] + (1 - beta1) * model_diff_t;
+      m_nram[i*dtype_size] = next_m;
 
       // const T next_v = beta2 * *v + (1 - beta2) * model_diff_t * model_diff_t;
       // *v = next_v;
-      const  float next_v = beta2 * v_nram[i] + (1 - beta2) * model_diff_t * model_diff_t;
-      v_nram[i] = next_v;
+      const  float next_v = beta2 * v_nram[i*dtype_size] + (1 - beta2) * model_diff_t * model_diff_t;
+      v_nram[i*dtype_size] = next_v;
 
       // T denom = 0;
       // denom = (sqrt(next_v) / sqrt(bias_correction2)) + epsilon;
@@ -69,7 +69,7 @@ __mlu_global__ void AdamUpdateGpu(cnrtDataType_t cnrt_type, int64_t n, float sca
       float denom = 0;
       denom = (sqrt(next_v) / sqrt(bias_correction2_val)) + epsilon;
       const float step_size = learning_rate_val / bias_correction1_val;
-      model_nram[i] = model_val - step_size * (next_m / denom) - learning_rate_val * weight_decay * model_val;
+      model_nram[i*dtype_size] = model_val - step_size * (next_m / denom) - learning_rate_val * weight_decay * model_val;
 
     }
   } else if(cnrt_type == CNRT_FLOAT16){
