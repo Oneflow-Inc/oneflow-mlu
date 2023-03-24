@@ -25,7 +25,9 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_nll_loss_forward(test_case, shape, reduction, device, dtype, target_dtype, has_weight):
+def _test_nll_loss_forward(
+    test_case, shape, reduction, device, dtype, target_dtype, has_weight
+):
     x = flow.tensor(np.random.randn(*shape), device=flow.device(device), dtype=dtype)
     C = shape[1]
 
@@ -57,7 +59,9 @@ def _test_nll_loss_forward(test_case, shape, reduction, device, dtype, target_dt
         )
 
 
-def _test_nll_loss_backward(test_case, shape, reduction, device, dtype, target_dtype, has_weight):
+def _test_nll_loss_backward(
+    test_case, shape, reduction, device, dtype, target_dtype, has_weight
+):
     x = flow.tensor(
         np.random.randn(*shape), device=flow.device(device), dtype=dtype
     ).requires_grad_(True)
@@ -126,10 +130,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
             flow.float32,
             # flow.float16,
         ]
-        arg_dict["target_dtype"] = [
-            flow.int,
-            flow.long
-        ]
+        arg_dict["target_dtype"] = [flow.int, flow.long]
         arg_dict["has_weight"] = [True, False]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])
@@ -154,10 +155,7 @@ class TestNLLLossCambriconModule(flow.unittest.TestCase):
             flow.float32,
             flow.float16,
         ]
-        arg_dict["target_dtype"] = [
-            flow.int,
-            flow.long
-        ]
+        arg_dict["target_dtype"] = [flow.int, flow.long]
         arg_dict["has_weight"] = [True, False]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])

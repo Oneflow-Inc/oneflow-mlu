@@ -53,20 +53,21 @@ class MluNLLKernel final : public user_op::OpKernel {
 
     CnnlTensorDescriptor tmp_target_desc;
     size_t tmp_target_workspace_size = target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32);
-    CnnlWorkspace tmp_target_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_target_workspace_size);
+    CnnlWorkspace tmp_target_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
+                                            tmp_target_workspace_size);
     void* tmp_target_ptr = tmp_target_cnnl_workspace.dptr();
-    if(target->data_type() == kInt32){
+    if (target->data_type() == kInt32) {
       tmp_target_desc.set(target);
-      OF_MLU_CHECK(cnrtMemcpyAsync(
-          tmp_target_ptr, target->mut_dptr(), target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
-          ctx->stream()->As<ep::MluStream>()->mlu_stream(), cnrtMemcpyDevToDev));
-    }
-    else{
+      OF_MLU_CHECK(cnrtMemcpyAsync(tmp_target_ptr, target->mut_dptr(),
+                                   target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
+                                   ctx->stream()->As<ep::MluStream>()->mlu_stream(),
+                                   cnrtMemcpyDevToDev));
+    } else {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(kInt64, kInt32);
       tmp_target_desc.set(target, ConvertToCnnlDataType(kInt32));
       OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                     target_desc.desc(), target->dptr(), type, tmp_target_desc.desc(),
-                                     tmp_target_ptr));
+                                     target_desc.desc(), target->dptr(), type,
+                                     tmp_target_desc.desc(), tmp_target_ptr));
     }
 
     int64_t out_weight_size[1] = {1};
@@ -192,20 +193,21 @@ class MluNLLGradKernel final : public user_op::OpKernel {
 
     CnnlTensorDescriptor tmp_target_desc;
     size_t tmp_target_workspace_size = target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32);
-    CnnlWorkspace tmp_target_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_target_workspace_size);
+    CnnlWorkspace tmp_target_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
+                                            tmp_target_workspace_size);
     void* tmp_target_ptr = tmp_target_cnnl_workspace.dptr();
-    if(target->data_type() == kInt32){
+    if (target->data_type() == kInt32) {
       tmp_target_desc.set(target);
-      OF_MLU_CHECK(cnrtMemcpyAsync(
-          tmp_target_ptr, target->mut_dptr(), target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
-          ctx->stream()->As<ep::MluStream>()->mlu_stream(), cnrtMemcpyDevToDev));
-    }
-    else{
+      OF_MLU_CHECK(cnrtMemcpyAsync(tmp_target_ptr, target->mut_dptr(),
+                                   target->shape_view().elem_cnt() * GetSizeOfDataType(kInt32),
+                                   ctx->stream()->As<ep::MluStream>()->mlu_stream(),
+                                   cnrtMemcpyDevToDev));
+    } else {
       cnnlCastDataType_t type = ep::primitive::GetCnnlCastType(kInt64, kInt32);
       tmp_target_desc.set(target, ConvertToCnnlDataType(kInt32));
       OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                     target_desc.desc(), target->dptr(), type, tmp_target_desc.desc(),
-                                     tmp_target_ptr));
+                                     target_desc.desc(), target->dptr(), type,
+                                     tmp_target_desc.desc(), tmp_target_ptr));
     }
 
     const void* weight_dptr = nullptr;
