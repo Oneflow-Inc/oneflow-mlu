@@ -20,6 +20,10 @@ limitations under the License.
 #include "cnrt.h"
 #include "cnnl.h"
 
+namespace oneflow{
+
+constexpr uint32_t rem_for_stack = 128 * 1024;
+
 #define OF_MLU_CHECK(condition)                                                        \
   for (cnrtRet_t _cnrt_check_status = (condition); _cnrt_check_status != cnrtSuccess;) \
   THROW(RuntimeError) << "CNRT check failed: " #condition " : "                        \
@@ -31,4 +35,9 @@ limitations under the License.
                       << " (error code:" << _cnnl_check_status                                    \
                       << " " + std::string(cnnlGetErrorString(_cnnl_check_status)) + ") "
 
+uint32_t getDeviceAttr(cnrtDeviceAttr_t attr);
+
+cnrtDataType_t fromCnnlType2CnrtType(cnnlDataType_t cnnl_data_type);
+
+} // oneflow
 #endif  // ONEFLOW_CAMBRICON_COMMON_MLU_UTIL_H_

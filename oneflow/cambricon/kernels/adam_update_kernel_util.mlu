@@ -3,19 +3,56 @@
 
 namespace oneflow {
 
-#define CUDA_1D_KERNEL_LOOP(i, n)                                                                 \
-  for (int32_t i = blockIdx.x * blockDim.x + threadIdx.x, step = blockDim.x * gridDim.x; i < (n); \
-       i += step)
 
-template<typename T, typename G, typename C>
-__mlu_global__ void AdamUpdateGpu(int64_t n, T scale, float l1, float l2, float beta1, float beta2,
+#define OF_DEVICE_FUNC __mlu_func__ inline
+
+template<typename T, typename G>
+struct CastScaleRegularizeGradientFunctor {
+  OF_DEVICE_FUNC
+  T operator()(G model_diff, T model, T scale, float l1, float l2) const {
+    return static_cast<T>(model_diff) * scale + l1 * ((model >= 0) - (model <= 0)) + l2 * model;
+  }
+};
+
+template<typename T, typename G>
+struct AdamUpdateFunctor {
+  OF_DEVICE_FUNC
+  void operator()(const G* model_diff, T* model, T* m, T* v, T* max_v, T scale, float l1, float l2,
+                  float beta1, float beta2, float epsilon, float weight_decay, bool amsgrad,
+                  float bias_correction1, float bias_correction2, float learning_rate) const {
+    const T model_val = *model;
+    T model_diff_t =
+        CastScaleRegularizeGradientFunctor<T, G>()(*model_diff, model_val, scale, l1, l2);
+
+    const T next_m = beta1 * *m + (1 - beta1) * model_diff_t;
+    *m = next_m;
+
+    const T next_v = beta2 * *v + (1 - beta2) * model_diff_t * model_diff_t;
+    *v = next_v;
+
+    T denom = 0;
+    if (amsgrad) {
+      const T next_max_v =
+          *max_v > next_v ? *max_v : next_v;  // use std::max has bug in GPU kernel.
+      *max_v = next_max_v;
+      denom = (sqrt(next_max_v) / sqrt(bias_correction2)) + epsilon;
+    } else {
+      denom = (sqrt(next_v) / sqrt(bias_correction2)) + epsilon;
+    }
+    const T step_size = learning_rate / bias_correction1;
+    *model = model_val - step_size * (next_m / denom) - learning_rate * weight_decay * model_val;
+  }
+};
+
+
+__mlu_global__ void AdamUpdateGpu(cnrtDataType_t cnrt_type, int64_t n, float scale, float l1, float l2, float beta1, float beta2,
                               float epsilon, float weight_decay, bool amsgrad,
                               bool do_bias_correction, float learning_rate_val, float lr_scale,
                               float bias_correction1_val, float bias_correction2_val,
-                              const float* learning_rate, const T* scale_by_ptr,
+                              const float* learning_rate, const float* scale_by_ptr,
                               const int64_t* skip_if, const float* bias_correction1_ptr,
-                              const float* bias_correction2_ptr, const G* model_diff, T* model,
-                              C* model_copy, T* m, T* v, T* max_v) {
+                              const float* bias_correction2_ptr, const float* model_diff, float* model,
+                              float* m, float* v, float* max_v) {
   if (skip_if != nullptr && *skip_if != 0) { return; }
   if (learning_rate != nullptr) { learning_rate_val = *learning_rate; }
   if (scale_by_ptr != nullptr) { scale *= *scale_by_ptr; }
@@ -23,49 +60,36 @@ __mlu_global__ void AdamUpdateGpu(int64_t n, T scale, float l1, float l2, float 
   if (bias_correction2_ptr != nullptr) { bias_correction2_val = *bias_correction2_ptr; }
 
   learning_rate_val *= lr_scale;
-  CUDA_1D_KERNEL_LOOP(i, n) {
-    if (model_copy != nullptr) {
-      FusedAdamUpdateFunctor<T, G, C>()(model_diff + i, model + i, model_copy + i, m + i, v + i,
-                                        max_v + i, scale, l1, l2, beta1, beta2, epsilon,
-                                        weight_decay, amsgrad, bias_correction1_val,
-                                        bias_correction2_val, learning_rate_val);
-    } else {
-      AdamUpdateFunctor<T, G>()(model_diff + i, model + i, m + i, v + i, max_v + i, scale, l1, l2,
-                                beta1, beta2, epsilon, weight_decay, amsgrad, bias_correction1_val,
-                                bias_correction2_val, learning_rate_val);
+      
+  // CUDA_1D_KERNEL_LOOP(i, n){...}
+  if(cnrt_type == CNRT_FLOAT32){
+    for(int i=0; i<n; ++i){
+      AdamUpdateFunctor<float, float>()(model_diff + i, model + i, m + i, v + i, max_v + i, scale, l1, l2,
+                                  beta1, beta2, epsilon, weight_decay, amsgrad, bias_correction1_val,
+                                  bias_correction2_val, learning_rate_val);
     }
+  } else if(cnrt_type == CNRT_FLOAT16){
+    // TODO
   }
+
 }
 
-
-
-template<typename T, typename G, typename C>
-struct AdamUpdateKernelUtil<T, G, C> {
-  static void Update(ep::Stream* stream, int64_t n, T scale, float l1, float l2, float beta1,
-                     float beta2, float epsilon, float weight_decay, bool amsgrad,
-                     bool do_bias_correction, float learning_rate_val, float lr_scale,
-                     float bias_correction1_val, float bias_correction2_val,
-                     const float* learning_rate, const T* scale_by_ptr, const int64_t* skip_if,
-                     const float* bias_correction1_ptr, const float* bias_correction2_ptr,
-                     const G* model_diff, T* model, C* model_copy, T* m, T* v, T* max_v);
-};
-
-template<typename T, typename G, typename C>
-void AdamUpdateKernelUtil<T, G, C>::Update(
-    cnrtQueue_t stream, 
+void AdamUpdateKernelUtil(
+    cnrtQueue_t queue, 
     cnrtDim3_t k_dim,
     cnrtFunctionType_t k_type,
-    int64_t n, T scale, float l1, float l2, float beta1, float beta2,
+    cnrtDataType_t cnrt_type,
+    int64_t n, float scale, float l1, float l2, float beta1, float beta2,
     float epsilon, float weight_decay, bool amsgrad, bool do_bias_correction,
     float learning_rate_val, float lr_scale, float bias_correction1_val, float bias_correction2_val,
-    const float* learning_rate, const T* scale_by_ptr, const int64_t* skip_if,
-    const float* bias_correction1_ptr, const float* bias_correction2_ptr, const G* model_diff,
-    T* model, C* model_copy, T* m, T* v, T* max_v) {
-  AdamUpdateGpu<T, G, C><<<k_dim, k_type, queue>>>(
-      n, scale, l1, l2, beta1, beta2, epsilon, weight_decay, amsgrad, do_bias_correction,
+    const float* learning_rate, const float* scale_by_ptr, const int64_t* skip_if,
+    const float* bias_correction1_ptr, const float* bias_correction2_ptr, const float* model_diff, 
+    float* model, float* m, float* v, float* max_v) {
+  AdamUpdateGpu<<<k_dim, k_type, queue>>>(
+      cnrt_type, n, scale, l1, l2, beta1, beta2, epsilon, weight_decay, amsgrad, do_bias_correction,
       learning_rate_val, lr_scale, bias_correction1_val, bias_correction2_val, learning_rate,
       scale_by_ptr, skip_if, bias_correction1_ptr, bias_correction2_ptr, model_diff, model,
-      model_copy, m, v, max_v);
+      m, v, max_v);
 }
 
 
