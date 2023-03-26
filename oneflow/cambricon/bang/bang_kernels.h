@@ -47,6 +47,22 @@ void bang_unsorted_segment_sum_half_kernel(BangHandle& handle, const void* input
                                            int64_t segment_size, void* output, int64_t offset);
 
 template<typename T>
+void bang_momentum_update_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                                 float beta, float dampening, bool nesterov, bool maximize,
+                                 float weight_decay, float learning_rate_val, float lr_scale,
+                                 const float* learning_rate, const T* scale_by_ptr,
+                                 const int64_t* skip_if, const T* model_diff, T* model,
+                                 T* momentum);
+
+template<typename T>
+void bang_momentum_update_half_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                                      float beta, float dampening, bool nesterov, bool maximize,
+                                      float weight_decay, float learning_rate_val, float lr_scale,
+                                      const float* learning_rate, const T* scale_by_ptr,
+                                      const int64_t* skip_if, const void* model_diff, T* model,
+                                      T* momentum);
+
+template<typename T>
 void bang_regularize_gradient_kernel(BangHandle& handle, int64_t n, const T* model,
                                      const T* model_diff, T* out, float l1, float l2);
 
