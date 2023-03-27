@@ -17,6 +17,7 @@ limitations under the License.
 #define ONEFLOW_CAMBRICON_COLLECTIVE_COMMUNICATION_CNCL_UTIL_H_
 
 #include <glog/logging.h>
+#include "oneflow/core/common/util.h"
 #include "oneflow/core/common/data_type.pb.h"
 
 #include <cncl.h>
@@ -45,8 +46,13 @@ inline cnclDataType_t GetCnclDataType(const DataType& dt) {
     case DataType::kUInt16: return cnclUint16;
     case DataType::kUInt32: return cnclUint32;
     case DataType::kInvalidDataType: return cnclInvalid;
-    default: LOG(FATAL) << "No corresponding cncl dtype: " << DataType_Name(dt);
+    default:
+      THROW(RuntimeError)
+          << "No corresponding cncl dtype: " << DataType_Name(dt)
+          << "! Please convert to the other supported data type of cncl: char, int8, uint8, "
+             "int16, uint16, int, uint, float, float16!";
   }
+#undef CNCL_DATA_TYPE_CASE
   return cnclFloat;
 }
 
