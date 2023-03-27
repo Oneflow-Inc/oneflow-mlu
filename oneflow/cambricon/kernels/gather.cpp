@@ -18,7 +18,6 @@ limitations under the License.
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/job/nd_sbp_util.h"
-#include "oneflow/core/kernel/cuda_graph_support.h"
 #include "oneflow/user/kernels/gather_kernel_util.h"
 
 namespace oneflow {
@@ -104,8 +103,13 @@ class MluGatherKernel final : public user_op::OpKernel {
     BangHandle handle(stream->mlu_stream(), stream->device()->nclusters(),
                       stream->device()->ncores_per_cluster());
 
-    bang_gather_kernel<T, K>(handle, in->dptr<T>(), batch, N, length, indices->dptr<K>(),
-                             num_indices, out->mut_dptr<T>(), offset);
+    if constexpr (std::is_same<T, float16>::value) {
+      bang_gather_half_kernel<K>(handle, in->dptr<T>(), batch, N, length, indices->dptr<K>(),
+                                 num_indices, out->mut_dptr<T>(), offset);
+    } else {
+      bang_gather_kernel<T, K>(handle, in->dptr<T>(), batch, N, length, indices->dptr<K>(),
+                               num_indices, out->mut_dptr<T>(), offset);
+    }
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -125,7 +129,8 @@ class MluGatherKernel final : public user_op::OpKernel {
   OF_PP_MAKE_TUPLE_SEQ(int32_t, DataType::kInt32)   \
   OF_PP_MAKE_TUPLE_SEQ(uint8_t, DataType::kUInt8)   \
   OF_PP_MAKE_TUPLE_SEQ(uint32_t, DataType::kUInt32) \
-  OF_PP_MAKE_TUPLE_SEQ(bool, DataType::kBool)
+  OF_PP_MAKE_TUPLE_SEQ(bool, DataType::kBool)       \
+  OF_PP_MAKE_TUPLE_SEQ(float16, DataType::kFloat16)
 
 #define BANG_INDEX_DATA_TYPE_SEQ                  \
   OF_PP_MAKE_TUPLE_SEQ(int32_t, DataType::kInt32) \

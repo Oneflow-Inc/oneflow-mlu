@@ -22,10 +22,73 @@ namespace oneflow {
 
 // input is a 3D tensor with shape [batch, N, length]
 // indices is a 1D tensor with shape [index_size]
+// output is a 3D tensor with shape [batch, index_size, length]
 template<typename T, typename K>
 void bang_gather_kernel(BangHandle& handle, const T* input, int64_t batch, int64_t N,
                         int64_t length, const K* index, int64_t index_size, T* output,
                         int64_t offset);
+
+template<typename K>
+void bang_gather_half_kernel(BangHandle& handle, const void* input, int64_t batch, int64_t N,
+                             int64_t length, const K* index, int64_t index_size, void* output,
+                             int64_t offset);
+
+// input is a 3D tensor with shape [batch, segment_size, length]
+// indices is a 1D tensor with shape [segment_size]
+// output is a 3D tensor with shape [batch, N, length]
+template<typename T, typename K>
+void bang_unsorted_segment_sum_kernel(BangHandle& handle, const T* input, int64_t batch, int64_t N,
+                                      int64_t length, const K* segment, int64_t segment_size,
+                                      T* output, int64_t offset);
+
+template<typename K>
+void bang_unsorted_segment_sum_half_kernel(BangHandle& handle, const void* input, int64_t batch,
+                                           int64_t N, int64_t length, const K* segment,
+                                           int64_t segment_size, void* output, int64_t offset);
+
+template<typename T>
+void bang_momentum_update_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                                 float beta, float dampening, bool nesterov, bool maximize,
+                                 float weight_decay, float learning_rate_val, float lr_scale,
+                                 const float* learning_rate, const T* scale_by_ptr,
+                                 const int64_t* skip_if, const T* model_diff, T* model,
+                                 T* momentum);
+
+template<typename T>
+void bang_momentum_update_half_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                                      float beta, float dampening, bool nesterov, bool maximize,
+                                      float weight_decay, float learning_rate_val, float lr_scale,
+                                      const float* learning_rate, const T* scale_by_ptr,
+                                      const int64_t* skip_if, const void* model_diff, T* model,
+                                      T* momentum);
+
+template<typename T>
+void bang_adam_update_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                             float beta1, float beta2, float epsilon, float weight_decay,
+                             bool amsgrad, bool do_bias_correction, float learning_rate_val,
+                             float lr_scale, float bias_correction1_val, float bias_correction2_val,
+                             const float* learning_rate, const T* scale_by_ptr,
+                             const int64_t* skip_if, const float* bias_correction1_ptr,
+                             const float* bias_correction2_ptr, const T* model_diff, T* model,
+                             void* model_copy, T* m, T* v, T* max_v);
+
+template<typename T>
+void bang_adam_update_half_kernel(BangHandle& handle, int64_t n, T scale, float l1, float l2,
+                                  float beta1, float beta2, float epsilon, float weight_decay,
+                                  bool amsgrad, bool do_bias_correction, float learning_rate_val,
+                                  float lr_scale, float bias_correction1_val,
+                                  float bias_correction2_val, const float* learning_rate,
+                                  const T* scale_by_ptr, const int64_t* skip_if,
+                                  const float* bias_correction1_ptr,
+                                  const float* bias_correction2_ptr, const void* model_diff,
+                                  T* model, void* model_copy, T* m, T* v, T* max_v);
+
+template<typename T>
+void bang_regularize_gradient_kernel(BangHandle& handle, int64_t n, const T* model,
+                                     const T* model_diff, T* out, float l1, float l2);
+
+void bang_regularize_gradient_half_kernel(BangHandle& handle, int64_t n, const void* model,
+                                          const void* model_diff, void* out, float l1, float l2);
 
 }  // namespace oneflow
 
