@@ -40,6 +40,7 @@ def _test_equal_normal(test_case, device):
     np_out = np.equal(input1.numpy(), input2.numpy())
     test_case.assertTrue(np.array_equal(of_out.numpy(), np_out))
 
+
 def _test_equal_int64(test_case, device):
     input1 = flow.tensor(
         np.array([1, 1, 4]).astype(np.int64),
@@ -54,6 +55,7 @@ def _test_equal_int64(test_case, device):
     of_out = flow.eq(input1, input2)
     np_out = np.equal(input1.numpy(), input2.numpy())
     test_case.assertTrue(np.array_equal(of_out.numpy(), np_out))
+
 
 def _test_equal_symbol(test_case, device):
     input1 = flow.tensor(

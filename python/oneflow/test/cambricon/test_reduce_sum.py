@@ -25,7 +25,9 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_reduce_sum_impl(test_case, data_type, device="mlu",):
+def _test_reduce_sum_impl(
+    test_case, data_type, device="mlu",
+):
     input = flow.tensor(
         np.random.randn(2, 3) - 0.5, dtype=data_type, device=flow.device(device)
     )
