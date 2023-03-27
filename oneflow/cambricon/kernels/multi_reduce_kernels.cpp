@@ -120,13 +120,13 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_CPU_KERNEL(dtype)       \
+#define REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_KERNEL(dtype)       \
   REGISTER_USER_KERNEL("multi_reduce_sum_pow_abs")                    \
       .SetCreateFn<MluMultiReduceSumPowAbsKernel<dtype>>()            \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
                        && (user_op::HobDataType("y", 0) == GetDataType<dtype>::value));
 
-REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_CPU_KERNEL(float)
-REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_CPU_KERNEL(double)
+REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_KERNEL(float)
+REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_KERNEL(double)
 
 }  // namespace oneflow
