@@ -52,6 +52,10 @@ class MluBiasCorrectionFactorKernel final : public user_op::OpKernel,
     size_t workspace_pow_size = 0;
     OF_CNNL_CHECK(cnnlGetPowWorkspaceSize(cnnl_handle, beta_desc.desc(), train_step_desc.desc(),
                                           out_desc.desc(), &workspace_pow_size));
+    const float transform_alpha_before_pow(1.0), transform_beta_before_pow(1.0);
+    OF_CNNL_CHECK(cnnlTransform_v2(
+        cnnl_handle, CNNL_POINTER_MODE_HOST, &transform_alpha_before_pow, train_step_desc.desc(),
+        train_step_dptr, &transform_beta_before_pow, train_step_desc.desc(), train_step_dptr));
 
     CnnlWorkspace workspace_pow(stream, workspace_pow_size);
     OF_CNNL_CHECK(cnnlPow(cnnl_handle, CNNL_COMPUTATION_FAST, beta_desc.desc(), beta_dptr,

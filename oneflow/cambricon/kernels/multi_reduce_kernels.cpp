@@ -47,7 +47,7 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
     CnnlWorkspace workspace_for_final_reduce_in(stream, sizeof(T_FOR_CNNL) * num_inputs);
 
     const auto get_x_ptr = [&workspace_for_final_reduce_in](size_t i) -> void* {
-      return static_cast<T*>(workspace_for_final_reduce_in.dptr()) + i;
+      return static_cast<char*>(workspace_for_final_reduce_in.dptr()) + (i * (sizeof(T_FOR_CNNL)));
     };
 
     const auto get_reduce_workspace_size = [&](const CnnlTensorDescriptor& desc) {
@@ -73,10 +73,10 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
         do_cast->Launch(stream, x->dptr(), workspace.dptr(), x_num_elements);
         x_ptr = workspace.dptr();
       }
-      void* y_ptr = static_cast<char*>(workspace.dptr()) + (sizeof(T_FOR_CNNL) * x_num_elements);
+      void* p_ptr = static_cast<char*>(workspace.dptr()) + (sizeof(T_FOR_CNNL) * x_num_elements);
       const auto do_fill = ep::primitive::NewPrimitive<ep::primitive::FillFactory>(
           DeviceType::kMLU, DataType::kFloat);
-      do_fill->Launch(stream, y_ptr, p, x_num_elements);
+      do_fill->Launch(stream, p_ptr, p, x_num_elements);
       CnnlTensorDescriptor x_desc;
       x_desc.set(1, &x_num_elements, cnnl_type);
 
@@ -89,9 +89,10 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
 
       CnnlWorkspace workspace_for_pow_and_reduce(
           stream, std::max(workspace_size_for_pow, workspace_size_for_reduce));
-      OF_CNNL_CHECK(cnnlPow(cnnl_handle, CNNL_COMPUTATION_HIGH_PRECISION, x_desc.desc(), x_ptr,
-                            x_desc.desc(), y_ptr, workspace_for_pow_and_reduce.dptr(),
-                            workspace_size_for_pow, x_desc.desc(), workspace.dptr()));
+      OF_CNNL_CHECK(cnnlPow(cnnl_handle, CNNL_COMPUTATION_HIGH_PRECISION, x_desc.desc(),
+                            workspace.dptr(), x_desc.desc(), p_ptr,
+                            workspace_for_pow_and_reduce.dptr(), workspace_size_for_pow,
+                            x_desc.desc(), workspace.dptr()));
 
       OF_CNNL_CHECK(cnnlReduce(cnnl_handle, reduce_op_desc.desc(),
                                workspace_for_pow_and_reduce.dptr(), workspace_size_for_reduce,
@@ -100,19 +101,20 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
     }
     size_t workspace_size_for_final_reduce = get_reduce_workspace_size(final_reduce_in_desc);
     CnnlWorkspace workspace_for_final_reduce(stream,
-                                             workspace_size_for_final_reduce + sizeof(float));
-    void* tmp_out_ptr =
-        static_cast<char*>(workspace_for_final_reduce.dptr()) + workspace_size_for_final_reduce;
+                                             workspace_size_for_final_reduce + sizeof(T_FOR_CNNL));
+    void* out_ptr = y->mut_dptr();
+    if constexpr (std::is_same_v<T, double>) {
+      out_ptr =
+          static_cast<char*>(workspace_for_final_reduce.dptr()) + workspace_size_for_final_reduce;
+    }
     OF_CNNL_CHECK(cnnlReduce(cnnl_handle, reduce_op_desc.desc(), workspace_for_final_reduce.dptr(),
                              workspace_size_for_final_reduce, nullptr, final_reduce_in_desc.desc(),
                              workspace_for_final_reduce_in.dptr(), 0, nullptr, nullptr,
-                             reduce_out_desc.desc(), tmp_out_ptr));
+                             reduce_out_desc.desc(), out_ptr));
     if constexpr (std::is_same_v<T, double>) {
       const auto do_cast = ep::primitive::NewPrimitive<ep::primitive::CastFactory>(
           DeviceType::kMLU, DataType::kFloat, DataType::kDouble);
-      do_cast->Launch(stream, tmp_out_ptr, y->mut_dptr(), 1);
-    } else {
-      *(y->mut_dptr<float>()) = *(reinterpret_cast<float*>(tmp_out_ptr));
+      do_cast->Launch(stream, out_ptr, y->mut_dptr(), 1);
     }
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
