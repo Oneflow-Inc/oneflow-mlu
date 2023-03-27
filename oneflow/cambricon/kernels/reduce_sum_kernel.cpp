@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
+#include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -57,6 +58,37 @@ class ReduceKernel final : public user_op::OpKernel {
       reduce_desc.set(cnnl_dtype, axis, reduce_mode, reduce_indices, reduce_indices_type);
       output_desc.set(output);
     }
+    if (cnnl_dtype == CNNL_DTYPE_INT64) {
+      size_t tmp_input_workspace_size = input->shape_view().elem_cnt() * sizeof(kInt32);
+      CnnlWorkspace tmp_in_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
+                                           tmp_input_workspace_size);
+      void* tmp_input_ptr = tmp_in_cnnl_workspace.dptr();
+      
+      size_t tmp_output_workspace_size = output->shape_view().elem_cnt() * sizeof(kInt32);
+      CnnlWorkspace tmp_output_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
+                                           tmp_output_workspace_size);
+      void* tmp_output_ptr = tmp_output_cnnl_workspace.dptr();
+      
+      CnnlTensorDescriptor tmp_input_desc(input, CNNL_DTYPE_INT32);
+      CnnlTensorDescriptor tmp_output_desc(output, CNNL_DTYPE_INT32);
+      OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                       input_desc.desc(), input->dptr(), CNNL_CAST_INT64_TO_INT32,
+                                       tmp_input_desc.desc(), tmp_input_ptr));
+      size_t workspace_size = 0;
+      OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                                tmp_input_desc.desc(), output_desc.desc(),
+                                                reduce_desc.mut_desc(), &workspace_size));
+      CnnlWorkspace workspace(ctx->stream()->As<ep::MluStream>(), workspace_size);
+
+      OF_CNNL_CHECK(cnnlReduce(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), reduce_desc.desc(),
+                              workspace.dptr(), workspace_size, nullptr, tmp_input_desc.desc(),
+                              tmp_input_ptr, 0, nullptr, nullptr, tmp_output_desc.desc(),
+                              tmp_output_ptr));
+      OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                       tmp_output_desc.desc(), tmp_output_ptr, CNNL_CAST_INT32_TO_INT64,
+                                       output_desc.desc(), output->mut_dptr()));
+      return;
+    }
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetReduceOpWorkspaceSize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                                input_desc.desc(), output_desc.desc(),
@@ -83,7 +115,8 @@ class ReduceKernel final : public user_op::OpKernel {
 #define REGISTER_REDUCE_SUM_KERNELS_BY_DEVICE(device) \
   REGISTER_REDUCE_SUM_KERNELS(device, float)          \
   REGISTER_REDUCE_SUM_KERNELS(device, float16)        \
-  REGISTER_REDUCE_SUM_KERNELS(device, int32_t)
+  REGISTER_REDUCE_SUM_KERNELS(device, int32_t)        \
+  REGISTER_REDUCE_SUM_KERNELS(device, int64_t)
 
 REGISTER_REDUCE_SUM_KERNELS_BY_DEVICE(DeviceType::kMLU)
 
