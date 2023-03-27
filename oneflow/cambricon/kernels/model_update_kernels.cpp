@@ -43,7 +43,8 @@ class MluBiasCorrectionFactorKernel final : public user_op::OpKernel,
     CnnlWorkspace workspace_tmp(stream, scalar_size);
 
     void* beta_dptr = workspace_tmp.dptr();
-    void* train_step_dptr = static_cast<char*>(workspace_tmp.dptr()) + 1;
+    void* train_step_dptr =
+        static_cast<char*>(workspace_tmp.dptr()) + sizeof(GetSizeOfDataType(out->data_type()));
 
     do_fill->Launch(stream, beta_dptr, beta, 1);
     do_cast->Launch(stream, train_step->dptr(), train_step_dptr, 1);
