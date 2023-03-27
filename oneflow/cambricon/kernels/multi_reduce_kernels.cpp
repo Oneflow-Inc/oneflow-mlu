@@ -127,7 +127,7 @@ class MluMultiReduceSumPowAbsKernel final : public user_op::OpKernel,
                        && (user_op::HobDataType("y", 0) == GetDataType<dtype>::value));
 
 REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_KERNEL(float)
-// cast primitive doesn't support convertingdouble to float
+// cast primitive doesn't support converting double to float
 // REGISTER_MLU_MULTI_REDUCE_SUM_POW_ABS_KERNEL(double)
 
 }  // namespace oneflow
