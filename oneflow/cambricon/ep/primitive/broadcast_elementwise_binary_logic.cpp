@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "cnnl.h"
 #include "oneflow/cambricon/ep/primitive/broadcast_elementwise_binary.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
@@ -59,9 +60,11 @@ class BinaryLogical : public BroadcastElementwiseBinary {
 
   void Launch(Stream* stream, size_t num_src0_dims, const int64_t* src0_dims, const void* src0,
               size_t num_src1_dims, const int64_t* src1_dims, const void* src1, void* dst) {
+    bool is_int64_dtype = (src_dtype_ == CNNL_DTYPE_INT64);
     CnnlTensorDescriptor src0_desc, src1_desc, dst_desc;
     src0_desc.set(num_src0_dims, src0_dims, src_dtype_);
     src1_desc.set(num_src1_dims, src1_dims, src_dtype_);
+
 
     std::vector<int64_t> dst_dims;
     auto broadcast_shape = [&](size_t small_num_dims, const int64_t* small_dims,
@@ -82,6 +85,43 @@ class BinaryLogical : public BroadcastElementwiseBinary {
     }
     dst_desc.set(dst_dims.size(), dst_dims.data(), dst_dtype_);
 
+    if (is_int64_dtype){
+      DataType int32_dtype = GetDataType<int32_t>::value;
+      size_t tmp_src0_workspace_size = 1, tmp_src1_workspace_size = 1, tmp_dst_workspace_size = 1;
+      CnnlTensorDescriptor tmp_src0_desc, tmp_src1_desc, tmp_dst_desc;
+      void *tmp_src0, *tmp_src1, *tmp_dst;
+      for (int i = 0; i < std::max(num_src0_dims, num_src1_dims); ++i) { 
+        tmp_src0_workspace_size *= src0_dims[i]; 
+        tmp_src1_workspace_size *= src1_dims[i];
+        tmp_dst_workspace_size *= dst_dims[i];
+      }
+      tmp_src0_workspace_size *= GetSizeOfDataType(int32_dtype);
+      tmp_src1_workspace_size *= GetSizeOfDataType(int32_dtype);
+      tmp_dst_workspace_size *= GetSizeOfDataType(int32_dtype);
+      tmp_src0_desc.set(num_src0_dims, src0_dims, ConvertToCnnlDataType(int32_dtype));
+      tmp_src1_desc.set(num_src1_dims, src1_dims, ConvertToCnnlDataType(int32_dtype));
+      tmp_dst_desc.set(dst_dims.size(), dst_dims.data(), ConvertToCnnlDataType(int32_dtype));
+
+      CnnlWorkspace tmp_src0_cnnl_workspace(stream->As<ep::MluStream>(), tmp_src0_workspace_size);
+      tmp_src0 = tmp_src0_cnnl_workspace.dptr();
+      CnnlWorkspace tmp_src1_cnnl_workspace(stream->As<ep::MluStream>(), tmp_src1_workspace_size);
+      tmp_src1 = tmp_src1_cnnl_workspace.dptr();
+      CnnlWorkspace tmp_dst_cnnl_workspace(stream->As<ep::MluStream>(), tmp_dst_workspace_size);
+      tmp_dst = tmp_dst_cnnl_workspace.dptr();
+      OF_CNNL_CHECK(cnnlCastDataType(stream->As<ep::MluStream>()->cnnl_handle(),src0_desc.desc(), src0, CNNL_CAST_INT64_TO_INT32, tmp_src0_desc.desc(), tmp_src0));
+      OF_CNNL_CHECK(cnnlCastDataType(stream->As<ep::MluStream>()->cnnl_handle(),src1_desc.desc(), src1, CNNL_CAST_INT64_TO_INT32, tmp_src1_desc.desc(), tmp_src1));
+
+      size_t workspace_size = 0;
+      OF_CNNL_CHECK(cnnlGetLogicOpWorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
+                                                tmp_src0_desc.desc(), tmp_src1_desc.desc(), tmp_dst_desc.desc(),
+                                                &workspace_size));
+      CnnlWorkspace tmp_workspace(stream->As<ep::MluStream>(), workspace_size);
+      OF_CNNL_CHECK(cnnlLogicOp(stream->As<ep::MluStream>()->cnnl_handle(), logical_op_,
+                                tmp_src0_desc.desc(), tmp_src0, tmp_src1_desc.desc(), tmp_src1, tmp_workspace.dptr(),
+                                workspace_size, tmp_dst_desc.desc(), tmp_dst));
+      OF_CNNL_CHECK(cnnlCastDataType(stream->As<ep::MluStream>()->cnnl_handle(),tmp_dst_desc.desc(), tmp_dst, CNNL_CAST_INT32_TO_BOOL, dst_desc.desc(), dst));
+      return;
+    }
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetLogicOpWorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
                                               src0_desc.desc(), src1_desc.desc(), dst_desc.desc(),
