@@ -33,21 +33,21 @@ namespace oneflow {
 inline cnclDataType_t GetCnclDataType(const DataType& dt) {
   switch (dt) {
 #define CNCL_DATA_TYPE_CASE(dtype) \
-  case DataType::k##dtype: return cnclDataType_t::cncl##dtype
+  case DataType::k##dtype: return cncl##dtype
     CNCL_DATA_TYPE_CASE(Char);
     CNCL_DATA_TYPE_CASE(Float);
     CNCL_DATA_TYPE_CASE(Int8);
     CNCL_DATA_TYPE_CASE(Int16);
     CNCL_DATA_TYPE_CASE(Int32);
     CNCL_DATA_TYPE_CASE(Float16);
-    case DataType::kBool: return cnclDataType_t::cnclUint8;
+    case DataType::kBool: return cnclUint8;
     case DataType::kUInt8: return cnclUint8;
     case DataType::kUInt16: return cnclUint16;
     case DataType::kUInt32: return cnclUint32;
     case DataType::kInvalidDataType: return cnclInvalid;
     default: LOG(FATAL) << "No corresponding cncl dtype: " << DataType_Name(dt);
   }
-  return cnclDataType_t::cnclFloat;
+  return cnclFloat;
 }
 
 std::string CnclCliqueIdToString(const cnclCliqueId& unique_id);
