@@ -20,7 +20,7 @@ limitations under the License.
 
 namespace oneflow {
 
-template <int N>
+template<int N>
 struct AddressList {
   const void* address[N];
   int64_t sizes[N];
