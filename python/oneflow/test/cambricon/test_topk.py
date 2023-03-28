@@ -28,10 +28,7 @@ import oneflow.unittest
 def _test_topk(test_case, shape, dtype):
     x_np = np.random.randn(*shape)
     dim = random.choice(list(range(x_np.ndim)) + [None])
-    k = np.random.randint(
-        1, 
-        x_np.shape[dim] if dim is not None else x_np.shape[-1]
-    )
+    k = np.random.randint(1, x_np.shape[dim] if dim is not None else x_np.shape[-1])
 
     def _get_result(device):
         x = flow.tensor(x_np, dtype=dtype, device=flow.device(device))
@@ -57,7 +54,6 @@ class TestTopKCambriconModule(flow.unittest.TestCase):
         ]
         arg_dict["dtype"] = [
             flow.float32,
-            # flow.float16,
             flow.uint8,
             flow.int8,
             flow.int32,

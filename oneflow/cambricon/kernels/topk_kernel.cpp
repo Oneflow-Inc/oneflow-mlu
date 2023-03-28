@@ -37,25 +37,14 @@ class MluTopkKernel final : public user_op::OpKernel {
 
     CnnlTensorDescriptor in_desc(in), out_desc(out);
 
-    // cnnlTopKTensor_v3 requires output and index have the same ndim as input,
-    // but the size of the dim to be reduced should be 1
-    // std::vector<int> out_shape;
-    // for (int64_t i = 0; i < in->shape_view().NumAxes() - 1; i++) {
-    //   out_shape.push_back(in->shape_view().At(i));
-    // }
-    // out_shape.push_back(k);
-    // out_desc.set(out_shape.size(), out_shape.data(), ConvertToCnnlDataType(out->data_type()));
-
     // out_value saves the max value
     CnnlTensorDescriptor out_value_desc;
-    // out_value_desc.set(out_shape.size(), out_shape.data(), ConvertToCnnlDataType(in->data_type()));
     out_value_desc.set(out, ConvertToCnnlDataType(in->data_type()));
     CnnlWorkspace out_value(ctx->stream()->As<ep::MluStream>(),
                             GetSizeOfDataType(in->data_type()) * out->shape_view().elem_cnt());
 
     // out_indices saves the index of max value in int32
     CnnlTensorDescriptor out_indices_desc;
-    // out_indices_desc.set(out_shape.size(), out_shape.data(), CNNL_DTYPE_INT32);
     out_indices_desc.set(out, CNNL_DTYPE_INT32);
     CnnlWorkspace out_indices(ctx->stream()->As<ep::MluStream>(),
                               GetSizeOfDataType(kInt32) * out->shape_view().elem_cnt());
@@ -100,9 +89,9 @@ class MluTopkKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_TOPK_MLU_KERNEL(dtype)                                               \
+#define REGISTER_TOPK_MLU_KERNEL(dtype)                                              \
   REGISTER_USER_KERNEL("top_k").SetCreateFn<MluTopkKernel<dtype>>().SetIsMatchedHob( \
-      (user_op::HobDeviceType() == DeviceType::kMLU)                                    \
+      (user_op::HobDeviceType() == DeviceType::kMLU)                                 \
       && (user_op::HobDataType("in", 0) == GetDataType<dtype>::value));
 
 REGISTER_TOPK_MLU_KERNEL(float)
