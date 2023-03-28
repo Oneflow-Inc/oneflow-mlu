@@ -95,6 +95,11 @@ void bang_multi_reduce_sum_pow_abs_kernel(BangHandle& handle, int64_t n, const T
                                           const int64_t* sizes, T* output, float p, void* workspace,
                                           int64_t workspace_size);
 
+template<typename T>
+void bang_scalar_pow_gradient_kernel(BangHandle& handle, int64_t n, const T* x, const T* dy, const float value, T* dx);
+
+void bang_scalar_pow_gradient_half_kernel(BangHandle& handle, int64_t n, const void* x, const void* dy, const float value, void* dx);
+
 }  // namespace oneflow
 
 #endif  // ONEFLOW_CAMBRICON_BANG_BANG_KERNELS_H_
