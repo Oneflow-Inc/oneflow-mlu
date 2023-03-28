@@ -3228,3 +3228,11 @@
 - name: "clone"
   signature: "Tensor (Tensor input) => Clone"
   bind_python: True
+
+- name: "multi_reduce_sum_pow_abs"
+  signature: "Tensor (TensorTuple x, Float p) => MultiReduceSumPowAbs"
+  bind_python: True
+
+- name: "multi_count_not_finite"
+  signature: "Tensor (TensorTuple x) => MultiCountNotFinite"
+  bind_python: True
