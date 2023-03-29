@@ -25,23 +25,28 @@ namespace ccl {
 class MluBroadcast final : public Broadcast {
  public:
   OF_DISALLOW_COPY_AND_MOVE(MluBroadcast);
-  MluBroadcast() : cncl_datatype_() {}
+  MluBroadcast() : cncl_datatype_(), size_of_element_(0) {}
   ~MluBroadcast() = default;
 
-  void Init(DataType datatype) override { this->cncl_datatype_ = GetCnclDataType(datatype); }
+  void Init(DataType datatype) override {
+    this->cncl_datatype_ = cnclChar;
+    this->size_of_element_ = GetSizeOfDataType(datatype);
+  }
 
   void Launch(ep::Stream* stream, const void* in, void* out, size_t elem_cnt, int64_t root,
               const std::shared_ptr<CommunicationContext>& communication_ctx) const override {
     const auto& mlu_communication_ctx =
         std::dynamic_pointer_cast<MluCommunicationContext>(communication_ctx);
     CHECK(mlu_communication_ctx);
-    OF_CNCL_CHECK(cnclBroadcast(
-        in, out, elem_cnt, cncl_datatype_, mlu_communication_ctx->cncl_index4rank(root),
-        mlu_communication_ctx->cncl_comm(), stream->As<ep::MluStream>()->mlu_stream()));
+    OF_CNCL_CHECK(cnclBroadcast(in, out, elem_cnt * size_of_element_, cncl_datatype_,
+                                mlu_communication_ctx->cncl_index4rank(root),
+                                mlu_communication_ctx->cncl_comm(),
+                                stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:
   cnclDataType_t cncl_datatype_;
+  size_t size_of_element_;
 };
 
 REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, Broadcast, MluBroadcast);

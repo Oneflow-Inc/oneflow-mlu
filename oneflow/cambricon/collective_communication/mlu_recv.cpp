@@ -25,19 +25,24 @@ namespace ccl {
 class MluRecv final : public Recv {
  public:
   OF_DISALLOW_COPY_AND_MOVE(MluRecv);
-  MluRecv() : cncl_datatype_() {}
+  MluRecv() : cncl_datatype_(), size_of_element_(0) {}
   ~MluRecv() = default;
 
-  void Init(DataType datatype) override { this->cncl_datatype_ = GetCnclDataType(datatype); }
+  void Init(DataType datatype) override {
+    this->cncl_datatype_ = cnclChar;
+    this->size_of_element_ = GetSizeOfDataType(datatype);
+  }
 
   void Launch(ep::Stream* stream, void* out, size_t elem_cnt, int64_t src) const override {
     const auto& comm_and_peer_rank = GetCnclCommAndPeerCnclRank(src);
-    OF_CNCL_CHECK(cnclRecv(out, elem_cnt, cncl_datatype_, comm_and_peer_rank.second,
-                           comm_and_peer_rank.first, stream->As<ep::MluStream>()->mlu_stream()));
+    OF_CNCL_CHECK(cnclRecv(out, elem_cnt * size_of_element_, cncl_datatype_,
+                           comm_and_peer_rank.second, comm_and_peer_rank.first,
+                           stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:
   cnclDataType_t cncl_datatype_;
+  size_t size_of_element_;
 };
 
 REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, Recv, MluRecv);

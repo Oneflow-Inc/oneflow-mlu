@@ -25,23 +25,27 @@ namespace ccl {
 class MluAllGather final : public AllGather {
  public:
   OF_DISALLOW_COPY_AND_MOVE(MluAllGather);
-  MluAllGather() : cncl_datatype_() {}
+  MluAllGather() : cncl_datatype_(), size_of_element_(0) {}
   ~MluAllGather() = default;
 
-  void Init(DataType datatype) override { this->cncl_datatype_ = GetCnclDataType(datatype); }
+  void Init(DataType datatype) override {
+    this->cncl_datatype_ = cnclChar;
+    this->size_of_element_ = GetSizeOfDataType(datatype);
+  }
 
   void Launch(ep::Stream* stream, const void* in, void* out, size_t elem_cnt,
               const std::shared_ptr<CommunicationContext>& communication_ctx) const override {
     const auto& mlu_communication_ctx =
         std::dynamic_pointer_cast<MluCommunicationContext>(communication_ctx);
     CHECK(mlu_communication_ctx) << kOfBugIssueUploadPrompt;
-    OF_CNCL_CHECK(cnclAllGather(in, out, elem_cnt, cncl_datatype_,
+    OF_CNCL_CHECK(cnclAllGather(in, out, elem_cnt * size_of_element_, cncl_datatype_,
                                 mlu_communication_ctx->cncl_comm(),
                                 stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:
   cnclDataType_t cncl_datatype_;
+  size_t size_of_element_;
 };
 
 REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, AllGather, MluAllGather);

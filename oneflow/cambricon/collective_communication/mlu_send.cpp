@@ -25,20 +25,24 @@ namespace ccl {
 class MluSend final : public Send {
  public:
   OF_DISALLOW_COPY_AND_MOVE(MluSend);
-  MluSend() : cncl_datatype_() {}
+  MluSend() : cncl_datatype_(), size_of_element_(0) {}
   ~MluSend() = default;
 
-  void Init(DataType datatype) override { this->cncl_datatype_ = GetCnclDataType(datatype); }
+  void Init(DataType datatype) override {
+    this->cncl_datatype_ = cnclChar;
+    this->size_of_element_ = GetSizeOfDataType(datatype);
+  }
 
   void Launch(ep::Stream* stream, const void* in, size_t elem_cnt, int64_t dst) const override {
     const auto& comm_and_peer_rank = GetCnclCommAndPeerCnclRank(dst);
-    OF_CNCL_CHECK(cnclSend(const_cast<void*>(in), elem_cnt, cncl_datatype_,
+    OF_CNCL_CHECK(cnclSend(const_cast<void*>(in), elem_cnt * size_of_element_, cncl_datatype_,
                            comm_and_peer_rank.second, comm_and_peer_rank.first,
                            stream->As<ep::MluStream>()->mlu_stream()));
   }
 
  private:
   cnclDataType_t cncl_datatype_;
+  size_t size_of_element_;
 };
 
 REGISTER_COLLECTIVE_COMMUNICATION(DeviceType::kMLU, Send, MluSend);
