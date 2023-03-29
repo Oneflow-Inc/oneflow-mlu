@@ -3938,44 +3938,6 @@ class FusedCodegeexQkvReshapeFunctor {
   std::shared_ptr<OpExpr> op_;
 };
 
-class MultiReduceSumPowAbsFunctor {
- public:
-  MultiReduceSumPowAbsFunctor() {
-    op_.resize(kMaxInputCount /*the maximum number of inputs*/);
-    for (int n = 0; n < op_.size(); ++n) {
-      op_[n] = CHECK_JUST(
-          one::OpBuilder("multi_reduce_sum_pow_abs").Input("x", n + 1).Output("y").Build());
-    }
-  }
-
-  Maybe<Tensor> operator()(const TensorTuple& x, float p) const {
-    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("p");
-    attrs.SetAllAttrs(p);
-    return OpInterpUtil::Dispatch<Tensor>(*(op_[x.size() - 1]), x, attrs);
-  }
-
- private:
-  std::vector<std::shared_ptr<OpExpr>> op_;
-};
-
-class MultiCountNotFiniteFunctor {
- public:
-  MultiCountNotFiniteFunctor() {
-    op_.resize(kMaxInputCount /*the maximum number of inputs*/);
-    for (int n = 0; n < op_.size(); ++n) {
-      op_[n] = CHECK_JUST(
-          one::OpBuilder("multi_count_not_finite").Input("x", n + 1).Output("y").Build());
-    }
-  }
-
-  Maybe<Tensor> operator()(const TensorTuple& x) const {
-    return OpInterpUtil::Dispatch<Tensor>(*(op_[x.size() - 1]), x);
-  }
-
- private:
-  std::vector<std::shared_ptr<OpExpr>> op_;
-};
-
 }  // namespace impl
 
 ONEFLOW_FUNCTION_LIBRARY(m) {
@@ -4133,8 +4095,6 @@ ONEFLOW_FUNCTION_LIBRARY(m) {
   m.add_functor<impl::SortFunctor>("Sort");
   m.add_functor<impl::CloneFunctor>("Clone");
   m.add_functor<impl::FusedCodegeexQkvReshapeFunctor>("FusedCodegeexQkvReshape");
-  m.add_functor<impl::MultiReduceSumPowAbsFunctor>("MultiReduceSumPowAbs");
-  m.add_functor<impl::MultiCountNotFiniteFunctor>("MultiCountNotFinite");
 };
 
 }  // namespace functional
