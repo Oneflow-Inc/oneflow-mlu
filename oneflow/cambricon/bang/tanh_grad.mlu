@@ -63,7 +63,6 @@ __mlu_global__ void bang_tanh_grad_kernel(int64_t n, const T* x, const T* dy, T*
     __memcpy_async(dx + start + j, nram_dx, nram_rest_bytes, NRAM2GDRAM);
     __sync_copy_nram_to_dram();
   }
-
 }
 
 template<typename T>
