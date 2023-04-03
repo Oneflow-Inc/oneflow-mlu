@@ -352,10 +352,10 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
             const int64_t elem_per_chunk = elem_per_rank / num_ranks;
             const int64_t dtype_size = GetSizeOfDataType(op_desc.data_type());
             const int64_t chunk_size = elem_per_chunk * dtype_size;
-            const void** send_bufs = new const void*[num_ranks];
-            void** revc_bufs = new void*[num_ranks];
-            uint32_t* buf_count = new uint32_t[num_ranks];
-            cnclDataType_t* cncl_types = new cnclDataType_t[num_ranks];
+            std::vector<const void*> send_bufs(num_ranks, nullptr);
+            std::vector<void*> revc_bufs(num_ranks, nullptr);
+            std::vector<uint32_t> buf_count(num_ranks, 0);
+            std::vector<cnclDataType_t> cncl_types(num_ranks, cnclInvalid);
             for (int64_t j = 0; j < num_ranks; ++j) {
               send_bufs[j] = reinterpret_cast<const void*>(reinterpret_cast<const char*>(send_buff)
                                                            + j * chunk_size);
@@ -366,8 +366,9 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
             }
 
             for (int64_t j = 0; j < num_ranks; ++j) {
-              OF_CNCL_CHECK(cnclAlltoAllv(send_bufs, buf_count, cncl_types, revc_bufs, buf_count,
-                                          cncl_types, comm, stream_ctx->stream()));
+              OF_CNCL_CHECK(cnclAlltoAllv(send_bufs.data(), buf_count.data(), cncl_types.data(),
+                                          revc_bufs.data(), buf_count.data(), cncl_types.data(),
+                                          comm, stream_ctx->stream()));
             }
           } else {
             UNIMPLEMENTED();
