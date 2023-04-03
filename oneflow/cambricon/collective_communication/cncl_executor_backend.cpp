@@ -24,10 +24,8 @@ limitations under the License.
 #include "oneflow/core/thread/thread_pool.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/common/mlu_guard.h"
-#include "oneflow/core/kernel/new_kernel_util.h"
 
 #include <memory>
-#include <iomanip>
 #include <utility>
 
 namespace oneflow {
@@ -37,14 +35,6 @@ namespace boxing {
 namespace collective {
 
 namespace {
-std::string cnclCliqueId2String(const cnclCliqueId& id) {
-  std::stringstream ss;
-  for (int i = 0; i < CNCL_CLIQUE_ID_BYTES_SIZE; ++i) {
-    ss << std::hex << std::setfill('0') << std::setw(2) << static_cast<int>(id.data[i]);
-  }
-  ss << id.hash;
-  return ss.str();
-}
 
 static const int64_t kNumOfCommInCurProcess = 1;
 
@@ -178,16 +168,10 @@ class CommGroup final {
     for (int32_t local_rank = 0; local_rank < local_ranks.size(); ++local_rank) {
       const int32_t global_rank = local_ranks.at(local_rank);
       const int32_t device_id = device_set.device(global_rank).device_id();
-      LOG(INFO) << " CommGroup::InitGroup global_rank_count = " << global_rank_count_
-                << ", cncl_unique_id = " << cnclCliqueId2String(cncl_clique_id)
-                << ", rank = " << global_rank << ", key = {" << unique_name << "}\n";
       MluCurrentDeviceGuard guard(device_id);
       rank_vec_.emplace_back(device_id, global_rank, global_rank_count_, local_rank,
                              local_rank_count);
       rank_vec_.at(local_rank).InitRank(cncl_clique_id, global_rank_count_);
-      LOG(INFO) << " CommGroup::InitGroup succeed global_rank_count = " << global_rank_count_
-                << ", cncl_unique_id = " << cnclCliqueId2String(cncl_clique_id)
-                << ", rank = " << global_rank << ", key = {" << unique_name << "}\n";
     }
   }
 
@@ -232,9 +216,7 @@ class StreamCtx {
       ChannelStatus status = cb_event_chan_.Receive(&cb_event);
       if (status == kChannelStatusErrorClosed) { break; }
       CHECK_EQ(status, kChannelStatusSuccess);
-      // LOG(INFO) << "cnrtWaitNotifier(cb_event.first)";
       OF_MLU_CHECK(cnrtWaitNotifier(cb_event.first));
-      // LOG(INFO) << "cnrtWaitNotifier(cb_event.first) success";
       cb_event.second();
       OF_MLU_CHECK(cnrtNotifierDestroy(cb_event.first));
     }
