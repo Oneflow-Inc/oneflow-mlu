@@ -58,8 +58,8 @@ __mlu_global__ void bang_scalar_pow_grad_kernel(int64_t n, const T* x, const T* 
     for (int k = 0; k<nram_rest; k++){
       nram_dx[k] = std::pow(nram_x[k], value_);
     }
-    __bang_mul(nram_dx, nram_dx, nram_dy, nram_limit);
-    __bang_mul_scalar(nram_dx, nram_dx, value, nram_limit);
+    __bang_mul(nram_dx, nram_dx, nram_dy, nram_rest);
+    __bang_mul_scalar(nram_dx, nram_dx, value, nram_rest);
     __sync_compute();
     __memcpy_async(dx + start + j, nram_dx, nram_rest_bytes, NRAM2GDRAM);
     __sync_copy_nram_to_dram();
