@@ -353,10 +353,28 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
         const int64_t elem_per_chunk = elem_per_rank / num_ranks;
         const int64_t dtype_size = GetSizeOfDataType(op_desc.data_type());
         const int64_t chunk_size = elem_per_chunk * dtype_size;
-        for (int64_t j = 0; j < num_ranks; ++j) {
+        int64_t current_rank = GlobalProcessCtx::Rank();
+        OF_MLU_CHECK(cnrtMemcpyAsync(
+            reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + current_rank * chunk_size),
+            const_cast<void*>(reinterpret_cast<const void*>(reinterpret_cast<const char*>(send_buff)
+                                                            + current_rank * chunk_size)),
+            chunk_size, stream_ctx->stream(), cnrtMemcpyDevToDev));
+        for (int64_t j = 0; j < current_rank; ++j) {
+          OF_CNCL_CHECK(
+              cnclRecv(reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
+                       elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = current_rank + 1; j < num_ranks; ++j) {
           OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
                                      reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
                                  elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = 0; j < current_rank; ++j) {
+          OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
+                                     reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
+                                 elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = current_rank + 1; j < num_ranks; ++j) {
           OF_CNCL_CHECK(
               cnclRecv(reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
                        elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
