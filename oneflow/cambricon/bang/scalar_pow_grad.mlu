@@ -18,6 +18,7 @@ limitations under the License.
 namespace oneflow {
 
 static constexpr int32_t nram_limit = 1024;
+static constexpr float log_magic = 1.44269504089; // log2(e)
 
 static __mlu_func__ void bang_mask_assign(float* dst, float* src, float* mask, int32_t elem_count) {
   __nram__ int32_t bitmask[nram_limit];
@@ -60,8 +61,8 @@ static __mlu_func__ void bang_pow_scalar(float* dst, float* src, float exponent,
 
   __bang_abs(nram_temp, src, elem_count);
   __bang_active_loghp(nram_temp, nram_temp, elem_count);
-  __bang_mul_scalar(nram_temp, nram_temp, exponent, elem_count);
-  __bang_active_exphp(nram_temp, nram_temp, elem_count);
+  __bang_mul_scalar(nram_temp, nram_temp, exponent * log_magic, elem_count);
+  __bang_pow2(nram_temp, nram_temp, elem_count);
   __bang_mul(dst, nram_temp, nram_scale, elem_count);
 #else
   for (int i = 0; i < elem_count; ++i) { dst[i] = pow(src[i], exponent); }
