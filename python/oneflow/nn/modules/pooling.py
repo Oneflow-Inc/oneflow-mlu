@@ -246,6 +246,12 @@ class MaxPool2d(Module):
         else:
             self.channel_pos = "channels_first"
 
+    def apply_memory_format(self, memory_format) -> None:
+        if memory_format is flow.channels_last:
+            self.channel_pos = "channels_last"
+        elif memory_format is flow.channels_first:
+            self.channel_pos = "channels_first"
+
     def forward(self, x):
         if not self.return_indices:
             return flow._C.max_pool2d(
@@ -546,16 +552,37 @@ class AvgPool2d(Module):
             )
             self._padding_before = [pad[0] for pad in _pads_list]
             self._padding_after = [pad[1] for pad in _pads_list]
-
         else:
-            self.data_format = "NCHW"
             self.channel_pos = "channels_first"
             self.padding = _pair(padding)
             self.count_include_pad = count_include_pad
             self.divisor_override = int(divisor_override)
 
+    def apply_memory_format(self, memory_format) -> None:
+        if self.channel_pos == "channels_first" and memory_format is flow.channels_last:
+            if not self.count_include_pad:
+                raise ValueError(
+                    "AvgPool2d with NHWC data format don't support count_include_pad for now."
+                )
+            if self.divisor_override != 0:
+                raise ValueError(
+                    "AvgPool2d with NHWC data format don't support divisor_override for now."
+                )
+            self.channel_pos = "channels_last"
+            self.padding = (0, self.padding[0], self.padding[1], 0)
+            self._padding_type, _pads_list = calc_pool_padding(
+                self.padding, get_dhw_offset(self.channel_pos), 2
+            )
+            self._padding_before = [pad[0] for pad in _pads_list]
+            self._padding_after = [pad[1] for pad in _pads_list]
+        elif (
+            self.channel_pos == "channels_last" and memory_format is flow.channels_first
+        ):
+            self.channel_pos = "channels_first"
+            self.padding = (self.padding[1], self.padding[2])
+
     def forward(self, x):
-        if self.data_format == "NCHW":
+        if self.channel_pos == "channels_first":
             return flow._C.avg_pool2d(
                 x,
                 kernel_size=self.kernel_size,
