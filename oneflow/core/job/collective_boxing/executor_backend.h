@@ -47,10 +47,6 @@ class ExecutorBackend {
   virtual void DestroyGroupToken(void* group_token) = 0;
 };
 
-const std::vector<DeviceType>& VaildExecutorDeviceTypes();
-
-void RegisterExecutorDeviceType(DeviceType device_type);
-
 }  // namespace collective
 
 }  // namespace boxing
