@@ -25,7 +25,9 @@ namespace oneflow {
 
 static PyObject* PyMemoryFormat_repr(PyMemoryFormatObject* self) {
   auto memory_format = PyMemoryFormat_Unpack((PyObject*)self);
-  if (memory_format == MemoryFormat::kNCHW) {
+  if (memory_format == MemoryFormat::kUnused) {
+    return PyUnicode_FromString("oneflow.memory_format_unused");
+  } else if (memory_format == MemoryFormat::kNCHW) {
     return PyUnicode_FromString("oneflow.channels_first");
   } else if (memory_format == MemoryFormat::kNHWC) {
     return PyUnicode_FromString("oneflow.channels_last");
