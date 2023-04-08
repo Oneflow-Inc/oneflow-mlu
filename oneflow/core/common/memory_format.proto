@@ -2,7 +2,7 @@ syntax = "proto2";
 package oneflow;
 
 enum MemoryFormat {
-  kDefault = 0;
+  kUnused = 0;
   kNCHW = 1;
   kNHWC = 2;
 

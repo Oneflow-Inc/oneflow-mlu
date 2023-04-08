@@ -129,8 +129,8 @@ class SrcOpGlobalTensorMetaInferArgs final {
 class OpArgMutGlobalTensorMeta final {
  public:
   OpArgMutGlobalTensorMeta()
-      : tensor_meta_(std::make_shared<Shape>(), DataType::kInvalidDataType,
-                     MemoryFormat::kDefault) {}
+      : tensor_meta_(std::make_shared<Shape>(), DataType::kInvalidDataType, MemoryFormat::kUnused) {
+  }
 
   OpArgMutGlobalTensorMeta(const OpArgMutGlobalTensorMeta&) = default;
   OpArgMutGlobalTensorMeta(OpArgMutGlobalTensorMeta&&) = default;

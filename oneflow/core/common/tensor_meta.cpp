@@ -23,7 +23,7 @@ namespace oneflow {
 namespace one {
 
 MutTensorMeta::MutTensorMeta()
-    : TensorMeta(kInvalidDataType, MemoryFormat::kDefault),
+    : TensorMeta(kInvalidDataType, MemoryFormat::kUnused),
       shape_(std::make_shared<const Shape>()),
       stride_(std::make_shared<const Stride>()) {}
 
@@ -63,7 +63,7 @@ size_t MutTensorMeta::CalcHashValue() const {
 }
 
 ConstTensorMeta::ConstTensorMeta()
-    : TensorMeta(kInvalidDataType, MemoryFormat::kDefault),
+    : TensorMeta(kInvalidDataType, MemoryFormat::kUnused),
       shape_(SymbolOf(Shape())),
       stride_(SymbolOf(Stride())) {}
 
@@ -87,7 +87,7 @@ size_t ConstTensorMeta::CalcHashValue() const {
 
 LocalTensorMeta::LocalTensorMeta()
     : ConstTensorMeta(SymbolOf(Shape()), SymbolOf(Stride()), DataType::kInvalidDataType,
-                      MemoryFormat::kDefault),
+                      MemoryFormat::kUnused),
       device_(Symbol<Device>()) {}
 
 LocalTensorMeta::LocalTensorMeta(Symbol<Shape> shape, DataType dtype, MemoryFormat memory_format,
@@ -112,7 +112,7 @@ size_t LocalTensorMeta::CalcHashValue() const {
 
 MutLocalTensorMeta::MutLocalTensorMeta()
     : MutTensorMeta(std::make_shared<const Shape>(), std::make_shared<const Stride>(),
-                    kInvalidDataType, MemoryFormat::kDefault),
+                    kInvalidDataType, MemoryFormat::kUnused),
       device_(Symbol<Device>()) {}
 
 MutLocalTensorMeta::MutLocalTensorMeta(const std::shared_ptr<const Shape>& shape, DataType dtype,
