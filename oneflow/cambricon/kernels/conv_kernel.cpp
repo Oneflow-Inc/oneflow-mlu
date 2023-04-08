@@ -102,10 +102,10 @@ class Conv2DKernel final : public user_op::OpKernel {
       temp_weight.resize(weight_shape.elem_cnt() * element_size);
       temp_output.resize(out_shape.elem_cnt() * element_size);
       // convert input to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), in_shape, data_type, in->dptr(), temp_input.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), in->shape_view(), data_type, in->dptr(),
+                               temp_input.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert weight to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), weight_shape, data_type, weight->dptr(),
+      mlu::ConvertMemoryFormat(ctx->stream(), weight->shape_view(), data_type, weight->dptr(),
                                temp_weight.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       input_ptr = temp_input.dptr();
       weight_ptr = temp_weight.dptr();
@@ -208,10 +208,10 @@ class ConvDataGradKernel final : public user_op::OpKernel {
       temp_filter.resize(filter_shape.elem_cnt() * element_size);
       temp_dx.resize(dx_shape.elem_cnt() * element_size);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy_shape, data_type, dy->dptr(), temp_dy.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert filter to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), filter_shape, data_type, filter->dptr(),
+      mlu::ConvertMemoryFormat(ctx->stream(), filter->shape_view(), data_type, filter->dptr(),
                                temp_filter.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       dy_ptr = temp_dy.dptr();
       filter_ptr = temp_filter.dptr();
@@ -314,10 +314,10 @@ class ConvFilterGradKernel final : public user_op::OpKernel {
       temp_x.resize(x_shape.elem_cnt() * element_size);
       temp_filter_diff.resize(filter_diff_shape.elem_cnt() * element_size);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy_shape, data_type, dy->dptr(), temp_dy.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x_shape, data_type, x->dptr(), temp_x.dptr(),
+      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
                                MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       dy_ptr = temp_dy.dptr();
       x_ptr = temp_x.dptr();

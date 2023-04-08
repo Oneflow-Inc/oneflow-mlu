@@ -191,14 +191,14 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
       temp_dy_workspace.resize(dy_shape.elem_cnt() * element_size);
       temp_dx_workspace.resize(shape.elem_cnt() * element_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, x->dptr(), temp_x_workspace.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
+                               temp_x_workspace.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy_shape, data_type, dy->dptr(),
+      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
                                temp_dy_workspace.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert indice to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), indice_shape, indice->data_type(), indice->dptr(),
-                               temp_indice_workspace.dptr(), MemoryFormat::kNCHW,
+      mlu::ConvertMemoryFormat(ctx->stream(), indice->shape_view(), indice->data_type(),
+                               indice->dptr(), temp_indice_workspace.dptr(), MemoryFormat::kNCHW,
                                MemoryFormat::kNHWC);
       temp_x = temp_x_workspace.dptr();
       temp_indice = temp_indice_workspace.dptr();
@@ -209,26 +209,26 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
     dy_desc.set(dy_shape.size(), dy_shape.data(), cnnl_data_type, layout);
     indice_desc.set(indice_shape.size(), indice_shape.data(),
                     ConvertToCnnlDataType(indice->data_type()), layout);
+    dx_desc.set(shape.size(), shape.data(), cnnl_data_type, layout);
 
     // cnnlPoolingBackward requires y_desc is int32/int16, which is int64 in oneflow op
     auto local_index_dtype = CNNL_DTYPE_INVALID;
     CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
     if (GetDataType<T>::value == DataType::kFloat) {
-      local_index_dtype = ConvertToCnnlDataType(kInt32);
-      local_index.resize(sizeof(int32_t) * indice->shape_view().elem_cnt());
+      local_index_dtype = CNNL_DTYPE_INT32;
+      local_index.resize(sizeof(int32_t) * indice_shape.elem_cnt());
     } else if (GetDataType<T>::value == DataType::kFloat16) {
-      local_index_dtype = ConvertToCnnlDataType(kInt16);
-      local_index.resize(sizeof(int16_t) * indice->shape_view().elem_cnt() * 3);
+      local_index_dtype = CNNL_DTYPE_INT16;
+      local_index.resize(sizeof(int16_t) * indice_shape.elem_cnt() * 3);
     }
     CnnlTensorDescriptor local_index_desc;
-    local_index_desc.set(indice_shape.NumAxes(), indice_shape.data(), local_index_dtype,
-                         CNNL_LAYOUT_NHWC);
+    local_index_desc.set(indice_shape.NumAxes(), indice_shape.data(), local_index_dtype, layout);
 
     if (local_index_dtype == CNNL_DTYPE_INT16) {
       CnnlTensorDescriptor int32_index_desc;
-      char* int32_index_dptr = reinterpret_cast<char*>(local_index.dptr());
-      int32_index_dptr += sizeof(int16_t) * indice->shape_view().elem_cnt();
       int32_index_desc.set(indice_shape.NumAxes(), indice_shape.data(), CNNL_DTYPE_INT32, layout);
+      char* int32_index_dptr =
+          reinterpret_cast<char*>(local_index.dptr()) + sizeof(int16_t) * indice_shape.elem_cnt();
       OF_CNNL_CHECK(cnnlCastDataType(
           /* handle      */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
           /* input_desc  */ indice_desc.desc(),

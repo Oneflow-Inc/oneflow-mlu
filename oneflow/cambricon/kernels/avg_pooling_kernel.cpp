@@ -250,11 +250,11 @@ class MluAvgPoolGradKernel final : public user_op::OpKernel {
       temp_dy.resize(dy_shape.elem_cnt() * element_size);
       temp_dx.resize(shape.elem_cnt() * element_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, x->dptr(), temp_x.dptr(),
+      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
                                MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy_shape, data_type, dy->dptr(), temp_dy.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       x_ptr = temp_x.dptr();
       dy_ptr = temp_dy.dptr();
       dx_ptr = temp_dx.dptr();

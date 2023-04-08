@@ -79,8 +79,8 @@ class MluNormalizationKernel final : public user_op::OpKernel {
       workspace_x.resize(workspace_size);
       workspace_y.resize(workspace_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, x->dptr(), workspace_x.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
+                               workspace_x.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       x_ptr = workspace_x.dptr();
       y_ptr = workspace_y.dptr();
     }
@@ -172,11 +172,11 @@ class MluNormalizationGradKernel final : public user_op::OpKernel {
       workspace_dy.resize(workspace_size);
       workspace_dx.resize(workspace_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, x->dptr(), workspace_x.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
+                               workspace_x.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, dy->dptr(), workspace_dy.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                               workspace_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
       x_ptr = workspace_x.dptr();
       dy_ptr = workspace_dy.dptr();
       dx_ptr = workspace_dx.dptr();
