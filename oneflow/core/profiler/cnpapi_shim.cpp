@@ -52,9 +52,6 @@ void bufferCompleted(uint64_t* buffer, size_t size, size_t validSize) {
           switch (record->type) {
             case CNPAPI_ACTIVITY_TYPE_KERNEL: {
               auto* activity_kernel = reinterpret_cast<cnpapiActivityKernel*>(record);
-              std::cout << activity_kernel->name << " " << activity_kernel->start << " "
-                        << activity_kernel->end << " " << activity_kernel->received << " "
-                        << activity_kernel->queued << " " << activity_kernel->queued << std::endl;
               auto custom_event = CustomEvent::Create(std::string(activity_kernel->name),
                                                       CustomEventType::kMluKernel);
               custom_event->SetStartedAt(static_cast<time_t>(activity_kernel->start));
