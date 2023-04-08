@@ -13,7 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/cambricon/collective_communication/cncl_executor_backend.h"
+#include "oneflow/core/job/collective_boxing/executor_backend_manager.h"
 #include "oneflow/core/job/collective_boxing/request_store.h"
 #include "oneflow/cambricon/collective_communication/cncl_util.h"
 #include "oneflow/core/graph/boxing/collective_boxing_util.h"
@@ -353,10 +353,28 @@ void LaunchAggregatedOps(const CommGroup& comm_group,
         const int64_t elem_per_chunk = elem_per_rank / num_ranks;
         const int64_t dtype_size = GetSizeOfDataType(op_desc.data_type());
         const int64_t chunk_size = elem_per_chunk * dtype_size;
-        for (int64_t j = 0; j < num_ranks; ++j) {
+        int64_t current_rank = GlobalProcessCtx::Rank();
+        OF_MLU_CHECK(cnrtMemcpyAsync(
+            reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + current_rank * chunk_size),
+            const_cast<void*>(reinterpret_cast<const void*>(reinterpret_cast<const char*>(send_buff)
+                                                            + current_rank * chunk_size)),
+            chunk_size, stream_ctx->stream(), cnrtMemcpyDevToDev));
+        for (int64_t j = 0; j < current_rank; ++j) {
+          OF_CNCL_CHECK(
+              cnclRecv(reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
+                       elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = current_rank + 1; j < num_ranks; ++j) {
           OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
                                      reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
                                  elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = 0; j < current_rank; ++j) {
+          OF_CNCL_CHECK(cnclSend(const_cast<void*>(reinterpret_cast<const void*>(
+                                     reinterpret_cast<const char*>(send_buff) + j * chunk_size)),
+                                 elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
+        }
+        for (int64_t j = current_rank + 1; j < num_ranks; ++j) {
           OF_CNCL_CHECK(
               cnclRecv(reinterpret_cast<void*>(reinterpret_cast<char*>(recv_buff) + j * chunk_size),
                        elem_per_chunk, cncl_data_type, j, comm, stream_ctx->stream()));
@@ -399,6 +417,26 @@ void AddCallbackAndResetRuntimeRequest(
 }
 
 }  // namespace
+
+class CnclExecutorBackend : public ExecutorBackend {
+ public:
+  OF_DISALLOW_COPY_AND_MOVE(CnclExecutorBackend);
+  CnclExecutorBackend();
+  ~CnclExecutorBackend() override;
+
+ private:
+  void Init(std::shared_ptr<RequestStore> request_store) override;
+  void InitJob(int64_t job_id) override;
+  void DeinitJob(int64_t job_id) override;
+  void GroupRequests(const std::vector<RequestId>& request_ids,
+                     const std::function<void(std::vector<RequestId>&&, void*)>& Handler) override;
+  void ExecuteGroup(void* group_token) override;
+  void* CreateGroupToken(const std::vector<RequestId>& group) override;
+  void DestroyGroupToken(void* group_token) override;
+
+  struct Impl;
+  std::unique_ptr<Impl> impl_;
+};
 
 struct CnclExecutorBackend::Impl {
   Impl(const CollectiveBoxingConf& conf, std::shared_ptr<RequestStore> request_store)
