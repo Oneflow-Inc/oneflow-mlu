@@ -40,6 +40,9 @@ option(LITE_USE_ASCEND_NPU "" OFF)
 option(OF_FORCE_COLORED_DIAGNOSTICS "Always produce ANSI-colored diagnostics (GNU/Clang only)." ON)
 
 set(ONEFLOW_CURRENT_VERSION 0.8.1.dev CACHE STRING "")
+if(BUILD_MLU)
+  add_definitions(-DWITH_MLU)
+endif()
 
 if(BUILD_FOR_CI)
   set(ONEFLOW_CURRENT_VERSION ci)
