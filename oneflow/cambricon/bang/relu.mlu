@@ -17,7 +17,7 @@ limitations under the License.
 
 namespace oneflow {
 
-static constexpr int32_t nram_limit = 1024 * 16;
+static constexpr int32_t nram_limit = 1024 * 8;
 
 template<typename T>
 __mlu_global__ void bang_relu_kernel(int64_t n, const T* x, T* y) {
@@ -34,15 +34,23 @@ __mlu_global__ void bang_relu_kernel(int64_t n, const T* x, T* y) {
   __nram__ T nram_y[nram_limit];
   //__bang_write_zero(nram_zero, nram_limit);
   int64_t j = 0;
+  __memcpy_async(nram_x, x + start + j, nram_limit_bytes, GDRAM2NRAM);
+  __sync_copy_dram_to_nram();
+  j += nram_limit;
   for (; j < length - nram_limit + 1; j += nram_limit) {
-    __memcpy_async(nram_x, x + start + j, nram_limit_bytes, GDRAM2NRAM);
-    __sync_copy_dram_to_nram();
+    // __memcpy_async(nram_x, x + start + j, nram_limit_bytes, GDRAM2NRAM);
+    // __sync_copy_dram_to_nram();
     __bang_active_relu(nram_y, nram_x, nram_limit);
     //__bang_fcmpfilter(CMP_GE, nram_y, nram_x, nram_zero, nram_limit);
+    __memcpy_async(nram_x, x + start + j, nram_limit_bytes, GDRAM2NRAM);
     __sync_compute();
-    __memcpy_async(y + start + j, nram_y, nram_limit_bytes, NRAM2GDRAM);
+    __memcpy_async(y + start + j - nram_limit, nram_y, nram_limit_bytes, NRAM2GDRAM);
     __sync_copy_nram_to_dram();
   }
+  __bang_active_relu(nram_y, nram_x, nram_limit);
+  __sync_compute();
+  __memcpy_async(y + start + j - nram_limit, nram_y, nram_limit_bytes, NRAM2GDRAM);
+  __sync_copy_nram_to_dram();
 
   if (nram_rest > 0) {
     int32_t nram_rest_bytes = nram_rest * sizeof(T);
