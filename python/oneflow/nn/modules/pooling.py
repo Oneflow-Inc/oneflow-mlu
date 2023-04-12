@@ -737,7 +737,7 @@ class AdaptiveAvgPool2d(Module):
 
     """
 
-    def __init__(self, output_size, data_format=None) -> None:
+    def __init__(self, output_size) -> None:
         super().__init__()
         assert output_size is not None, "'output_size' cannot be NoneType"
         self.output_size = _pair(output_size)
