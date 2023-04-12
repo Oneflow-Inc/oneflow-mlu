@@ -23,6 +23,7 @@ limitations under the License.
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/core/ep/include/primitive/permute.h"
+#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 
 namespace oneflow {
 
@@ -42,65 +43,61 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
 
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
+    const std::string& data_format = ctx->Attr<std::string>("data_format");
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
-    const T* in_ptr = in_tensor->dptr<T>();
-    T* out_ptr = out_tensor->mut_dptr<T>();
+    // const T* in_ptr = in_tensor->dptr<T>();
+    // T* out_ptr = out_tensor->mut_dptr<T>();
 
-    size_t tmp_in_workspace_size =
-        in_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
-    CnnlWorkspace tmp_in_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_workspace_size);
-    void* tmp_in_ptr = tmp_in_cnnl_workspace.dptr();
+    const void* temp_in_ptr = in_tensor->dptr();
+    void* temp_out_ptr = out_tensor->mut_dptr();
 
-    std::vector<int64_t> in_shapevec({in_tensor->shape_view().At(0), in_tensor->shape_view().At(1),
-                                      in_tensor->shape_view().At(2),
-                                      in_tensor->shape_view().At(3)});
-    auto transpose = NewPermutePrimitive(ctx, in_tensor->shape_view().NumAxes());
-    CHECK(transpose);
-    const std::vector<int> in_permutation = {0, 2, 3, 1};
-    transpose->Launch(ctx->stream(), in_tensor->data_type(), in_tensor->shape_view().NumAxes(),
-                      in_shapevec.data(), in_ptr, in_permutation.data(), tmp_in_ptr);
-    cnnlTensorDescriptor_t in_desc = nullptr, out_decs = nullptr;
-    const int in_dims[4] = {static_cast<int>(in_tensor->shape_view().At(0)),
-                            static_cast<int>(in_tensor->shape_view().At(2)),
-                            static_cast<int>(in_tensor->shape_view().At(3)),
-                            static_cast<int>(in_tensor->shape_view().At(1))};
-    const int out_dims[4] = {static_cast<int>(out_tensor->shape_view().At(0)),
-                             static_cast<int>(out_tensor->shape_view().At(2)),
-                             static_cast<int>(out_tensor->shape_view().At(3)),
-                             static_cast<int>(out_tensor->shape_view().At(1))};
-    auto dtype = ConvertToCnnlDataType(in_tensor->data_type());
-    cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
-    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&in_desc));
-    OF_CNNL_CHECK(cnnlCreateTensorDescriptor(&out_decs));
-    OF_CNNL_CHECK(cnnlSetTensorDescriptor(in_desc, layout, dtype, 4, in_dims));
-    OF_CNNL_CHECK(cnnlSetTensorDescriptor(out_decs, layout, dtype, 4, out_dims));
+    cnnlTensorLayout_t layout =
+        (data_format == "channels_last") ? CNNL_LAYOUT_NHWC : CNNL_LAYOUT_NCHW;
+    CnnlTensorDescriptor in_desc(in_tensor), out_desc(out_tensor);
+    cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
+
+    CnnlWorkspace tmp_in_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), 0);
+    CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), 0);
+
+    auto in_shape = Shape(in_tensor->shape_view());
+    auto out_shape = Shape(out_tensor->shape_view());
+
+    if (layout != CNNL_LAYOUT_NHWC) {
+      size_t tmp_in_workspace_size =
+          in_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
+      size_t tmp_out_workspace_size =
+          out_tensor->shape_view().elem_cnt() * sizeof(out_tensor->data_type());
+      tmp_in_cnnl_workspace.resize(tmp_in_workspace_size);
+      tmp_out_cnnl_workspace.resize(tmp_out_workspace_size);
+      mlu::ConvertMemoryFormat(ctx->stream(), in_tensor->shape_view(), in_tensor->data_type(),
+                               in_tensor->dptr(), tmp_in_cnnl_workspace.dptr(), MemoryFormat::kNCHW,
+                               MemoryFormat::kNHWC);
+      temp_in_ptr = tmp_in_cnnl_workspace.dptr();
+      temp_out_ptr = tmp_out_cnnl_workspace.dptr();
+      in_shape = mlu::ComputeShapeNchwToNhwc(in_shape);
+      out_shape = mlu::ComputeShapeNchwToNhwc(out_shape);
+    }
+
+    in_desc.set(in_shape.NumAxes(), in_shape.data(), dtype, CNNL_LAYOUT_NHWC);
+    out_desc.set(out_shape.NumAxes(), out_shape.data(), dtype, CNNL_LAYOUT_NHWC);
+
     size_t _adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc,
-        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_decs,
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc.desc(),
+        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_desc.desc(),
         &_adaptive_avg_pool2d_workspace_size));
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                             _adaptive_avg_pool2d_workspace_size);
     void* _adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
-    size_t tmp_out_workspace_size =
-        out_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
-    CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                         tmp_out_workspace_size);
-    void* tmp_out_ptr = tmp_out_cnnl_workspace.dptr();
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc, tmp_in_ptr,
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc.desc(), temp_in_ptr,
         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, _adaptive_avg_pool2d_workspace,
-        _adaptive_avg_pool2d_workspace_size, out_decs, tmp_out_ptr, NULL, NULL));
-    std::vector<int64_t> out_shapevec(
-        {out_tensor->shape_view().At(0), out_tensor->shape_view().At(2),
-         out_tensor->shape_view().At(3), out_tensor->shape_view().At(1)});
-    transpose = NewPermutePrimitive(ctx, out_tensor->shape_view().NumAxes());
-    CHECK(transpose);
-    const std::vector<int> out_permutation = {0, 3, 1, 2};
-    transpose->Launch(ctx->stream(), out_tensor->data_type(), out_tensor->shape_view().NumAxes(),
-                      out_shapevec.data(), tmp_out_ptr, out_permutation.data(), out_ptr);
-    cnnlDestroyTensorDescriptor(in_desc);
-    cnnlDestroyTensorDescriptor(out_decs);
+        _adaptive_avg_pool2d_workspace_size, out_desc.desc(), temp_out_ptr, NULL, NULL));
+
+    if (layout != CNNL_LAYOUT_NHWC) {
+      mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
+                               out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+    }
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
