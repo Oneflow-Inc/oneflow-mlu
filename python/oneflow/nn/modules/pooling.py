@@ -757,7 +757,9 @@ class AdaptiveAvgPool2d(Module):
             len(x.shape) == 4
         ), f"expected 4-dimensional tensor, but got {len(x.shape)}-dimensional tensor"
         new_output_size = _generate_output_size(x.shape, self.output_size)
-        return flow._C.adaptive_avg_pool2d(x, output_size=new_output_size, data_format=self.channel_pos)
+        return flow._C.adaptive_avg_pool2d(
+            x, output_size=new_output_size, data_format=self.channel_pos
+        )
 
 
 def adaptive_avg_pool2d(input, output_size):
