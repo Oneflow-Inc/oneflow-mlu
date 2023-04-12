@@ -188,7 +188,11 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const user_op::Tensor* dy_tensor,
                    user_op::Tensor* dx_tensor) const {
-    CnnlTensorDescriptor dy_desc(dy_tensor), dx_desc(dx_tensor);
+    cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
+    auto dtype = ConvertToCnnlDataType(dy_tensor->data_type());
+    CnnlTensorDescriptor dy_desc, dx_desc;
+    dy_desc.set(dy_tensor, layout, dtype);
+    dx_desc.set(dx_tensor, layout, dtype);
     OF_CNNL_CHECK(cnnlAdaptivePoolingBackward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
                                               dy_desc.desc(), dy_tensor->dptr(), nullptr, nullptr,
                                               CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,

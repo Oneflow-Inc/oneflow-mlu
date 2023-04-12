@@ -737,11 +737,13 @@ class AdaptiveAvgPool2d(Module):
 
     """
 
-    def __init__(self, output_size) -> None:
+    def __init__(self, output_size, data_format=None) -> None:
         super().__init__()
         assert output_size is not None, "'output_size' cannot be NoneType"
         self.output_size = _pair(output_size)
-        if os.getenv("ONEFLOW_ENABLE_NHWC") == "1":
+        if data_format:
+            self.channel_pos = data_format
+        elif os.getenv("ONEFLOW_ENABLE_NHWC") == "1":
             self.channel_pos = "channels_last"
         else:
             self.channel_pos = "channels_first"
@@ -762,7 +764,7 @@ class AdaptiveAvgPool2d(Module):
         )
 
 
-def adaptive_avg_pool2d(input, output_size):
+def adaptive_avg_pool2d(input, output_size, data_format=None):
     """Applies a 2D adaptive average pooling over an input signal composed of several input planes.
 
     See :mod:`oneflow.nn.AdaptiveAvgPool2d`
@@ -771,7 +773,7 @@ def adaptive_avg_pool2d(input, output_size):
         input: input tensor
         output_size: the target output size (single integer or double-integer tuple)
     """
-    return AdaptiveAvgPool2d(output_size)(input)
+    return AdaptiveAvgPool2d(output_size, data_format)(input)
 
 
 class AdaptiveAvgPool3d(Module):
