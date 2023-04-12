@@ -61,18 +61,18 @@ inline auto BaseActivationIsMatched(const std::string& input_name) {
              || (user_op::HobDataType(input_name, 0) == kFloat16));
 }
 
-REGISTER_USER_KERNEL("relu")
-    .SetCreateFn([]() {
-      return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
-        const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
-        user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
-        CnnlActivationDescriptor activation_desc;
-        activation_desc.set(CNNL_ACTIVATION_RELU, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
-                            /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
-        CnnlActivationForward(ctx, in, out, activation_desc);
-      });
-    })
-    .SetIsMatchedHob(BaseActivationIsMatched("x"));
+// REGISTER_USER_KERNEL("relu")
+//     .SetCreateFn([]() {
+//       return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
+//         const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
+//         user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
+//         CnnlActivationDescriptor activation_desc;
+//         activation_desc.set(CNNL_ACTIVATION_RELU, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
+//                             /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
+//         CnnlActivationForward(ctx, in, out, activation_desc);
+//       });
+//     })
+//     .SetIsMatchedHob(BaseActivationIsMatched("x"));
 
 REGISTER_USER_KERNEL("gelu")
     .SetCreateFn([]() {
