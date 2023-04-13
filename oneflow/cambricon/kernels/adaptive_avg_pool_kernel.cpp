@@ -76,16 +76,25 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
 
     size_t adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc.desc(),
-        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, out_desc.desc(),
-        &adaptive_avg_pool2d_workspace_size));
+        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        /* input_desc     */ in_desc.desc(),
+        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* output_desc    */ out_desc.desc(),
+        /* workspace_size */ &adaptive_avg_pool2d_workspace_size));
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                             adaptive_avg_pool2d_workspace_size);
     void* adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
-        ctx->stream()->As<ep::MluStream>()->cnnl_handle(), in_desc.desc(), temp_in_ptr,
-        CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING, adaptive_avg_pool2d_workspace,
-        adaptive_avg_pool2d_workspace_size, out_desc.desc(), temp_out_ptr, NULL, NULL));
+        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        /* input_desc     */ in_desc.desc(),
+        /* input          */ temp_in_ptr,
+        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* workspace      */ adaptive_avg_pool2d_workspace,
+        /* workspace_size */ adaptive_avg_pool2d_workspace_size,
+        /* output_desc    */ out_desc.desc(),
+        /* output         */ temp_out_ptr,
+        /* index_desc     */ NULL,
+        /* index          */ NULL));
 
     mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
