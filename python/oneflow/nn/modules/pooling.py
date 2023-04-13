@@ -760,10 +760,6 @@ class AdaptiveAvgPool2d(Module):
 
     def apply_memory_format(self, memory_format) -> None:
         self.channel_pos = memory_format
-        # if memory_format is flow.channels_last:
-        #     self.channel_pos = "channels_last"
-        # elif memory_format is flow.channels_first:
-        #     self.channel_pos = "channels_first"
 
     def forward(self, x):
         assert (
