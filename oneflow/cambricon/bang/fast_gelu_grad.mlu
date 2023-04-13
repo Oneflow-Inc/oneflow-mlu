@@ -61,12 +61,12 @@ __mlu_global__ void bang_fast_gelu_grad_kernel(int64_t n, const T* out_grad, con
     __bang_fusion(FUSION_FMS, nram_temp, nram_tanh, nram_tanh, bang_static_cast<T>(1.0), nram_limit,
                   nram_limit);
     __bang_mul(nram_dtanh, nram_dtanh, nram_temp, nram_limit);
-    __bang_fusion(FUSION_FMS, nram_temp, nram_tanh, bang_static_cast<T>(0.5), nram_dtanh, nram_limit,
-                  nram_limit);
+    __bang_fusion(FUSION_FMS, nram_temp, nram_tanh, bang_static_cast<T>(0.5), nram_dtanh,
+                  nram_limit, nram_limit);
 
     __sync_copy_dram_to_nram();
-    __bang_fusion(FUSION_FAM, nram_temp, nram_temp, bang_static_cast<T>(0.5), nram_out_grad, nram_limit,
-                  nram_limit);
+    __bang_fusion(FUSION_FAM, nram_temp, nram_temp, bang_static_cast<T>(0.5), nram_out_grad,
+                  nram_limit, nram_limit);
 
     __sync_compute();
     __memcpy_async(in_grad + start + j, nram_temp, nram_limit_bytes, NRAM2GDRAM);
@@ -97,8 +97,8 @@ __mlu_global__ void bang_fast_gelu_grad_kernel(int64_t n, const T* out_grad, con
                   nram_rest);
 
     __sync_copy_dram_to_nram();
-    __bang_fusion(FUSION_FAM, nram_temp, nram_temp, bang_static_cast<T>(0.5), nram_out_grad, nram_rest,
-                  nram_rest);
+    __bang_fusion(FUSION_FAM, nram_temp, nram_temp, bang_static_cast<T>(0.5), nram_out_grad,
+                  nram_rest, nram_rest);
 
     __sync_compute();
     __memcpy_async(in_grad + start + j, nram_temp, nram_rest_bytes, NRAM2GDRAM);
