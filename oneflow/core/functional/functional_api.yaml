@@ -1533,7 +1533,7 @@
   bind_python: True
 
 - name: "adaptive_pool_grad"
-  signature: "Tensor (Tensor x, Tensor dy, String mode, Int32 ndims) => AdaptivePoolNdGrad"
+  signature: 'Tensor (Tensor x, Tensor dy, String mode, Int32 ndims, String data_format="channels_first") => AdaptivePoolNdGrad'
 
 - name: "tf_pool_grad"
   signature:

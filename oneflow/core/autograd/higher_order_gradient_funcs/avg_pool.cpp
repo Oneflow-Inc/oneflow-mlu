@@ -33,11 +33,12 @@ template<int ndims>
 class AdaptiveAvgPoolNdNdGradGrad
     : public OpExprGradFunction<AdaptiveAvgPoolNDGradGradCaptureState> {
  public:
-  Maybe<void> Init(const OpExpr& op) override { 
+  Maybe<void> Init(const OpExpr& op) override {
     const auto* fw_op_expr = dynamic_cast<const UserOpExpr*>(&op);
     CHECK_NOTNULL_OR_RETURN(fw_op_expr);  // NOLINT(maybe-need-error-msg)
     base_attrs_ = MakeAttrMapFromUserOpConf(fw_op_expr->proto());
-    return Maybe<void>::Ok(); }
+    return Maybe<void>::Ok();
+  }
 
   Maybe<void> Capture(AdaptiveAvgPoolNDGradGradCaptureState* ctx, const TensorTuple& inputs,
                       const TensorTuple& outputs, const AttrMap& attrs) const override {
@@ -74,11 +75,14 @@ class AdaptiveAvgPoolNdNdGradGrad
 
     if (ctx->grad_requires_grad) {
       if (ndims == 1) {
-        (*in_grads)[0] = JUST(functional::AdaptiveAvgPool1D(out_grads[0], ctx->pool_output_size, ctx->data_format));
+        (*in_grads)[0] = JUST(
+            functional::AdaptiveAvgPool1D(out_grads[0], ctx->pool_output_size, ctx->data_format));
       } else if (ndims == 2) {
-        (*in_grads)[0] = JUST(functional::AdaptiveAvgPool2D(out_grads[0], ctx->pool_output_size, ctx->data_format));
+        (*in_grads)[0] = JUST(
+            functional::AdaptiveAvgPool2D(out_grads[0], ctx->pool_output_size, ctx->data_format));
       } else if (ndims == 3) {
-        (*in_grads)[0] = JUST(functional::AdaptiveAvgPool3D(out_grads[0], ctx->pool_output_size, ctx->data_format));
+        (*in_grads)[0] = JUST(
+            functional::AdaptiveAvgPool3D(out_grads[0], ctx->pool_output_size, ctx->data_format));
       } else {
         UNIMPLEMENTED_THEN_RETURN();
       }

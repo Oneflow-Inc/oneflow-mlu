@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
+#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -128,6 +129,12 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
 
     CHECK_EQ(x_tensor->shape_view().NumAxes(), 4);
 
+    const std::string& data_format = ctx->Attr<std::string>("data_format");
+    if (data_format == "channels_last") {
+      ComputeNHWC(ctx, dy_tensor, dx_tensor);
+      return;
+    }
+
     const T* dy_ptr = dy_tensor->dptr<T>();
     T* dx_ptr = dx_tensor->mut_dptr<T>();
 
@@ -178,6 +185,20 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
     CHECK(dx_transpose);
     dx_transpose->Launch(ctx->stream(), dx_tensor->data_type(), dx_tensor->shape_view().NumAxes(),
                          dx_shapevec.data(), tmp_dx_ptr, dx_permutation.data(), dx_ptr);
+  }
+
+  void ComputeNHWC(user_op::KernelComputeContext* ctx, const user_op::Tensor* dy_tensor,
+                   user_op::Tensor* dx_tensor) const {
+    auto dtype = ConvertToCnnlDataType(dy_tensor->data_type());
+    CnnlTensorDescriptor dy_desc, dx_desc;
+    dy_desc.set(dy_tensor->shape_view().NumAxes(), dy_tensor->shape_view().data(), dtype,
+                CNNL_LAYOUT_NHWC);
+    dx_desc.set(dx_tensor->shape_view().NumAxes(), dx_tensor->shape_view().data(), dtype,
+                CNNL_LAYOUT_NHWC);
+    OF_CNNL_CHECK(cnnlAdaptivePoolingBackward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                              dy_desc.desc(), dy_tensor->dptr(), nullptr, nullptr,
+                                              CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+                                              dx_desc.desc(), dx_tensor->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

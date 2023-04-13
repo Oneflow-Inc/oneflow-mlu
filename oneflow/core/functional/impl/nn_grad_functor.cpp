@@ -14,6 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "fmt/core.h"
+#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/framework/mutable_attr_map.h"
 #include "oneflow/core/framework/op_builder.h"
 #include "oneflow/core/functional/function_library.h"
@@ -261,14 +262,19 @@ class AdaptivePoolNdGradFunctor {
   }
   Maybe<Tensor> operator()(const std::shared_ptr<one::Tensor>& x,
                            const std::shared_ptr<one::Tensor>& dy, const std::string& mode,
-                           const int32_t& ndims) const {
+                           const int32_t& ndims, const std::string& data_format) const {
+    if (data_format == "channels_last" && JUST(x->device())->enum_type() != DeviceType::kMLU) {
+      THROW(RuntimeError) << "adaptive_avg_pool supports NHWC only on MLU";
+    }
     const auto& op_type_name = GetOpTypeName(mode, ndims);
     const auto& it = op_expr_map_.find(op_type_name);
     CHECK_OR_RETURN(it != op_expr_map_.end())
         << Error::RuntimeError() << "Encounter unsupported op " << op_type_name
         << " in AdaptivePoolNdGradFunctor.";
     CHECK_NOTNULL_OR_RETURN(it->second);  // NOLINT(maybe-need-error-msg)
-    return OpInterpUtil::Dispatch<Tensor>(*it->second, {dy, x});
+    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("data_format");
+    attrs.SetAllAttrs(data_format);
+    return OpInterpUtil::Dispatch<Tensor>(*it->second, {dy, x}, attrs);
   }
 
  protected:
