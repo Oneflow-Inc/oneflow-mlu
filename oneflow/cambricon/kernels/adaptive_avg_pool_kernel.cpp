@@ -18,8 +18,6 @@ limitations under the License.
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/common/data_type.h"
-#include "oneflow/core/common/data_type.pb.h"
-#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -46,8 +44,6 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
     const std::string& data_format = ctx->Attr<std::string>("data_format");
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
-    // const T* in_ptr = in_tensor->dptr<T>();
-    // T* out_ptr = out_tensor->mut_dptr<T>();
 
     const void* temp_in_ptr = in_tensor->dptr();
     void* temp_out_ptr = out_tensor->mut_dptr();
