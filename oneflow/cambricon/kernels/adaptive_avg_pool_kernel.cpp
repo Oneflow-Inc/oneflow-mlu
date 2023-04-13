@@ -18,6 +18,7 @@ limitations under the License.
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/common/data_type.h"
+#include "oneflow/core/common/memory_format.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -42,14 +43,14 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
 
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
-    const std::string& data_format = ctx->Attr<std::string>("data_format");
+    MemoryFormat data_format = ctx->Attr<MemoryFormat>("data_format");
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
 
     const void* temp_in_ptr = in_tensor->dptr();
     void* temp_out_ptr = out_tensor->mut_dptr();
 
     cnnlTensorLayout_t layout =
-        (data_format == "channels_last") ? CNNL_LAYOUT_NHWC : CNNL_LAYOUT_NCHW;
+        (data_format == MemoryFormat::kNHWC) ? CNNL_LAYOUT_NHWC : CNNL_LAYOUT_NCHW;
     CnnlTensorDescriptor in_desc(in_tensor), out_desc(out_tensor);
     cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
 
@@ -125,8 +126,8 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
 
     CHECK_EQ(x_tensor->shape_view().NumAxes(), 4);
 
-    const std::string& data_format = ctx->Attr<std::string>("data_format");
-    if (data_format == "channels_last") {
+    MemoryFormat data_format = ctx->Attr<MemoryFormat>("data_format");
+    if (data_format == kNHWC) {
       ComputeNHWC(ctx, dy_tensor, dx_tensor);
       return;
     }

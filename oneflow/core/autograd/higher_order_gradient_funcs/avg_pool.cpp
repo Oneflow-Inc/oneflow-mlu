@@ -15,6 +15,7 @@ limitations under the License.
 */
 
 #include "oneflow/core/common/maybe.h"
+#include "oneflow/core/common/memory_format.pb.h"
 #include "oneflow/core/framework/op_expr_grad_function.h"
 #include "oneflow/core/functional/functional.h"
 #include "oneflow/core/common/container_util.h"
@@ -26,7 +27,7 @@ struct AdaptiveAvgPoolNDGradGradCaptureState : public AutoGradCaptureState {
   bool input_requires_grad = false;
   bool grad_requires_grad = false;
   std::vector<int64_t> pool_output_size;
-  std::string data_format;
+  MemoryFormat data_format;
 };
 
 template<int ndims>
@@ -47,7 +48,7 @@ class AdaptiveAvgPoolNdNdGradGrad
     CHECK_EQ_OR_RETURN(outputs.size(), 1);  // NOLINT(maybe-need-error-msg)
 
     ComposedAttrMap composed_attrs(attrs, base_attrs_);
-    ctx->data_format = JUST(composed_attrs.GetAttr<std::string>("data_format"));
+    ctx->data_format = JUST(composed_attrs.GetAttr<MemoryFormat>("data_format"));
     ctx->grad_requires_grad = inputs[0]->requires_grad();
     ctx->input_requires_grad = inputs[1]->requires_grad();
     if (ctx->grad_requires_grad) {
