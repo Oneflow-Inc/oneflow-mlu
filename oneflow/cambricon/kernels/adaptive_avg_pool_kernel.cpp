@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
+#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
@@ -188,6 +189,10 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const user_op::Tensor* dy_tensor,
                    user_op::Tensor* dx_tensor) const {
+    auto device_type = ctx->stream()->device_type();
+    if (device_type != DeviceType::kMLU) {
+      THROW(RuntimeError) << "adaptive_avg_pool2d only support NHWC on MLU now";
+    }
     auto dtype = ConvertToCnnlDataType(dy_tensor->data_type());
     CnnlTensorDescriptor dy_desc, dx_desc;
     dy_desc.set(dy_tensor->shape_view().NumAxes(), dy_tensor->shape_view().data(), dtype,

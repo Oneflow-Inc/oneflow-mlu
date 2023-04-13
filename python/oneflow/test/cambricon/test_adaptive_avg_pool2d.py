@@ -51,22 +51,37 @@ def _test_adaptive_avg_pool2d_forward_backward_channels_last(
 ):
     """compare cpu channels_first with mlu channels_last"""
     arry = np.random.randn(*shape)
-    x = flow.tensor(arry, device=flow.device(device), dtype=dtype).to(memory_format=flow.channels_last).requires_grad_(True)
+    x = (
+        flow.tensor(arry, device=flow.device(device), dtype=dtype)
+        .to(memory_format=flow.channels_last)
+        .requires_grad_(True)
+    )
     x_cpu = flow.tensor(
         arry, device=flow.device("cpu"), dtype=dtype, requires_grad=True
     )
     pool = flow.nn.AdaptiveAvgPool2d((out_shape[2], out_shape[3]))
-    pool_channels_last = flow.nn.AdaptiveAvgPool2d((out_shape[2], out_shape[3]), data_format="channels_last")
+    pool_channels_last = flow.nn.AdaptiveAvgPool2d(
+        (out_shape[2], out_shape[3]), data_format="channels_last"
+    )
     y = pool_channels_last(x)
     y_cpu = pool(x_cpu)
-    test_case.assertTrue(np.allclose(flow.transpose(y, (0, 3, 1, 2)).numpy(), y_cpu.numpy(), 0.0001, 0.0001))
+    test_case.assertTrue(
+        np.allclose(
+            flow.transpose(y, (0, 3, 1, 2)).numpy(), y_cpu.numpy(), 0.0001, 0.0001
+        )
+    )
 
     s = y.sum()
     s_cpu = y_cpu.sum()
     s.backward()
     s_cpu.backward()
     test_case.assertTrue(
-        np.allclose(flow.transpose(x.grad, (0, 3, 1, 2)).numpy(), x_cpu.grad.numpy(), 0.0001, 0.0001)
+        np.allclose(
+            flow.transpose(x.grad, (0, 3, 1, 2)).numpy(),
+            x_cpu.grad.numpy(),
+            0.0001,
+            0.0001,
+        )
     )
 
 
