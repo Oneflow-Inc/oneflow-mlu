@@ -45,14 +45,17 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
     const std::string& data_format = ctx->Attr<std::string>("data_format");
-
-    if (data_format == "channels_last") {
-      ComputeNHWC(ctx, in_tensor, out_tensor);
-      return;
-    }
-
     cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
     CnnlTensorDescriptor in_desc, out_desc;
+
+    if (data_format == "channels_last") {
+      in_desc.set(in_tensor->shape_view().NumAxes(), in_tensor->shape_view().data(), dtype,
+                  CNNL_LAYOUT_NHWC);
+      out_desc.set(out_tensor->shape_view().NumAxes(), out_tensor->shape_view().data(), dtype,
+                  CNNL_LAYOUT_NHWC);
+      ComputeNHWC(ctx, in_desc, in_tensor->dptr(), out_desc, out_tensor->mut_dptr());
+      return;
+    }
 
     size_t tmp_in_workspace_size =
         in_tensor->shape_view().elem_cnt() * sizeof(in_tensor->data_type());
@@ -66,7 +69,6 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
                              MemoryFormat::kNHWC);
     void* temp_in_ptr = tmp_in_cnnl_workspace.dptr();
     void* temp_out_ptr = tmp_out_cnnl_workspace.dptr();
-
     auto in_shape = Shape(in_tensor->shape_view());
     auto out_shape = Shape(out_tensor->shape_view());
     in_shape = mlu::ComputeShapeNchwToNhwc(in_shape);
@@ -74,41 +76,13 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     in_desc.set(in_tensor->shape_view().NumAxes(), in_shape.data(), dtype, CNNL_LAYOUT_NHWC);
     out_desc.set(out_tensor->shape_view().NumAxes(), out_shape.data(), dtype, CNNL_LAYOUT_NHWC);
 
-    size_t adaptive_avg_pool2d_workspace_size = 0;
-    OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
-        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* input_desc     */ in_desc.desc(),
-        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
-        /* output_desc    */ out_desc.desc(),
-        /* workspace_size */ &adaptive_avg_pool2d_workspace_size));
-    CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                            adaptive_avg_pool2d_workspace_size);
-    void* adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
-    OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
-        /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-        /* input_desc     */ in_desc.desc(),
-        /* input          */ temp_in_ptr,
-        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
-        /* workspace      */ adaptive_avg_pool2d_workspace,
-        /* workspace_size */ adaptive_avg_pool2d_workspace_size,
-        /* output_desc    */ out_desc.desc(),
-        /* output         */ temp_out_ptr,
-        /* index_desc     */ NULL,
-        /* index          */ NULL));
-
+    ComputeNHWC(ctx, in_desc, temp_in_ptr, out_desc, temp_out_ptr);
     mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
   }
 
-  void ComputeNHWC(user_op::KernelComputeContext* ctx, const user_op::Tensor* in_tensor,
-                   user_op::Tensor* out_tensor) const {
-    cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
-    CnnlTensorDescriptor in_desc(in_tensor), out_desc(out_tensor);
-    in_desc.set(in_tensor->shape_view().NumAxes(), in_tensor->shape_view().data(), dtype,
-                CNNL_LAYOUT_NHWC);
-    out_desc.set(in_tensor->shape_view().NumAxes(), out_tensor->shape_view().data(), dtype,
-                 CNNL_LAYOUT_NHWC);
-
+  void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc, const void* in_ptr, 
+                   const CnnlTensorDescriptor& out_desc, void* out_ptr)  const {
     size_t adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
@@ -122,12 +96,12 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ in_desc.desc(),
-        /* input          */ in_tensor->dptr(),
+        /* input          */ in_ptr,
         /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
         /* workspace      */ adaptive_avg_pool2d_workspace,
         /* workspace_size */ adaptive_avg_pool2d_workspace_size,
         /* output_desc    */ out_desc.desc(),
-        /* output         */ out_tensor->mut_dptr(),
+        /* output         */ out_ptr,
         /* index_desc     */ NULL,
         /* index          */ NULL));
   };
