@@ -26,7 +26,7 @@ import oneflow.unittest
 
 
 def _test_fast_gelu(test_case, shape, dtype):
-    input = np.random.randn(*shape)
+    input = np.random.randn(*shape) * 100
     x_cpu = flow.tensor(input, dtype=dtype).requires_grad_()
     y_cpu = flow.nn.functional.gelu(x_cpu, approximate="tanh")
     y_cpu.sum().backward()
@@ -42,8 +42,8 @@ def _test_fast_gelu(test_case, shape, dtype):
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestWhereCambriconModule(flow.unittest.TestCase):
-    def test_where(test_case):
+class TestFastGeluCambriconModule(flow.unittest.TestCase):
+    def test_fast_gelu(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
             _test_fast_gelu,
