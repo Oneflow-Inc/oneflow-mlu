@@ -19,11 +19,11 @@ limitations under the License.
 
 namespace oneflow {
 
-template<typename T>
-class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
+template<typename T, cnnlPoolingMode_t pooling_mode>
+class AdaptivePool2DKernel final : public user_op::OpKernel {
  public:
-  AdaptiveAvgPool2DKernel() = default;
-  ~AdaptiveAvgPool2DKernel() = default;
+  AdaptivePool2DKernel() = default;
+  ~AdaptivePool2DKernel() = default;
 
  private:
   using user_op::OpKernel::Compute;
@@ -39,7 +39,7 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
       in_desc.set(in_tensor->shape_view().NumAxes(), in_tensor->shape_view().data(), dtype,
                   CNNL_LAYOUT_NHWC);
       out_desc.set(out_tensor->shape_view().NumAxes(), out_tensor->shape_view().data(), dtype,
-                  CNNL_LAYOUT_NHWC);
+                   CNNL_LAYOUT_NHWC);
       ComputeNHWC(ctx, in_desc, in_tensor->dptr(), out_desc, out_tensor->mut_dptr());
       return;
     }
@@ -68,13 +68,13 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
   }
 
-  void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc, const void* in_ptr, 
-                   const CnnlTensorDescriptor& out_desc, void* out_ptr)  const {
+  void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc,
+                   const void* in_ptr, const CnnlTensorDescriptor& out_desc, void* out_ptr) const {
     size_t adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ in_desc.desc(),
-        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* mode           */ pooling_mode,
         /* output_desc    */ out_desc.desc(),
         /* workspace_size */ &adaptive_avg_pool2d_workspace_size));
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
@@ -84,7 +84,7 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ in_desc.desc(),
         /* input          */ in_ptr,
-        /* mode           */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* mode           */ pooling_mode,
         /* workspace      */ adaptive_avg_pool2d_workspace,
         /* workspace_size */ adaptive_avg_pool2d_workspace_size,
         /* output_desc    */ out_desc.desc(),
@@ -96,20 +96,24 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_ADAPTIVE_AVGPOOL2D_MLU_KERNEL(dtype)                 \
-  REGISTER_USER_KERNEL("adaptive_avg_pool2d")                         \
-      .SetCreateFn<AdaptiveAvgPool2DKernel<dtype>>()                  \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+#define REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL(name, dtype, pooling_mode) \
+  REGISTER_USER_KERNEL(name)                                           \
+      .SetCreateFn<AdaptivePool2DKernel<dtype, pooling_mode>>()        \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)  \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
-REGISTER_ADAPTIVE_AVGPOOL2D_MLU_KERNEL(float)
-REGISTER_ADAPTIVE_AVGPOOL2D_MLU_KERNEL(float16)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_avg_pool2d", float,
+                                    CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_avg_pool2d", float16,
+                                    CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_max_pool2d", float, CNNL_POOLING_MAX)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_max_pool2d", float16, CNNL_POOLING_MAX)
 
-template<typename T>
-class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
+template<typename T, cnnlPoolingMode_t pooling_mode>
+class AdaptivePool2DGradKernel final : public user_op::OpKernel {
  public:
-  AdaptiveAvgPool2DGradKernel() = default;
-  ~AdaptiveAvgPool2DGradKernel() = default;
+  AdaptivePool2DGradKernel() = default;
+  ~AdaptivePool2DGradKernel() = default;
 
  private:
   using user_op::OpKernel::Compute;
@@ -157,7 +161,7 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
         /* y          */ tmp_dy_ptr,
         /* index_desc */ nullptr,
         /* index      */ nullptr,
-        /* mode       */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* mode       */ pooling_mode,
         /* dx_desc    */ dx_desc.desc(),
         /* dx         */ tmp_dx_ptr));
 
@@ -179,7 +183,7 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
         /* y          */ dy_tensor->dptr(),
         /* index_desc */ nullptr,
         /* index      */ nullptr,
-        /* mode       */ CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING,
+        /* mode       */ pooling_mode,
         /* dx_desc    */ dx_desc.desc(),
         /* dx         */ dx_tensor->mut_dptr()));
   }
@@ -187,12 +191,16 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_ADAPTIVE_AVGPOOL2D_GRAD_MLU_KERNEL(dtype)            \
-  REGISTER_USER_KERNEL("adaptive_avg_pool2d_grad")                    \
-      .SetCreateFn<AdaptiveAvgPool2DGradKernel<dtype>>()              \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU) \
+#define REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL(name, dtype, pooling_mode) \
+  REGISTER_USER_KERNEL(name)                                                \
+      .SetCreateFn<AdaptivePool2DGradKernel<dtype, pooling_mode>>()         \
+      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)       \
                        && (user_op::HobDataType("dy", 0) == GetDataType<dtype>::value));
-REGISTER_ADAPTIVE_AVGPOOL2D_GRAD_MLU_KERNEL(float)
-REGISTER_ADAPTIVE_AVGPOOL2D_GRAD_MLU_KERNEL(float16)
+REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_avg_pool2d_grad", float,
+                                         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
+REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_avg_pool2d_grad", float16,
+                                         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
+REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_max_pool2d_grad", float, CNNL_POOLING_MAX)
+REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_max_pool2d_grad", float16, CNNL_POOLING_MAX)
 
 }  // namespace oneflow
