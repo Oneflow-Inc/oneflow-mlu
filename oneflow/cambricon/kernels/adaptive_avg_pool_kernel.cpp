@@ -14,23 +14,10 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
-#include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
-#include "oneflow/core/common/data_type.h"
-#include "oneflow/core/common/memory_format.pb.h"
-#include "oneflow/core/common/util.h"
-#include "oneflow/core/framework/framework.h"
-#include "oneflow/core/kernel/new_kernel_util.h"
-#include "oneflow/core/ep/include/primitive/permute.h"
 #include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 
 namespace oneflow {
-
-template<typename Context>
-std::unique_ptr<ep::primitive::Permute> NewPermutePrimitive(Context* ctx, const int& num_dims) {
-  return ep::primitive::NewPrimitive<ep::primitive::PermuteFactory>(ctx->device_type(), num_dims);
-}
 
 template<typename T>
 class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {

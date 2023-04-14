@@ -15,7 +15,6 @@ limitations under the License.
 */
 
 #include "fmt/core.h"
-#include "oneflow/core/common/memory_format.pb.h"
 #include "oneflow/core/framework/mutable_attr_map.h"
 #include "oneflow/core/framework/op_builder.h"
 #include "oneflow/core/framework/tensor_util.h"
