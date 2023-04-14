@@ -14,9 +14,7 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
-#include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/cambricon/cnnl/cnnl_op_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
 #include "oneflow/core/common/data_type.h"
