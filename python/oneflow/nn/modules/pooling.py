@@ -742,28 +742,21 @@ class AdaptiveAvgPool2d(Module):
         assert output_size is not None, "'output_size' cannot be NoneType"
         self.output_size = _pair(output_size)
         if data_format:
-            if isinstance(data_format, str):
-                if not data_format in ["channels_first", "channels_last"]:
-                    raise ValueError(
-                        f"data_format must be one of ['channels_first', 'channels_last'], but got {data_format}"
-                    )
-                if data_format == "channels_first":
-                    self.channel_pos = flow.channels_first
-                else:
-                    self.channel_pos = flow.channels_last
-            else:
-                self.channel_pos = data_format
+            if not data_format in ["channels_first", "channels_last"]:
+                raise ValueError(
+                    f"data_format must be one of ['channels_first', 'channels_last'], but got {data_format}"
+                )
+            self.channel_pos = data_format
         elif os.getenv("ONEFLOW_ENABLE_NHWC") == "1":
-            self.channel_pos = flow.channels_last
+            self.channel_pos = "channels_last"
         else:
-            self.channel_pos = flow.channels_first
+            self.channel_pos = "channels_first"
 
     def apply_memory_format(self, memory_format) -> None:
-        self.channel_pos = memory_format
-        # if memory_format is flow.channels_last:
-        #     self.channel_pos = "channels_last"
-        # elif memory_format is flow.channels_first:
-        #     self.channel_pos = "channels_first"
+        if memory_format is flow.channels_last:
+            self.channel_pos = "channels_last"
+        elif memory_format is flow.channels_first:
+            self.channel_pos = "channels_first"
 
     def forward(self, x):
         assert (

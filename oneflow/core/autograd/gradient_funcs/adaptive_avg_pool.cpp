@@ -24,7 +24,7 @@ namespace oneflow {
 namespace one {
 
 struct AdaptivePoolCaptureState : public AutoGradCaptureState {
-  MemoryFormat data_format;
+  std::string data_format;
   bool requires_grad;
 };
 
@@ -56,7 +56,7 @@ Maybe<void> AdaptivePoolNdGrad::Init(const OpExpr& op, std::string mode, const i
 Maybe<void> AdaptivePoolNdGrad::Capture(AdaptivePoolCaptureState* ctx, const TensorTuple& inputs,
                                         const TensorTuple& outputs, const AttrMap& attrs) const {
   ctx->requires_grad = inputs.at(0)->requires_grad();
-  ctx->data_format = JUST(attrs.GetAttr<MemoryFormat>("data_format"));
+  ctx->data_format = JUST(attrs.GetAttr<std::string>("data_format"));
   if (!ctx->requires_grad) { return Maybe<void>::Ok(); }
 
   ctx->SaveTensorForBackward(inputs.at(0));

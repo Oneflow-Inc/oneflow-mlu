@@ -44,9 +44,9 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
-    MemoryFormat data_format = ctx->Attr<MemoryFormat>("data_format");
+    const std::string& data_format = ctx->Attr<std::string>("data_format");
 
-    if (data_format == kNHWC) {
+    if (data_format == "channels_last") {
       ComputeNHWC(ctx, in_tensor, out_tensor);
       return;
     }
@@ -160,8 +160,8 @@ class AdaptiveAvgPool2DGradKernel final : public user_op::OpKernel {
 
     CHECK_EQ(x_tensor->shape_view().NumAxes(), 4);
 
-    MemoryFormat data_format = ctx->Attr<MemoryFormat>("data_format");
-    if (data_format == kNHWC) {
+    const std::string& data_format = ctx->Attr<std::string>("data_format");
+    if (data_format == "channels_last") {
       ComputeNHWC(ctx, dy_tensor, dx_tensor);
       return;
     }

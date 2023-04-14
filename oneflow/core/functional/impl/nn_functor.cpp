@@ -1260,10 +1260,10 @@ class AdaptivePoolNDFunctor {
   virtual ~AdaptivePoolNDFunctor() = default;
   Maybe<Tensor> operator()(const std::shared_ptr<one::Tensor>& x,
                            const std::vector<int64_t>& output_size,
-                           MemoryFormat data_format) const {
+                           const std::string& data_format) const {
     // TODO(WangYi): CPU and CUDA support channels_last data format
     CHECK_OR_RETURN(
-        !(data_format == MemoryFormat::kNHWC && JUST(x->device())->enum_type() != DeviceType::kMLU))
+        !(data_format == "channels_last" && JUST(x->device())->enum_type() != DeviceType::kMLU))
         << "adaptive_avg_pool only supports NHWC on MLU";
     auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("output_size", "data_format");
     attrs.SetAllAttrs(output_size, data_format);

@@ -13,7 +13,6 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/core/common/memory_format.pb.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/user/ops/nn_util.h"
 #include "oneflow/core/framework/op_generated.h"
@@ -24,11 +23,11 @@ namespace {
 
 Maybe<void> InferFWTensorDesc(user_op::InferContext* ctx) {
   std::vector<int64_t> output_size = ctx->Attr<std::vector<int64_t>>("output_size");
-  MemoryFormat data_format = ctx->Attr<MemoryFormat>("data_format");
+  const std::string& data_format = ctx->Attr<std::string>("data_format");
   const Shape& x_shape = ctx->InputShape("x", 0);
   DimVector out_shape(x_shape.NumAxes());
   out_shape[0] = x_shape.dim_vec()[0];
-  if (data_format == kNCHW) {
+  if (data_format == "channels_first") {
     out_shape[1] = x_shape.dim_vec()[1];
     for (int i = 2; i < out_shape.size(); ++i) {
       out_shape[i] = output_size.size() > i - 2 ? output_size[i - 2] : output_size[0];
