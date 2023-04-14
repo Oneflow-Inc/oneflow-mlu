@@ -1299,9 +1299,14 @@ class AdaptiveMaxPoolBaseFunctor {
   AdaptiveMaxPoolBaseFunctor() = default;
   virtual ~AdaptiveMaxPoolBaseFunctor() = default;
   Maybe<TensorTuple> operator()(const std::shared_ptr<one::Tensor>& x,
-                                const std::vector<int64_t>& output_size) const {
-    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("output_size");
-    attrs.SetAllAttrs(output_size);
+                                const std::vector<int64_t>& output_size,
+                                const std::string& data_format) const {
+    // TODO(Jianhua Zheng): CPU and CUDA support channels_last data format
+    CHECK_OR_RETURN(
+        !(data_format == "channels_last" && JUST(x->device())->enum_type() != DeviceType::kMLU))
+        << "adaptive_max_pool only supports NHWC on MLU";
+    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("output_size", "data_format");
+    attrs.SetAllAttrs(output_size, data_format);
     return OpInterpUtil::Dispatch<TensorTuple>(*op_, {x}, attrs);
   }
 

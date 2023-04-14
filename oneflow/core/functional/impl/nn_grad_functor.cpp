@@ -191,14 +191,21 @@ class AdaptiveMaxPoolNdGradFunctor {
   }
   Maybe<Tensor> operator()(const std::shared_ptr<one::Tensor>& x,
                            const std::shared_ptr<one::Tensor>& dy,
-                           const std::shared_ptr<one::Tensor>& index, const int32_t& ndims) const {
+                           const std::shared_ptr<one::Tensor>& index, const int32_t& ndims,
+                           const std::string& data_format) const {
+    // TODO(Jianhua Zheng): CPU and CUDA support channels_last data format
+    CHECK_OR_RETURN(
+        !(data_format == "channels_last" && JUST(x->device())->enum_type() != DeviceType::kMLU))
+        << "adaptive_max_pool_grad only supports NHWC on MLU";
     const auto& op_type_name = GetOpTypeName(ndims);
     const auto& it = op_expr_map_.find(op_type_name);
     CHECK_OR_RETURN(it != op_expr_map_.end())
         << Error::RuntimeError() << "Encounter unsupported op " << op_type_name
         << " in AdaptiveMaxPoolNdGradFunctor.";
     CHECK_NOTNULL_OR_RETURN(it->second);  // NOLINT(maybe-need-error-msg)
-    return OpInterpUtil::Dispatch<Tensor>(*it->second, {dy, x, index});
+    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("data_format");
+    attrs.SetAllAttrs(data_format);
+    return OpInterpUtil::Dispatch<Tensor>(*it->second, {dy, x, index}, attrs);
   }
 
  protected:

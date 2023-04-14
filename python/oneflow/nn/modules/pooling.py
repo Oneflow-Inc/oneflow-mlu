@@ -940,6 +940,19 @@ class AdaptiveMaxPool2d(_AdaptiveMaxPoolNd):
         oneflow.Size([1, 64, 7, 7])
     """
 
+    def __init__(self, output_size, data_format=None) -> None:
+        super().__init__(output_size)
+        if data_format:
+            if not data_format in ["channels_first", "channels_last"]:
+                raise ValueError(
+                    f"data_format must be one of ['channels_first', 'channels_last'], but got {data_format}"
+                )
+            self.channel_pos = data_format
+        elif os.getenv("ONEFLOW_ENABLE_NHWC") == "1":
+            self.channel_pos = "channels_last"
+        else:
+            self.channel_pos = "channels_first"
+
     def forward(self, input):
         self.output_size = _pair(self.output_size)
         assert (
@@ -947,7 +960,7 @@ class AdaptiveMaxPool2d(_AdaptiveMaxPoolNd):
         ), f"expected 4-dimensional tensor, but got {len(input.shape)}-dimensional tensor"
         new_output_size = _generate_output_size(input.shape, self.output_size)
         return flow.nn.functional.adaptive_max_pool2d(
-            input, self.output_size, self.return_indices
+            input, self.output_size, self.return_indices, self.channel_pos
         )
 
 
