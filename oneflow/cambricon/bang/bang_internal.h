@@ -33,7 +33,7 @@ __mlu_func__ T bang_static_cast(float scalar) {
 
 template<>
 __mlu_func__ half bang_static_cast<half>(float scalar) {
-  return __float2half(scalar);
+  return __float2half_rd(scalar);
 }
 
 }  // namespace oneflow
