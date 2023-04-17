@@ -1123,8 +1123,8 @@ class AvgPoolNDFunctor {
     // legacy tf style avgpool2d , use cudnn implementation with high performance but not support
     // count_include_pad and divisor_override.
     if ((x->is_cpu() || x->is_cuda()) && x->ndim() == 4 && data_format == "channels_last") {
-      CHECK_OR_THROW(count_include_pad)
-          << "AvgPool2d with channels_last data format don't support count_include_pad for now.";
+      CHECK_OR_THROW(count_include_pad) << "AvgPool2d with channels_last data format only supports "
+                                           "count_include_pad=True for now.";
       CHECK_EQ_OR_THROW(divisor_override, 0)
           << "AvgPool2d with channels_last data format don't support divisor_override for now.";
 
@@ -1260,9 +1260,10 @@ class AdaptivePoolNDFunctor {
   AdaptivePoolNDFunctor() = default;
   virtual ~AdaptivePoolNDFunctor() = default;
   Maybe<Tensor> operator()(const std::shared_ptr<one::Tensor>& x,
-                           const std::vector<int64_t>& output_size) const {
-    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("output_size");
-    attrs.SetAllAttrs(output_size);
+                           const std::vector<int64_t>& output_size,
+                           const std::string& data_format) const {
+    auto& attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("output_size", "data_format");
+    attrs.SetAllAttrs(output_size, data_format);
     return OpInterpUtil::Dispatch<Tensor>(*op_, {x}, attrs);
   }
 
