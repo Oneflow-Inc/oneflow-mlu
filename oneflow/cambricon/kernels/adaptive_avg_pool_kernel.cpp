@@ -158,6 +158,34 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
         /* output         */ out_ptr,
         /* index_desc     */ index_tensor_info.tensor_desc,
         /* index          */ index_tensor_info.dptr));
+    user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
+    const std::string& data_format = ctx->Attr<std::string>("data_format");
+    cnnlTensorLayout_t layout =
+        (data_format == "channels_last") ? CNNL_LAYOUT_NHWC : CNNL_LAYOUT_NCHW;
+    CnnlTensorDescriptor indice_desc;
+    indice_desc.set(indice->shape_view().size(), indice->shape_view().data(),
+                    ConvertToCnnlDataType(indice->data_type()), layout);
+    auto local_index_dtype = CNNL_DTYPE_INVALID;
+    if (GetDataType<T>::value == DataType::kFloat) {
+      local_index_dtype = ConvertToCnnlDataType(kInt32);
+    } else if (GetDataType<T>::value == DataType::kFloat16) {
+      local_index_dtype = ConvertToCnnlDataType(kInt16);
+    }
+    // cast int32/int16 index to int64 index
+    CnnlTensorDescriptor int32_index_desc;
+    char* int32_index_dptr = reinterpret_cast<char*>(local_index.dptr());
+    if (local_index_dtype == CNNL_DTYPE_INT16) {
+      int32_index_dptr += sizeof(int16_t) * indice->shape_view().elem_cnt();
+      int32_index_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+                           CNNL_DTYPE_INT32, layout);
+      OF_CNNL_CHECK(cnnlCastDataType(
+          ctx->stream()->As<ep::MluStream>()->cnnl_handle(), local_index_desc.desc(),
+          local_index.dptr(), CNNL_CAST_INT16_TO_INT32, int32_index_desc.desc(), int32_index_dptr));
+    }
+    OF_CNNL_CHECK(cnnlCastDataType(
+        ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+        (local_index_dtype == CNNL_DTYPE_INT16) ? int32_index_desc.desc() : local_index_desc.desc(),
+        int32_index_dptr, CNNL_CAST_INT32_TO_INT64, indice_desc.desc(), indice->mut_dptr()));
   };
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -294,8 +322,8 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
     CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
     auto dtype = ConvertToCnnlDataType(dy_tensor->data_type());
 
-    size_t tmp_dy_workspace_size =
-        dy_tensor->shape_view().elem_cnt() * sizeof(dy_tensor->data_type());
+    size_t element_size = GetSizeOfDataType(x_tensor->data_type());
+    size_t tmp_dy_workspace_size = dy_tensor->shape_view().elem_cnt() * element_size;
     CnnlWorkspace tmp_dy_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dy_workspace_size);
     void* tmp_dy_ptr = tmp_dy_cnnl_workspace.dptr();
 
@@ -310,8 +338,7 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
     dy_desc.set(dy_tensor->shape_view().NumAxes(), dy_shape.data(), dtype, CNNL_LAYOUT_NHWC);
     dx_desc.set(dx_tensor->shape_view().NumAxes(), dx_shape.data(), dtype, CNNL_LAYOUT_NHWC);
 
-    size_t tmp_dx_workspace_size =
-        dx_tensor->shape_view().elem_cnt() * sizeof(dy_tensor->data_type());
+    size_t tmp_dx_workspace_size = dx_tensor->shape_view().elem_cnt() * element_size;
     CnnlWorkspace tmp_dx_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dx_workspace_size);
     void* tmp_dx_ptr = tmp_dx_cnnl_workspace.dptr();
 

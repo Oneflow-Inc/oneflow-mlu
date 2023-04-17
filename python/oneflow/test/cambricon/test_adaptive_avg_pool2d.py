@@ -43,8 +43,8 @@ def _test_adaptive_avg_pool2d_forward_backward(
     s_cpu.backward()
     x_grad = x.grad
     x_cpu_grad = x_cpu.grad
-    print('x_grad: ', x_grad)
-    print('x_cpu_grad: ', x_cpu_grad)
+    print('x_grad: ', x_grad.shape, x_grad)
+    print('x_cpu_grad: ', x_cpu_grad.shape, x_cpu_grad)
     test_case.assertTrue(
         np.allclose(x_grad.numpy(), x_cpu_grad.numpy(), 0.0001, 0.0001)
     )
