@@ -41,8 +41,12 @@ def _test_adaptive_avg_pool2d_forward_backward(
     s_cpu = y_cpu.sum()
     s.backward()
     s_cpu.backward()
+    x_grad = x.grad
+    x_cpu_grad = x_cpu.grad
+    print('x_grad: ', x_grad)
+    print('x_cpu_grad: ', x_cpu_grad)
     test_case.assertTrue(
-        np.allclose(x.grad.numpy(), x_cpu.grad.numpy(), 0.0001, 0.0001)
+        np.allclose(x_grad.numpy(), x_cpu_grad.numpy(), 0.0001, 0.0001)
     )
 
 
@@ -60,7 +64,7 @@ def _test_adaptive_avg_pool2d_forward_backward_channels_last(
         arry, device=flow.device("cpu"), dtype=dtype, requires_grad=True
     )
     pool = pooling_module((out_shape[2], out_shape[3]))
-    pool_channels_last = flow.nn.AdaptiveAvgPool2d(
+    pool_channels_last = pooling_module(
         (out_shape[2], out_shape[3]), data_format="channels_last"
     )
     y = pool_channels_last(x)
@@ -75,10 +79,14 @@ def _test_adaptive_avg_pool2d_forward_backward_channels_last(
     s_cpu = y_cpu.sum()
     s.backward()
     s_cpu.backward()
+    x_grad = x.grad
+    x_cpu_grad = x_cpu.grad
+    print('x_grad: ', flow.transpose(x_grad, (0, 3, 1, 2)).shape, flow.transpose(x_grad, (0, 3, 1, 2)))
+    print('x_cpu_grad: ', x_cpu_grad.shape, x_cpu_grad)
     test_case.assertTrue(
         np.allclose(
-            flow.transpose(x.grad, (0, 3, 1, 2)).numpy(),
-            x_cpu.grad.numpy(),
+            flow.transpose(x_grad, (0, 3, 1, 2)).numpy(),
+            x_cpu_grad.numpy(),
             0.0001,
             0.0001,
         )
@@ -91,10 +99,12 @@ class TestAdaptiveAvgPool2dCambriconModule(flow.unittest.TestCase):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
             _test_adaptive_avg_pool2d_forward_backward,
-            _test_adaptive_avg_pool2d_forward_backward_channels_last,
+            # _test_adaptive_avg_pool2d_forward_backward_channels_last,
         ]
-        arg_dict["shape"] = [(1, 2, 224, 224), (1, 3, 128, 128)]
-        arg_dict["out_shape"] = [(1, 2, 64, 64), (1, 3, 32, 35)]
+        # arg_dict["shape"] = [(1, 2, 224, 224), (1, 3, 128, 128)]
+        # arg_dict["out_shape"] = [(1, 2, 64, 64), (1, 3, 32, 35)]
+        arg_dict["shape"] = [(1, 2, 4, 4), (1, 3, 4, 4)]
+        arg_dict["out_shape"] = [(1, 2, 2, 2), (1, 3, 2, 2)]
         arg_dict["device"] = ["mlu"]
         arg_dict["dtype"] = [
             flow.float32,

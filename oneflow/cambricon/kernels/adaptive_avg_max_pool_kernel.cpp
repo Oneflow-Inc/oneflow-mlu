@@ -13,11 +13,75 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include <string>
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 
 namespace oneflow {
+
+namespace {
+
+struct TensorInfo {
+  TensorInfo(cnnlTensorDescriptor_t desc, void* ptr) : tensor_desc(desc), dptr(ptr) {}
+  cnnlTensorDescriptor_t tensor_desc;
+  void* dptr;
+};
+
+template<typename T, cnnlPoolingMode_t>
+struct GetIndexTensorInfoForward;
+
+template<typename T>
+struct GetIndexTensorInfoForward<T, cnnlPoolingMode_t::CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING> {
+  TensorInfo operator()(user_op::KernelComputeContext* ctx, CnnlTensorDescriptor& local_index_desc,
+                        CnnlWorkspace& local_index) {
+    return TensorInfo(nullptr, nullptr);
+  }
+};
+
+template<typename T>
+TensorInfo GetMaxIndexTensorInfoForward(user_op::KernelComputeContext* ctx,
+                                 CnnlTensorDescriptor& local_index_desc,
+                                 CnnlWorkspace& local_index);
+
+template<typename T>
+struct GetIndexTensorInfoForward<T, cnnlPoolingMode_t::CNNL_POOLING_MAX> {
+  TensorInfo operator()(user_op::KernelComputeContext* ctx, CnnlTensorDescriptor& local_index_desc,
+                        CnnlWorkspace& local_index) {
+    return GetMaxIndexTensorInfoForward<T>(ctx, local_index_desc, local_index);
+  }
+};
+
+template<typename T>
+TensorInfo GetMaxIndexTensorInfoForward(user_op::KernelComputeContext* ctx,
+                                 CnnlTensorDescriptor& local_index_desc,
+                                 CnnlWorkspace& local_index) {
+  const user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
+  cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
+  // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32 or
+  // CNNL_DTYPE_INT16 But in oneflow/user/ops/max_pool_op.cpp its dtype is set as kInt64.
+  // cnnlPoolingForwardWithIndex requires index dtype is int32 for float input,
+  // and index dtype is int16 for half input
+  auto local_index_dtype = CNNL_DTYPE_INVALID;
+  if (GetDataType<T>::value == DataType::kFloat) {
+    local_index_dtype = ConvertToCnnlDataType(kInt32);
+    local_index.resize(sizeof(int32_t) * indice->shape_view().elem_cnt());
+  } else if (GetDataType<T>::value == DataType::kFloat16) {
+    local_index_dtype = ConvertToCnnlDataType(kInt16);
+    local_index.resize(sizeof(int16_t) * indice->shape_view().elem_cnt() * 3);
+  }
+  const std::string& data_format = ctx->Attr<std::string>("data_format");
+  if (data_format == "channels_last") {
+    local_index_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+                          local_index_dtype, layout);
+  } else {
+    auto shape = mlu::ComputeShapeNchwToNhwc(Shape(indice->shape_view()));
+    local_index_desc.set(indice->shape_view().NumAxes(), shape.data(), local_index_dtype, layout);
+  }
+  return TensorInfo(local_index_desc.desc(), local_index.dptr());
+}
+
+}  // namespace
 
 template<typename T, cnnlPoolingMode_t pooling_mode>
 class AdaptivePool2DKernel final : public user_op::OpKernel {
@@ -80,6 +144,9 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                             adaptive_avg_pool2d_workspace_size);
     void* adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
+    CnnlTensorDescriptor local_index_desc;
+    CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
+    auto index_tensor_info = GetIndexTensorInfoForward<T, pooling_mode>()(ctx, local_index_desc, local_index);
     OF_CNNL_CHECK(cnnlAdaptivePoolingForward_v2(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ in_desc.desc(),
@@ -89,8 +156,8 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
         /* workspace_size */ adaptive_avg_pool2d_workspace_size,
         /* output_desc    */ out_desc.desc(),
         /* output         */ out_ptr,
-        /* index_desc     */ NULL,
-        /* index          */ NULL));
+        /* index_desc     */ index_tensor_info.tensor_desc,
+        /* index          */ index_tensor_info.dptr));
   };
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -111,17 +178,11 @@ REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_max_pool2d", float16, CNNL_POOLING
 
 namespace {
 
-struct TensorInfo {
-  TensorInfo(cnnlTensorDescriptor_t desc, void* ptr) : tensor_desc(desc), dptr(ptr) {}
-  cnnlTensorDescriptor_t tensor_desc;
-  void* dptr;
-};
-
 template<typename T, cnnlPoolingMode_t>
-struct GetIndexTensorInfo;
+struct GetIndexTensorInfoBackward;
 
 template<typename T>
-struct GetIndexTensorInfo<T, cnnlPoolingMode_t::CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING> {
+struct GetIndexTensorInfoBackward<T, cnnlPoolingMode_t::CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING> {
   TensorInfo operator()(user_op::KernelComputeContext* ctx, CnnlTensorDescriptor& local_index_desc,
                         CnnlWorkspace& local_index) {
     return TensorInfo(nullptr, nullptr);
@@ -129,27 +190,27 @@ struct GetIndexTensorInfo<T, cnnlPoolingMode_t::CNNL_POOLING_AVERAGE_COUNT_INCLU
 };
 
 template<typename T>
-TensorInfo GetMaxInfexTensorInfo(user_op::KernelComputeContext* ctx,
+TensorInfo GetMaxIndexTensorInfoBackward(user_op::KernelComputeContext* ctx,
                                  CnnlTensorDescriptor& local_index_desc,
                                  CnnlWorkspace& local_index);
 
 template<typename T>
-struct GetIndexTensorInfo<T, cnnlPoolingMode_t::CNNL_POOLING_MAX> {
+struct GetIndexTensorInfoBackward<T, cnnlPoolingMode_t::CNNL_POOLING_MAX> {
   TensorInfo operator()(user_op::KernelComputeContext* ctx, CnnlTensorDescriptor& local_index_desc,
                         CnnlWorkspace& local_index) {
-    return GetMaxInfexTensorInfo<T>(ctx, local_index_desc, local_index);
+    return GetMaxIndexTensorInfoBackward<T>(ctx, local_index_desc, local_index);
   }
 };
 
 template<typename T>
-TensorInfo GetMaxInfexTensorInfo(user_op::KernelComputeContext* ctx,
+TensorInfo GetMaxIndexTensorInfoBackward(user_op::KernelComputeContext* ctx,
                                  CnnlTensorDescriptor& local_index_desc,
                                  CnnlWorkspace& local_index) {
   const user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
   const std::string& data_format = ctx->Attr<std::string>("data_format");
   cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
   CnnlTensorDescriptor indice_desc;
-  auto indice_shape = mlu::ComputeShapeNchwToNhwc(Shape(indice->shape_view()));
+  auto indice_shape = Shape(indice->shape_view());
   const void* temp_indice = indice->dptr();
   CnnlWorkspace temp_indice_workspace(ctx->stream()->As<ep::MluStream>());
   if (data_format != "channels_last") {
@@ -254,7 +315,7 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
     CnnlWorkspace tmp_dx_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dx_workspace_size);
     void* tmp_dx_ptr = tmp_dx_cnnl_workspace.dptr();
 
-    auto tensor_info = GetIndexTensorInfo<T, pooling_mode>()(ctx, local_index_desc, local_index);
+    auto tensor_info = GetIndexTensorInfoBackward<T, pooling_mode>()(ctx, local_index_desc, local_index);
     OF_CNNL_CHECK(cnnlAdaptivePoolingBackward(
         /* handle     */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* y_desc     */ dy_desc.desc(),
@@ -278,7 +339,7 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
     dx_desc.set(dx_tensor->shape_view().NumAxes(), dx_tensor->shape_view().data(), dtype,
                 CNNL_LAYOUT_NHWC);
     CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
-    auto tensor_info = GetIndexTensorInfo<T, pooling_mode>()(ctx, local_index_desc, local_index);
+    auto tensor_info = GetIndexTensorInfoBackward<T, pooling_mode>()(ctx, local_index_desc, local_index);
     OF_CNNL_CHECK(cnnlAdaptivePoolingBackward(
         /*handle*/ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* y_desc     */ dy_desc.desc(),
