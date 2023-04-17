@@ -133,8 +133,6 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
     ComputeNHWC(ctx, in_desc, temp_in_ptr, out_desc, temp_out_ptr);
     mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
-    mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
-                             out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
   }
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc,
@@ -169,8 +167,14 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
     // cnnlTensorLayout_t layout =
     //     (data_format == "channels_last") ? CNNL_LAYOUT_NHWC : CNNL_LAYOUT_NCHW;
     CnnlTensorDescriptor indice_desc;
-    indice_desc.set(indice->shape_view().size(), indice->shape_view().data(),
-                    ConvertToCnnlDataType(indice->data_type()), layout);
+    if (data_format == "channels_last") {
+      indice_desc.set(indice->shape_view().size(), indice->shape_view().data(),
+                      ConvertToCnnlDataType(indice->data_type()), layout);
+    } else {
+      auto shape = mlu::ComputeShapeNchwToNhwc(Shape(indice->shape_view()));
+      indice_desc.set(indice->shape_view().size(), shape.data(),
+                      ConvertToCnnlDataType(indice->data_type()), layout);
+    }
     auto local_index_dtype = CNNL_DTYPE_INVALID;
     if (GetDataType<T>::value == DataType::kFloat) {
       local_index_dtype = ConvertToCnnlDataType(kInt32);
@@ -242,15 +246,15 @@ TensorInfo GetMaxIndexTensorInfoBackward(user_op::KernelComputeContext* ctx,
   CnnlTensorDescriptor indice_desc;
   auto indice_shape = Shape(indice->shape_view());
   const void* temp_indice = indice->dptr();
-  CnnlWorkspace temp_indice_workspace(ctx->stream()->As<ep::MluStream>());
+  // CnnlWorkspace temp_indice_workspace(ctx->stream()->As<ep::MluStream>());
   if (data_format != "channels_last") {
     indice_shape = mlu::ComputeShapeNchwToNhwc(indice_shape);
-    temp_indice_workspace.resize(indice_shape.elem_cnt() * GetSizeOfDataType(indice->data_type()));
-    // convert indice to NHWC
-    mlu::ConvertMemoryFormat(ctx->stream(), indice->shape_view(), indice->data_type(),
-                             indice->dptr(), temp_indice_workspace.dptr(), MemoryFormat::kNCHW,
-                             MemoryFormat::kNHWC);
-    temp_indice = temp_indice_workspace.dptr();
+    // temp_indice_workspace.resize(indice_shape.elem_cnt() * GetSizeOfDataType(indice->data_type()));
+    // // convert indice to NHWC
+    // mlu::ConvertMemoryFormat(ctx->stream(), indice->shape_view(), indice->data_type(),
+    //                          indice->dptr(), temp_indice_workspace.dptr(), MemoryFormat::kNCHW,
+    //                          MemoryFormat::kNHWC);
+    // temp_indice = temp_indice_workspace.dptr();
   }
   indice_desc.set(indice_shape.size(), indice_shape.data(),
                   ConvertToCnnlDataType(indice->data_type()), layout);
