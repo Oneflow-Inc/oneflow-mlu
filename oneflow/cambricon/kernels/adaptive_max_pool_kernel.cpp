@@ -203,10 +203,8 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)  \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
-REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_avg_pool2d", float,
-                                    CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
-REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_avg_pool2d", float16,
-                                    CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_max_pool2d", float, CNNL_POOLING_MAX)
+REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL("adaptive_max_pool2d", float16, CNNL_POOLING_MAX)
 
 namespace {
 
@@ -390,10 +388,6 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
       .SetCreateFn<AdaptivePool2DGradKernel<dtype, pooling_mode>>()         \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)       \
                        && (user_op::HobDataType("dy", 0) == GetDataType<dtype>::value));
-REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_avg_pool2d_grad", float,
-                                         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
-REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_avg_pool2d_grad", float16,
-                                         CNNL_POOLING_AVERAGE_COUNT_INCLUDE_PADDING)
 REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_max_pool2d_grad", float, CNNL_POOLING_MAX)
 REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_max_pool2d_grad", float16, CNNL_POOLING_MAX)
 

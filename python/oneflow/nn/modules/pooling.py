@@ -940,8 +940,8 @@ class AdaptiveMaxPool2d(_AdaptiveMaxPoolNd):
         oneflow.Size([1, 64, 7, 7])
     """
 
-    def __init__(self, output_size, data_format=None) -> None:
-        super().__init__(output_size)
+    def __init__(self, output_size, return_indices=False, data_format=None) -> None:
+        super().__init__(output_size, return_indices=return_indices)
         if data_format:
             if not data_format in ["channels_first", "channels_last"]:
                 raise ValueError(
