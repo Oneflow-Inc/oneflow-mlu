@@ -262,10 +262,6 @@ class AdaptivePoolNdGradFunctor {
   Maybe<Tensor> operator()(const std::shared_ptr<one::Tensor>& x,
                            const std::shared_ptr<one::Tensor>& dy, const std::string& mode,
                            const int32_t& ndims, const std::string& data_format) const {
-    // TODO(WangYi): CPU and CUDA support channels_last data format
-    CHECK_OR_RETURN(
-        !(data_format == "channels_last" && JUST(x->device())->enum_type() != DeviceType::kMLU))
-        << "adaptive_avg_pool_grad only supports NHWC on MLU";
     const auto& op_type_name = GetOpTypeName(mode, ndims);
     const auto& it = op_expr_map_.find(op_type_name);
     CHECK_OR_RETURN(it != op_expr_map_.end())

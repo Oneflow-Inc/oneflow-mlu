@@ -39,7 +39,7 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
       in_desc.set(in_tensor->shape_view().NumAxes(), in_tensor->shape_view().data(), dtype,
                   CNNL_LAYOUT_NHWC);
       out_desc.set(out_tensor->shape_view().NumAxes(), out_tensor->shape_view().data(), dtype,
-                  CNNL_LAYOUT_NHWC);
+                   CNNL_LAYOUT_NHWC);
       ComputeNHWC(ctx, in_desc, in_tensor->dptr(), out_desc, out_tensor->mut_dptr());
       return;
     }
@@ -68,8 +68,8 @@ class AdaptiveAvgPool2DKernel final : public user_op::OpKernel {
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
   }
 
-  void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc, const void* in_ptr, 
-                   const CnnlTensorDescriptor& out_desc, void* out_ptr)  const {
+  void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc,
+                   const void* in_ptr, const CnnlTensorDescriptor& out_desc, void* out_ptr) const {
     size_t adaptive_avg_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
