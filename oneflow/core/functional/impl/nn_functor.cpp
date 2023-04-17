@@ -2587,7 +2587,14 @@ class NormalizationAddReluFunctor {
           << Error::RuntimeError() << "Must have moving_mean and moving_variance in eval mode.";
       DeviceType device_type = JUST(x->device())->enum_type();
       if(device_type == kMLU){
-        return OpInterpUtil::Dispatch<one::Tensor>(*fused_norm_relu_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs);
+        if(addend){
+          auto& new_attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("axis", "epsilon", "momentum", "training");
+          new_attrs.SetAllAttrs(axis, epsilon, static_cast<float>(1.0 - momentum), false);
+          return OpInterpUtil::Dispatch<one::Tensor>(*fused_addend_norm_training_stats_op_, {x, JUST(addend), JUST(moving_mean), JUST(moving_variance), gamma, beta}, new_attrs);
+        }
+        else{
+          return OpInterpUtil::Dispatch<one::Tensor>(*fused_norm_relu_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs);
+        }
       }else{
         const auto& normalize_result = JUST(OpInterpUtil::Dispatch<one::Tensor>(
           *norm_eval_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs));

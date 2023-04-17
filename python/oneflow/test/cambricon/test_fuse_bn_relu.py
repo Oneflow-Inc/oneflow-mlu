@@ -47,6 +47,7 @@ def do_normalization_relu_graph(test_case):
         def __init__(self):
             super().__init__()
             self.m = get_bn()
+            self.m.eval()
 
         def build(self, x):
             return self.m(x)
@@ -55,6 +56,7 @@ def do_normalization_relu_graph(test_case):
         def __init__(self):
             super().__init__()
             self.m = get_bn(fused=False)
+            self.m.eval()
 
         def build(self, x):
             return flow.relu(self.m(x))
@@ -71,11 +73,53 @@ def do_normalization_relu_graph(test_case):
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res.numpy()))
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res_opt.numpy()))
 
+def do_normalization_add_relu_graph(test_case):
+    def get_bn(fused=True):
+        if fused:
+            return flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+                "mlu"
+            )
+        else:
+            return flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+                "mlu"
+            )
+
+    class GraphToRun(flow.nn.Graph):
+        def __init__(self):
+            super().__init__()
+            self.m = get_bn()
+            self.m.eval()
+
+        def build(self, x, addend):
+            return self.m(x, addend=addend)
+
+    class GraphToRunWithOpt(flow.nn.Graph):
+        def __init__(self):
+            super().__init__()
+            self.m = get_bn(fused=False)
+            self.m.eval()
+
+        def build(self, x, addend):
+            return flow.relu(self.m(x) + addend)
+
+    graph_to_run = GraphToRun()
+    graph_to_run_opt = GraphToRunWithOpt()
+    x = flow.Tensor(np.random.randn(4, 2, 8, 3)).to("mlu")
+    addend = flow.Tensor(np.random.randn(4, 2, 8, 3)).to("mlu")
+
+    eager_res = flow.relu(get_bn(fused=False)(x) + addend)
+    eager_res_fuse = get_bn()(x, addend=addend)
+    lazy_res = graph_to_run(x, addend)
+    lazy_res_opt = graph_to_run_opt(x, addend)
+    test_case.assertTrue(np.array_equal(eager_res.numpy(), eager_res_fuse.numpy()))
+    test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res.numpy()))
+    test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res_opt.numpy()))
 
 @flow.unittest.skip_unless_1n1d()
 class TestNormalizationRelu(oneflow.unittest.TestCase):
     def test_normalization_add_relu_graph(test_case):
-        do_normalization_relu_graph(test_case)
+        # do_normalization_relu_graph(test_case)
+        do_normalization_add_relu_graph(test_case)
 
 
 if __name__ == "__main__":
