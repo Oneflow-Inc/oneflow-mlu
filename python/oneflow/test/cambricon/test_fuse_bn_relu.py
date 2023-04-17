@@ -33,13 +33,11 @@ import oneflow.sysconfig
 def do_normalization_relu_graph(test_case):
     def get_bn(fused=True):
         if fused:
-            bn =  flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+            bn = flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
                 "mlu"
             )
         else:
-            bn = flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
-                "mlu"
-            )
+            bn = flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to("mlu")
         bn.eval()
         return bn
 
@@ -73,16 +71,15 @@ def do_normalization_relu_graph(test_case):
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res.numpy()))
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res_opt.numpy()))
 
+
 def do_normalization_add_relu_graph(test_case):
     def get_bn(fused=True):
         if fused:
-            bn =  flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+            bn = flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
                 "mlu"
             )
         else:
-            bn = flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
-                "mlu"
-            )
+            bn = flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to("mlu")
         bn.eval()
         return bn
 
@@ -116,6 +113,7 @@ def do_normalization_add_relu_graph(test_case):
     test_case.assertTrue(np.array_equal(eager_res.numpy(), eager_res_fuse.numpy()))
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res.numpy()))
     test_case.assertTrue(np.array_equal(eager_res.numpy(), lazy_res_opt.numpy()))
+
 
 @flow.unittest.skip_unless_1n1d()
 class TestNormalizationRelu(oneflow.unittest.TestCase):

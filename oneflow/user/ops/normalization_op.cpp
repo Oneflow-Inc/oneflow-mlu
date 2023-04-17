@@ -303,8 +303,7 @@ user_op::DataTypeInferFn MakeFwDataTypeInferFn() {
   })(ctx);
 }
 
-/* static */ Maybe<void> NormalizationReluOp::InferLogicalTensorDesc(
-    user_op::InferContext* ctx) {
+/* static */ Maybe<void> NormalizationReluOp::InferLogicalTensorDesc(user_op::InferContext* ctx) {
   return MakeFwTensorDescInferFn([](user_op::InferContext* ctx, const user_op::TensorDesc* x,
                                     user_op::TensorDesc* reserve_space) -> Maybe<void> {
     const auto& x_desc = ctx->InputTensorDesc("x", 0);
@@ -330,8 +329,7 @@ user_op::DataTypeInferFn MakeFwDataTypeInferFn() {
   })(ctx);
 }
 
-/* static */ Maybe<void> NormalizationReluOp::InferPhysicalTensorDesc(
-    user_op::InferContext* ctx) {
+/* static */ Maybe<void> NormalizationReluOp::InferPhysicalTensorDesc(user_op::InferContext* ctx) {
   return MakeFwTensorDescInferFn([](user_op::InferContext* ctx, const user_op::TensorDesc* x,
                                     user_op::TensorDesc* reserve_space) -> Maybe<void> {
     const auto& x_desc = ctx->InputTensorDesc("x", 0);

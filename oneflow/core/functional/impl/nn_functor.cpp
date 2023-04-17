@@ -2510,17 +2510,17 @@ class NormalizationAddReluFunctor {
     relu_op_ = CHECK_JUST(one::OpBuilder("relu").Input("x").Output("y").Build());
     add_op_ = CHECK_JUST(one::OpBuilder("add_n").Input("in", 2).Output("out").Build());
     fused_norm_relu_op_ = CHECK_JUST(one::OpBuilder("normalization_relu")
-                                                   .Input("x")
-                                                   .Input("moving_mean")
-                                                   .Input("moving_variance")
-                                                   .Input("gamma")
-                                                   .Input("beta")
-                                                   .Output("y")
-                                                   .Output("reserve_space")
-                                                   .Output("mean")
-                                                   .Output("inv_variance")
-                                                   .Attr("training", false)
-                                                   .Build());
+                                         .Input("x")
+                                         .Input("moving_mean")
+                                         .Input("moving_variance")
+                                         .Input("gamma")
+                                         .Input("beta")
+                                         .Output("y")
+                                         .Output("reserve_space")
+                                         .Output("mean")
+                                         .Output("inv_variance")
+                                         .Attr("training", false)
+                                         .Build());
     fused_norm_training_stats_op_ = CHECK_JUST(one::OpBuilder("normalization_add_relu")
                                                    .Input("x")
                                                    .Input("moving_mean")
@@ -2587,18 +2587,22 @@ class NormalizationAddReluFunctor {
       CHECK_OR_RETURN(moving_mean && moving_variance)
           << Error::RuntimeError() << "Must have moving_mean and moving_variance in eval mode.";
       DeviceType device_type = JUST(x->device())->enum_type();
-      if(device_type == kMLU){
-        if(addend){
-          auto& new_attrs = THREAD_CACHED_MUTABLE_ATTR_MAP("axis", "epsilon", "momentum", "training");
+      if (device_type == kMLU) {
+        if (addend) {
+          auto& new_attrs =
+              THREAD_CACHED_MUTABLE_ATTR_MAP("axis", "epsilon", "momentum", "training");
           new_attrs.SetAllAttrs(axis, epsilon, static_cast<float>(1.0 - momentum), false);
-          return OpInterpUtil::Dispatch<one::Tensor>(*fused_addend_norm_training_stats_op_, {x, JUST(addend), JUST(moving_mean), JUST(moving_variance), gamma, beta}, new_attrs);
+          return OpInterpUtil::Dispatch<one::Tensor>(
+              *fused_addend_norm_training_stats_op_,
+              {x, JUST(addend), JUST(moving_mean), JUST(moving_variance), gamma, beta}, new_attrs);
+        } else {
+          return OpInterpUtil::Dispatch<one::Tensor>(
+              *fused_norm_relu_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta},
+              attrs);
         }
-        else{
-          return OpInterpUtil::Dispatch<one::Tensor>(*fused_norm_relu_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs);
-        }
-      }else{
+      } else {
         const auto& normalize_result = JUST(OpInterpUtil::Dispatch<one::Tensor>(
-          *norm_eval_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs));
+            *norm_eval_op_, {x, JUST(moving_mean), JUST(moving_variance), gamma, beta}, attrs));
         if (addend) {
           const auto& add_result =
               JUST(OpInterpUtil::Dispatch<one::Tensor>(*add_op_, {normalize_result, JUST(addend)}));
@@ -2607,7 +2611,7 @@ class NormalizationAddReluFunctor {
           return OpInterpUtil::Dispatch<one::Tensor>(*relu_op_, {normalize_result});
         }
       }
-      
+
     } else if (moving_mean) {
       if (addend) {
         return OpInterpUtil::Dispatch<one::Tensor>(
