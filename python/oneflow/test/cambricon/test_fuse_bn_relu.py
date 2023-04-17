@@ -76,13 +76,15 @@ def do_normalization_relu_graph(test_case):
 def do_normalization_add_relu_graph(test_case):
     def get_bn(fused=True):
         if fused:
-            return flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+            bn =  flow.nn.FusedBatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
                 "mlu"
             )
         else:
-            return flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
+            bn = flow.nn.BatchNorm2d(num_features=2, eps=1e-5, momentum=0.1).to(
                 "mlu"
             )
+        bn.eval()
+        return bn
 
     class GraphToRun(flow.nn.Graph):
         def __init__(self):
@@ -118,7 +120,7 @@ def do_normalization_add_relu_graph(test_case):
 @flow.unittest.skip_unless_1n1d()
 class TestNormalizationRelu(oneflow.unittest.TestCase):
     def test_normalization_add_relu_graph(test_case):
-        # do_normalization_relu_graph(test_case)
+        do_normalization_relu_graph(test_case)
         do_normalization_add_relu_graph(test_case)
 
 
