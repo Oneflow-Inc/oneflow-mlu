@@ -187,7 +187,7 @@ def adaptive_max_pool1d(input, output_size, return_indices: bool = False):
 
 
 def adaptive_max_pool2d(
-    input, output_size, return_indices: bool = False, data_format=None
+    input, output_size, return_indices: bool = False, data_format="channels_first"
 ):
     r"""Applies a 2D adaptive max pooling over an input signal composed of
     several input planes.
