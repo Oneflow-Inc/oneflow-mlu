@@ -21,10 +21,10 @@ limitations under the License.
 namespace oneflow {
 
 template<typename T>
-class AdaptivePool2DKernel final : public user_op::OpKernel {
+class AdaptiveMaxPool2DKernel final : public user_op::OpKernel {
  public:
-  AdaptivePool2DKernel() = default;
-  ~AdaptivePool2DKernel() = default;
+  AdaptiveMaxPool2DKernel() = default;
+  ~AdaptiveMaxPool2DKernel() = default;
 
  private:
   using user_op::OpKernel::Compute;
@@ -74,16 +74,16 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& in_desc,
                    const void* in_ptr, const CnnlTensorDescriptor& out_desc, void* out_ptr) const {
-    size_t adaptive_avg_pool2d_workspace_size = 0;
+    size_t adaptive_pool2d_workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetAdaptivePoolingForwardWorkspaceSize(
         /* handle         */ ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
         /* input_desc     */ in_desc.desc(),
         /* mode           */ CNNL_POOLING_MAX,
         /* output_desc    */ out_desc.desc(),
-        /* workspace_size */ &adaptive_avg_pool2d_workspace_size));
+        /* workspace_size */ &adaptive_pool2d_workspace_size));
     CnnlWorkspace adaptive2d_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
-                                            adaptive_avg_pool2d_workspace_size);
-    void* adaptive_avg_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
+                                            adaptive_pool2d_workspace_size);
+    void* adaptive_pool2d_workspace = adaptive2d_cnnl_workspace.dptr();
 
     // prepare index desc and workspace
     CnnlTensorDescriptor indice_desc, local_index_desc;
@@ -121,8 +121,8 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
         /* input_desc     */ in_desc.desc(),
         /* input          */ in_ptr,
         /* mode           */ CNNL_POOLING_MAX,
-        /* workspace      */ adaptive_avg_pool2d_workspace,
-        /* workspace_size */ adaptive_avg_pool2d_workspace_size,
+        /* workspace      */ adaptive_pool2d_workspace,
+        /* workspace_size */ adaptive_pool2d_workspace_size,
         /* output_desc    */ out_desc.desc(),
         /* output         */ out_ptr,
         /* index_desc     */ local_index_desc.desc(),
@@ -150,7 +150,7 @@ class AdaptivePool2DKernel final : public user_op::OpKernel {
 
 #define REGISTER_ADAPTIVE_POOL2D_MLU_KERNEL(name, dtype) \
   REGISTER_USER_KERNEL(name)                                           \
-      .SetCreateFn<AdaptivePool2DKernel<dtype>>()        \
+      .SetCreateFn<AdaptiveMaxPool2DKernel<dtype>>()        \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)  \
                        && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value));
 
@@ -225,10 +225,10 @@ TensorInfo GetIndexTensorInfoBackward(user_op::KernelComputeContext* ctx,
 }  // namespace
 
 template<typename T>
-class AdaptivePool2DGradKernel final : public user_op::OpKernel {
+class AdaptiveMaxPool2DGradKernel final : public user_op::OpKernel {
  public:
-  AdaptivePool2DGradKernel() = default;
-  ~AdaptivePool2DGradKernel() = default;
+  AdaptiveMaxPool2DGradKernel() = default;
+  ~AdaptiveMaxPool2DGradKernel() = default;
 
  private:
   using user_op::OpKernel::Compute;
@@ -311,7 +311,7 @@ class AdaptivePool2DGradKernel final : public user_op::OpKernel {
 
 #define REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL(name, dtype) \
   REGISTER_USER_KERNEL(name)                                                \
-      .SetCreateFn<AdaptivePool2DGradKernel<dtype>>()         \
+      .SetCreateFn<AdaptiveMaxPool2DGradKernel<dtype>>()         \
       .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)       \
                        && (user_op::HobDataType("dy", 0) == GetDataType<dtype>::value));
 REGISTER_ADAPTIVE_POOL2D_GRAD_MLU_KERNEL("adaptive_max_pool2d_grad", float)
