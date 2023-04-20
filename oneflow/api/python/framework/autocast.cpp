@@ -46,6 +46,10 @@ class AutoCastMode {
       autocast::set_autocast_device_type(kCUDA);
       autocast::set_autocast_dtype(dtype);
       autocast::set_autocast_gpu_dtype(dtype);
+    } else if (device_type == "mlu") {
+      autocast::set_autocast_device_type(kMLU);
+      autocast::set_autocast_dtype(dtype);
+      autocast::set_autocast_gpu_dtype(dtype);
     } else {
       THROW(RuntimeError) << "User specified autocast device_type must be 'cuda' or 'cpu'";
     }

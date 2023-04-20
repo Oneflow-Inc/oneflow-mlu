@@ -387,6 +387,16 @@ static PyObject* PyTensorObject_check_meta_consistency(PyObject* self, PyObject*
   END_HANDLE_ERRORS
 }
 
+static PyObject* PyTensorObject_data_ptr(PyObject* self, PyObject* unused) {
+  HANDLE_ERRORS
+  const auto& t = PyTensor_Unpack(self);
+  const std::shared_ptr<LocalTensor> local_tensor =
+      t->is_local() ? ASSERT_PTR(t->AsLocalTensor()) : ASSERT_PTR(t->cur_rank_phy_tensor());
+  return functional::CastToPyObject(
+      reinterpret_cast<int64_t>(ASSERT(GetTensorDataPtr(local_tensor))));
+  END_HANDLE_ERRORS
+}
+
 static PyObject* PyTensorObject_to_numpy(PyObject* self, PyObject* unused) {
   HANDLE_ERRORS
   const auto& t = PyTensor_Unpack(self);
@@ -548,6 +558,7 @@ static PyMethodDef PyTensorObject_methods[] = {
     {"global_id", PyTensorObject_global_id, METH_NOARGS, NULL},
     {"check_meta_consistency", PyTensorObject_check_meta_consistency, METH_NOARGS, NULL},
     {"to_numpy", PyTensorObject_to_numpy, METH_NOARGS, NULL},
+    {"data_ptr", PyTensorObject_data_ptr, METH_NOARGS, NULL},
     {"item", PyTensorObject_item, METH_NOARGS, NULL},
     {"type", (PyCFunction)PyTensorObject_type, METH_VARARGS | METH_KEYWORDS, NULL},
     {"_copy_to_numpy", PyTensorObject__copy_to_numpy, METH_O, NULL},
