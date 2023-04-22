@@ -136,7 +136,8 @@ const AMPList& AutoMixedPrecisionLists::GrayList() {
                               "group_norm_grad",
                               "silu",
                               "silu_grad",
-                              "fused_weighted_sum"};
+                              "fused_weighted_sum",
+                              "cast"};
   return gray_list;
 }
 
