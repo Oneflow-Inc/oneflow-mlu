@@ -26,12 +26,10 @@ class CnnlNormalizeDescriptor
                             &cnnlDestroyNormalizeDescriptor> {
  public:
   CnnlNormalizeDescriptor() {}
-  void set(
-
-      int axis[], int axis_num, cnnlNormalizeMode_t mode, cnnlNanPropagation_t nan_propagation,
-      float eps) {
+  void set(int axis[], int axis_num, cnnlNormalizeMode_t mode, cnnlNanPropagation_t nan_propagation,
+           float eps) {
     OF_CNNL_CHECK(
-        cnnlSetNormalizeDescriptor(mut_desc(), axis, axis_num, mode, nan_propagation, eps));
+        cnnlSetNormalizeDescriptor_v2(mut_desc(), axis, axis_num, nan_propagation, eps, 2.0, 0, 0));
   }
 };
 
@@ -51,9 +49,10 @@ class MluL2NormalizeKernel final : public user_op::OpKernel {
     CnnlNormalizeDescriptor norm_desc;
     norm_desc.set(axis, 1, CNNL_NORMALIZE_EUCLIDEAN, CNNL_NOT_PROPAGATE_NAN, epsilon);
     CnnlTensorDescriptor x_desc(x), y_desc(y), square_x_sum_desc(square_x_sum);
-    OF_CNNL_CHECK(cnnlNormalize(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), norm_desc.desc(),
-                                x_desc.desc(), x->dptr(), y_desc.desc(), y->mut_dptr(),
-                                square_x_sum_desc.desc(), square_x_sum->mut_dptr()));
+    OF_CNNL_CHECK(cnnlNormalize_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                   norm_desc.desc(), x_desc.desc(), x->dptr(), nullptr, nullptr,
+                                   y_desc.desc(), y->mut_dptr(), square_x_sum_desc.desc(),
+                                   square_x_sum->mut_dptr()));
   }
 
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
