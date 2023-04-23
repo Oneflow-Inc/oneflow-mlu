@@ -22,9 +22,7 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
-#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/util.h"
-#include "oneflow/core/ep/include/primitive/memcpy.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 

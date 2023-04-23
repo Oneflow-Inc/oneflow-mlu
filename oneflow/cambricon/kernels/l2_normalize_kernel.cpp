@@ -13,6 +13,7 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include <string>
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
@@ -46,11 +47,11 @@ class MluL2NormalizeKernel final : public user_op::OpKernel {
     user_op::Tensor* square_x_sum = ctx->Tensor4ArgNameAndIndex("square_x_sum", 0);
     const float epsilon = ctx->Attr<float>("epsilon");
     int axis[1] = {static_cast<int>(ctx->Attr<int32_t>("axis"))};
-    CnnlNormalizeDescriptor norm_desc;
-    norm_desc.set(axis, 1, CNNL_NORMALIZE_EUCLIDEAN, CNNL_NOT_PROPAGATE_NAN, epsilon);
+    CnnlNormalizeDescriptor norm_op_desc;
+    norm_op_desc.set(axis, 1, CNNL_NORMALIZE_EUCLIDEAN, CNNL_NOT_PROPAGATE_NAN, epsilon);
     CnnlTensorDescriptor x_desc(x), y_desc(y), square_x_sum_desc(square_x_sum);
     OF_CNNL_CHECK(cnnlNormalize_v2(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                   norm_desc.desc(), x_desc.desc(), x->dptr(), nullptr, nullptr,
+                                   norm_op_desc.desc(), x_desc.desc(), x->dptr(), nullptr, nullptr,
                                    y_desc.desc(), y->mut_dptr(), square_x_sum_desc.desc(),
                                    square_x_sum->mut_dptr()));
   }
