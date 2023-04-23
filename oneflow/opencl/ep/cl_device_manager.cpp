@@ -13,57 +13,57 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#include "oneflow/cambricon/ep/mlu_device_manager.h"
+#include "oneflow/opencl/ep/cl_device_manager.h"
 
-#include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/cambricon/common/mlu_guard.h"
-#include "oneflow/cambricon/ep/mlu_device.h"
-#include "oneflow/cambricon/ep/mlu_random_generator.h"
+#include "oneflow/opencl/common/cl_util.h"
+#include "oneflow/opencl/common/cl_guard.h"
+#include "oneflow/opencl/ep/cl_device.h"
 
 namespace oneflow {
 namespace ep {
 
-MluDeviceManager::MluDeviceManager(DeviceManagerRegistry* registry) : registry_(registry) {}
-MluDeviceManager::~MluDeviceManager() = default;
+OclDeviceManager::OclDeviceManager(DeviceManagerRegistry* registry) : registry_(registry) {}
+OclDeviceManager::~OclDeviceManager() = default;
 
-DeviceManagerRegistry* MluDeviceManager::registry() const { return registry_; }
+DeviceManagerRegistry* OclDeviceManager::registry() const { return registry_; }
 
-std::shared_ptr<Device> MluDeviceManager::GetDevice(size_t device_index) {
+std::shared_ptr<Device> OclDeviceManager::GetDevice(size_t device_index) {
   std::lock_guard<std::mutex> lock(devices_mutex_);
   if (device_index < devices_.size() && devices_.at(device_index)) {
     std::shared_ptr<Device> device = devices_.at(device_index);
     return device;
   }
-  auto device = std::make_shared<MluDevice>(device_index, this);
+  auto device = std::make_shared<OclDevice>(device_index, this);
   if (device_index >= devices_.size()) { devices_.resize(device_index + 1); }
   devices_.at(device_index) = device;
   return device;
 }
 
-size_t MluDeviceManager::GetDeviceCount(size_t primary_device_index) {
-  MluCurrentDeviceGuard guard(primary_device_index);
+size_t OclDeviceManager::GetDeviceCount(size_t primary_device_index) {
+  OclCurrentDeviceGuard guard(primary_device_index);
   return this->GetDeviceCount();
 }
 
-size_t MluDeviceManager::GetDeviceCount() {
-  uint32_t count = 0;
-  OF_MLU_CHECK(cnrtGetDeviceCount(&count));
+size_t OclDeviceManager::GetDeviceCount() {
+  int count = 0;
+  OF_CL_CHECK(clGetDeviceCount(&count));
   return count;
 }
 
-size_t MluDeviceManager::GetActiveDeviceIndex() {
+size_t OclDeviceManager::GetActiveDeviceIndex() {
   int device = 0;
-  OF_MLU_CHECK(cnrtGetDevice(&device));
+  OF_CL_CHECK(clGetDevice(&device));
   return static_cast<size_t>(device);
 }
 
-void MluDeviceManager::SetActiveDeviceByIndex(size_t device_index) {
-  OF_MLU_CHECK(cnrtSetDevice(static_cast<int>(device_index)));
+void OclDeviceManager::SetActiveDeviceByIndex(size_t device_index) {
+  OF_CL_CHECK(clSetDevice(static_cast<int>(device_index)));
 }
 
-std::shared_ptr<RandomGenerator> MluDeviceManager::CreateRandomGenerator(uint64_t seed,
+std::shared_ptr<RandomGenerator> OclDeviceManager::CreateRandomGenerator(uint64_t seed,
                                                                          size_t device_index) {
-  return std::make_shared<MLUGenerator>(seed, device_index);
+  // TODO
+  return nullptr;
 }
 
 }  // namespace ep
