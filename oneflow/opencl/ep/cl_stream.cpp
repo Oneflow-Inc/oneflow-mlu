@@ -28,53 +28,53 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-OclStream::OclStream(OclDevice* device) : device_index_(device->device_index()), device_(device) {
-  OclCurrentDeviceGuard guard(device_index_);
+clStream::clStream(clDevice* device) : device_index_(device->device_index()), device_(device) {
+  clCurrentDeviceGuard guard(device_index_);
   OF_CL_CHECK(clQueueCreate(&cl_stream_));
 }
 
-OclStream::~OclStream() {
-  OclCurrentDeviceGuard guard(device_index_);
+clStream::~clStream() {
+  clCurrentDeviceGuard guard(device_index_);
   OF_CL_CHECK(clQueueSynchronize(cl_stream_));
   OF_CL_CHECK(clQueueDestroy(cl_stream_));
 }
 
-Maybe<void> OclStream::OnExecutionContextSetup() {
+Maybe<void> clStream::OnExecutionContextSetup() {
   OF_CL_CHECK(clSetDevice(device_index_));
   return Maybe<void>::Ok();
 }
 
-Maybe<void> OclStream::OnExecutionContextTeardown() { return Maybe<void>::Ok(); }
+Maybe<void> clStream::OnExecutionContextTeardown() { return Maybe<void>::Ok(); }
 
-DeviceType OclStream::device_type() const { return DeviceType::kOpenCL; }
+DeviceType clStream::device_type() const { return DeviceType::kOpenCL; }
 
-OclDevice* OclStream::device() const { return device_; }
+clDevice* clStream::device() const { return device_; }
 
-Maybe<void> OclStream::Sync() {
-  cl_int err = clQueueSync(cl_stream_);
+Maybe<void> clStream::Sync() {
+  cl_int err = clQueueSynchronize(cl_stream_);
   if (err == CL_SUCCESS) {
     return Maybe<void>::Ok();
   } else {
-    return Error::RuntimeError() << "OclStream::Sync error";
+    return Error::RuntimeError() << "clStream::Sync error";
   }
 }
 
-void OclStream::RecordEvent(Event* event) {
-  auto* cl_event = static_cast<OclEvent*>(event);  // NOLINT
+void clStream::RecordEvent(Event* event) {
+  auto* cl_event = static_cast<clEvent*>(event);  // NOLINT
   OF_CL_CHECK(clEventRecord(cl_event->cl_event(), cl_stream_));
 }
 
-void OclStream::WaitEvent(Event* event) {
-  auto* cl_event = static_cast<OclEvent*>(event);  // NOLINT
+void clStream::WaitEvent(Event* event) {
+  auto* cl_event = static_cast<clEvent*>(event);  // NOLINT
   OF_CL_CHECK(clQueueWaitEvent(cl_event->cl_event(), cl_stream_, 0));
 }
 
-Maybe<void> OclStream::GetAsyncError() {
+Maybe<void> clStream::GetAsyncError() {
   // TODO
   return Maybe<void>::Ok();
 }
 
-cl::CommandQueue* OclStream::cl_stream() const { return cl_stream_; }
+cl::CommandQueue* clStream::cl_stream() const { return cl_stream_; }
 
 }  // namespace ep
 }  // namespace oneflow

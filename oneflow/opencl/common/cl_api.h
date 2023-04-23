@@ -16,15 +16,22 @@ limitations under the License.
 #ifndef ONEFLOW_OPENCL_COMMON_CL_API_H_
 #define ONEFLOW_OPENCL_COMMON_CL_API_H_
 
+#include <string>
 #include "oneflow/core/ep/include/primitive/memcpy.h"  // MemcpyKind
 
-#include "CL/opencl.hpp"
+#include "CL/cl.hpp"
 
 namespace oneflow {
 
-typedef struct OclDeviceProperties {
+using ::oneflow::ep::primitive::MemcpyKind;
 
-} OclDeviceProperties;
+typedef struct clPlatformProperties {
+  std::string platform_name;
+  int device_count;
+} clPlatformProperties;
+
+typedef struct clDeviceProperties {
+} clDeviceProperties;
 
 cl_int clGetDeviceCount(int* count);
 
@@ -38,7 +45,8 @@ cl_int clMallocHost(void** buf, size_t size);
 cl_int clFreeHost(void* buf);
 
 cl_int clMemcpy(void* dst, const void* src, size_t size, MemcpyKind kind);
-cl_int clMemcpyAsync(void* dst, const void* src, size_t size, MemcpyKind kind, cl::CommandQueue* queue);
+cl_int clMemcpyAsync(void* dst, const void* src, size_t size, MemcpyKind kind,
+                     cl::CommandQueue* queue);
 
 cl_int clMemset(void* ptr, int value, size_t size);
 cl_int clMemsetAsync(void* ptr, int value, size_t size, cl::CommandQueue* queue);
@@ -46,6 +54,8 @@ cl_int clMemsetAsync(void* ptr, int value, size_t size, cl::CommandQueue* queue)
 cl_int clEventCreateWithFlags(cl::Event** event, unsigned int flags);
 cl_int clEventDestroy(cl::Event* event);
 cl_int clEventRecord(cl::Event* event, cl::CommandQueue* queue);
+cl_int clEventQuery(cl::Event* event);
+cl_int clEventSynchronize(cl::Event* event);
 
 cl_int clQueueCreate(cl::CommandQueue** queue);
 cl_int clQueueDestroy(cl::CommandQueue* queue);

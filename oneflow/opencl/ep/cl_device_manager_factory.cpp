@@ -22,14 +22,14 @@ namespace ep {
 
 namespace {
 
-class OclDeviceManagerFactory : public DeviceManagerFactory {
+class clDeviceManagerFactory : public DeviceManagerFactory {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclDeviceManagerFactory);
-  OclDeviceManagerFactory() = default;
-  ~OclDeviceManagerFactory() override = default;
+  OF_DISALLOW_COPY_AND_MOVE(clDeviceManagerFactory);
+  clDeviceManagerFactory() = default;
+  ~clDeviceManagerFactory() override = default;
 
   std::unique_ptr<DeviceManager> NewDeviceManager(DeviceManagerRegistry* registry) override {
-    return std::make_unique<OclDeviceManager>(registry);
+    return std::make_unique<clDeviceManager>(registry);
   }
 
   DeviceType device_type() const override { return DeviceType::kOpenCL; }
@@ -39,8 +39,8 @@ class OclDeviceManagerFactory : public DeviceManagerFactory {
   void DumpVersionInfo() const override {}
 };
 
-COMMAND(DeviceManagerRegistry::RegisterDeviceManagerFactory(
-    std::make_unique<OclDeviceManagerFactory>()))
+COMMAND(
+    DeviceManagerRegistry::RegisterDeviceManagerFactory(std::make_unique<clDeviceManagerFactory>()))
 
 }  // namespace
 

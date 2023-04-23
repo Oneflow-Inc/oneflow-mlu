@@ -15,36 +15,38 @@ limitations under the License.
 */
 #include "oneflow/opencl/ep/cl_event.h"
 
+#include "oneflow/opencl/common/cl_api.h"
+
 namespace oneflow {
 namespace ep {
 
-OclEvent::OclEvent(unsigned int flags) : cl_event_{} {
+clEvent::clEvent(unsigned int flags) : cl_event_{} {
   OF_CL_CHECK(clEventCreateWithFlags(&cl_event_, 0));
 }
 
-OclEvent::~OclEvent() { OF_CL_CHECK(clEventDestroy(cl_event_)); }
+clEvent::~clEvent() { OF_CL_CHECK(clEventDestroy(cl_event_)); }
 
-Maybe<bool> OclEvent::QueryDone() {
+Maybe<bool> clEvent::QueryDone() {
   cl_int err = clEventQuery(cl_event_);
   if (err == CL_SUCCESS) {
     return Maybe<bool>(true);
   } else if (err > 0) {
     return Maybe<bool>(false);
   } else {
-    return Error::RuntimeError() << "OclEvent::QueryDone() error";
+    return Error::RuntimeError() << "clEvent::QueryDone() error";
   }
 }
 
-Maybe<void> OclEvent::Sync() {
+Maybe<void> clEvent::Sync() {
   cl_int err = clEventSynchronize(cl_event_);
   if (err == CL_SUCCESS) {
     return Maybe<void>::Ok();
   } else {
-    return Error::RuntimeError() << "OclEvent::Sync() error";
+    return Error::RuntimeError() << "clEvent::Sync() error";
   }
 }
 
-cl::Event* OclEvent::cl_event() { return cl_event_; }
+cl::Event* clEvent::cl_event() { return cl_event_; }
 
 }  // namespace ep
 }  // namespace oneflow

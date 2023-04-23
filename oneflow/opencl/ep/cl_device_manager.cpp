@@ -22,46 +22,46 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-OclDeviceManager::OclDeviceManager(DeviceManagerRegistry* registry) : registry_(registry) {}
-OclDeviceManager::~OclDeviceManager() = default;
+clDeviceManager::clDeviceManager(DeviceManagerRegistry* registry) : registry_(registry) {}
+clDeviceManager::~clDeviceManager() = default;
 
-DeviceManagerRegistry* OclDeviceManager::registry() const { return registry_; }
+DeviceManagerRegistry* clDeviceManager::registry() const { return registry_; }
 
-std::shared_ptr<Device> OclDeviceManager::GetDevice(size_t device_index) {
+std::shared_ptr<Device> clDeviceManager::GetDevice(size_t device_index) {
   std::lock_guard<std::mutex> lock(devices_mutex_);
   if (device_index < devices_.size() && devices_.at(device_index)) {
     std::shared_ptr<Device> device = devices_.at(device_index);
     return device;
   }
-  auto device = std::make_shared<OclDevice>(device_index, this);
+  auto device = std::make_shared<clDevice>(device_index, this);
   if (device_index >= devices_.size()) { devices_.resize(device_index + 1); }
   devices_.at(device_index) = device;
   return device;
 }
 
-size_t OclDeviceManager::GetDeviceCount(size_t primary_device_index) {
-  OclCurrentDeviceGuard guard(primary_device_index);
+size_t clDeviceManager::GetDeviceCount(size_t primary_device_index) {
+  clCurrentDeviceGuard guard(primary_device_index);
   return this->GetDeviceCount();
 }
 
-size_t OclDeviceManager::GetDeviceCount() {
+size_t clDeviceManager::GetDeviceCount() {
   int count = 0;
   OF_CL_CHECK(clGetDeviceCount(&count));
   return count;
 }
 
-size_t OclDeviceManager::GetActiveDeviceIndex() {
+size_t clDeviceManager::GetActiveDeviceIndex() {
   int device = 0;
   OF_CL_CHECK(clGetDevice(&device));
   return static_cast<size_t>(device);
 }
 
-void OclDeviceManager::SetActiveDeviceByIndex(size_t device_index) {
+void clDeviceManager::SetActiveDeviceByIndex(size_t device_index) {
   OF_CL_CHECK(clSetDevice(static_cast<int>(device_index)));
 }
 
-std::shared_ptr<RandomGenerator> OclDeviceManager::CreateRandomGenerator(uint64_t seed,
-                                                                         size_t device_index) {
+std::shared_ptr<RandomGenerator> clDeviceManager::CreateRandomGenerator(uint64_t seed,
+                                                                        size_t device_index) {
   // TODO
   return nullptr;
 }

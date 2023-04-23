@@ -24,19 +24,19 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-class OclDevice;
+class clDevice;
 
-class OclStream : public Stream {
+class clStream : public Stream {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclStream);
-  explicit OclStream(OclDevice* device);
-  ~OclStream() override;
+  OF_DISALLOW_COPY_AND_MOVE(clStream);
+  explicit clStream(clDevice* device);
+  ~clStream() override;
 
   static constexpr uint32_t kDefaultBlockSize = 256;
 
   DeviceType device_type() const override;
 
-  OclDevice* device() const override;
+  clDevice* device() const override;
 
   void RecordEvent(Event* event) override;
   void WaitEvent(Event* event) override;
@@ -52,7 +52,7 @@ class OclStream : public Stream {
  private:
   cl::CommandQueue* cl_stream_;
   int device_index_;
-  OclDevice* device_;
+  clDevice* device_;
 };
 
 }  // namespace ep

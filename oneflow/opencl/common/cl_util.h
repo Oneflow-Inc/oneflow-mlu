@@ -21,9 +21,9 @@ limitations under the License.
 
 #include "oneflow/opencl/common/cl_api.h"
 
-#define OF_CL_CHECK(condition)                                                        \
+#define OF_CL_CHECK(condition)                                                     \
   for (cl_int _cnrt_check_status = (condition); _cnrt_check_status != CL_SUCCESS;) \
-  THROW(RuntimeError) << "OpenCL check failed: " #condition " : "                        \
+  THROW(RuntimeError) << "OpenCL check failed: " #condition " : "                  \
                       << " (" << _cnrt_check_status << ") "
 
 #endif  // ONEFLOW_OPENCL_COMMON_CL_UTIL_H_

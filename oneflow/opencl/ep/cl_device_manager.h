@@ -21,13 +21,13 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-class OclDevice;
+class clDevice;
 
-class OclDeviceManager : public DeviceManager {
+class clDeviceManager : public DeviceManager {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclDeviceManager);
-  OclDeviceManager(DeviceManagerRegistry* registry);
-  ~OclDeviceManager() override;
+  OF_DISALLOW_COPY_AND_MOVE(clDeviceManager);
+  clDeviceManager(DeviceManagerRegistry* registry);
+  ~clDeviceManager() override;
 
   DeviceManagerRegistry* registry() const override;
   std::shared_ptr<Device> GetDevice(size_t device_index) override;
@@ -42,7 +42,7 @@ class OclDeviceManager : public DeviceManager {
 
  private:
   std::mutex devices_mutex_;
-  std::vector<std::shared_ptr<OclDevice>> devices_;
+  std::vector<std::shared_ptr<clDevice>> devices_;
   DeviceManagerRegistry* registry_;
 };
 

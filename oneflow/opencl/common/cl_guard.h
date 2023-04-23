@@ -20,12 +20,12 @@ limitations under the License.
 
 namespace oneflow {
 
-class OclCurrentDeviceGuard final {
+class clCurrentDeviceGuard final {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclCurrentDeviceGuard);
-  explicit OclCurrentDeviceGuard(int32_t dev_id);
-  OclCurrentDeviceGuard();
-  ~OclCurrentDeviceGuard();
+  OF_DISALLOW_COPY_AND_MOVE(clCurrentDeviceGuard);
+  explicit clCurrentDeviceGuard(int32_t dev_id);
+  clCurrentDeviceGuard();
+  ~clCurrentDeviceGuard();
 
  private:
   int32_t saved_dev_id_ = -1;

@@ -24,21 +24,18 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-class OclDevice : public Device {
+class clDevice : public Device {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclDevice);
-  explicit OclDevice(int device_index, DeviceManager* device_manager);
-  ~OclDevice() override;
+  OF_DISALLOW_COPY_AND_MOVE(clDevice);
+  explicit clDevice(int device_index, DeviceManager* device_manager);
+  ~clDevice() override;
 
   void SetAsActiveDevice() override;
   void TryReset() override;
 
-  DeviceType device_type() const override { return DeviceType::kCL; }
+  DeviceType device_type() const override { return DeviceType::kOpenCL; }
   size_t device_index() const override { return device_index_; }
   DeviceManager* device_manager() const override { return device_manager_; }
-
-  int nclusters() const { return nclusters_; }
-  int ncores_per_cluster() const { return ncores_per_cluster_; }
 
   Stream* CreateStream() override;
   void DestroyStream(Stream* stream) override;

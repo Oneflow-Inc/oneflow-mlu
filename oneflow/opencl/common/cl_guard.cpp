@@ -21,14 +21,14 @@ limitations under the License.
 
 namespace oneflow {
 
-OclCurrentDeviceGuard::OclCurrentDeviceGuard(int32_t dev_id) {
+clCurrentDeviceGuard::clCurrentDeviceGuard(int32_t dev_id) {
   CHECK(!pthread_fork::IsForkedSubProcess()) << pthread_fork::kOfDeviceNotSupportInForkedSubProcess;
   OF_CL_CHECK(clGetDevice(&saved_dev_id_));
   OF_CL_CHECK(clSetDevice(dev_id));
 }
 
-OclCurrentDeviceGuard::OclCurrentDeviceGuard() { OF_CL_CHECK(clGetDevice(&saved_dev_id_)); }
+clCurrentDeviceGuard::clCurrentDeviceGuard() { OF_CL_CHECK(clGetDevice(&saved_dev_id_)); }
 
-OclCurrentDeviceGuard::~OclCurrentDeviceGuard() { OF_CL_CHECK(clSetDevice(saved_dev_id_)); }
+clCurrentDeviceGuard::~clCurrentDeviceGuard() { OF_CL_CHECK(clSetDevice(saved_dev_id_)); }
 
 }  // namespace oneflow

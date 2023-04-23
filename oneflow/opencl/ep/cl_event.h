@@ -22,11 +22,11 @@ limitations under the License.
 namespace oneflow {
 namespace ep {
 
-class OclEvent : public Event {
+class clEvent : public Event {
  public:
-  OF_DISALLOW_COPY_AND_MOVE(OclEvent);
-  explicit OclEvent(unsigned int flags);
-  ~OclEvent() override;
+  OF_DISALLOW_COPY_AND_MOVE(clEvent);
+  explicit clEvent(unsigned int flags);
+  ~clEvent() override;
 
   Maybe<bool> QueryDone() override;
   Maybe<void> Sync() override;

@@ -36,17 +36,17 @@ void CreateConstBuffer(void** buf, T value, size_t n) {
 
 }  // namespace
 
-OclDevice::OclDevice(int device_index, DeviceManager* device_manager)
+clDevice::clDevice(int device_index, DeviceManager* device_manager)
     : device_index_(device_index),
       event_flags_{},
       device_manager_(device_manager),
       const_buf_elem_cnt_(0),
       const_zeros_buffer_(nullptr),
       const_ones_buffer_fp32_(nullptr) {
-  OclCurrentDeviceGuard guard(device_index_);
+  clCurrentDeviceGuard guard(device_index_);
   event_flags_ = 0;
-  const_buf_elem_cnt_ = ParseIntegerFromEnv("ONEFLOW_EP_CL_CONST_BUFFER_ELEMENT_COUNT",
-                                            kDefaultConstBufElementCount);
+  const_buf_elem_cnt_ =
+      ParseIntegerFromEnv("ONEFLOW_EP_CL_CONST_BUFFER_ELEMENT_COUNT", kDefaultConstBufElementCount);
   if (const_buf_elem_cnt_ > 0) {
     CreateConstBuffer<float>(&const_zeros_buffer_, static_cast<float>(0), const_buf_elem_cnt_);
     CreateConstBuffer<float>(&const_ones_buffer_fp32_, static_cast<float>(1.0),
@@ -54,32 +54,30 @@ OclDevice::OclDevice(int device_index, DeviceManager* device_manager)
   }
 }
 
-OclDevice::~OclDevice() {
-  OclCurrentDeviceGuard guard(device_index_);
+clDevice::~clDevice() {
+  clCurrentDeviceGuard guard(device_index_);
   for (auto* event : events_) { delete event; }
   OF_CL_CHECK(clFree(const_zeros_buffer_));
   OF_CL_CHECK(clFree(const_ones_buffer_fp32_));
 }
 
-void OclDevice::SetAsActiveDevice() { OF_CL_CHECK(clSetDevice(device_index_)); }
+void clDevice::SetAsActiveDevice() { OF_CL_CHECK(clSetDevice(device_index_)); }
 
-void OclDevice::TryReset() {
+void clDevice::TryReset() {
   // TODO
 }
 
-Stream* OclDevice::CreateStream() {
-  OclCurrentDeviceGuard guard(device_index_);
-  return new OclStream(this);
+Stream* clDevice::CreateStream() {
+  clCurrentDeviceGuard guard(device_index_);
+  return new clStream(this);
 }
 
-void OclDevice::DestroyStream(Stream* stream) {
-  OclCurrentDeviceGuard guard(device_index_);
-  if (stream) {
-    delete stream;
-  }
+void clDevice::DestroyStream(Stream* stream) {
+  clCurrentDeviceGuard guard(device_index_);
+  if (stream) { delete stream; }
 }
 
-void OclDevice::CreateEvents(Event** events, size_t count) {
+void clDevice::CreateEvents(Event** events, size_t count) {
   size_t copied = 0;
   {
     std::lock_guard<std::mutex> lock(events_mutex_);
@@ -89,48 +87,48 @@ void OclDevice::CreateEvents(Event** events, size_t count) {
     events_.resize(offset);
   }
   if (copied != count) {
-    OclCurrentDeviceGuard guard(device_index_);
-    for (size_t i = copied; i < count; ++i) { events[i] = new OclEvent(event_flags_); }
+    clCurrentDeviceGuard guard(device_index_);
+    for (size_t i = copied; i < count; ++i) { events[i] = new clEvent(event_flags_); }
   }
 }
 
-void OclDevice::DestroyEvents(Event** events, size_t count) {
+void clDevice::DestroyEvents(Event** events, size_t count) {
   std::lock_guard<std::mutex> lock(events_mutex_);
   events_.insert(events_.end(), events, events + count);
 }
 
-Maybe<void> OclDevice::Alloc(const AllocationOptions& options, void** ptr, size_t size) {
-  OclCurrentDeviceGuard guard(device_index_);
+Maybe<void> clDevice::Alloc(const AllocationOptions& options, void** ptr, size_t size) {
+  clCurrentDeviceGuard guard(device_index_);
   CHECK(!options.HasPinnedDevice());
   cl_int err = clMalloc(ptr, size);
   if (err != CL_SUCCESS) {
-    return Error::RuntimeError() << "OclDevice::Alloc error";
+    return Error::RuntimeError() << "clDevice::Alloc error";
   } else {
     return Maybe<void>::Ok();
   }
 }
 
-void OclDevice::Free(const AllocationOptions& attr, void* ptr) {
-  OclCurrentDeviceGuard guard(device_index_);
+void clDevice::Free(const AllocationOptions& attr, void* ptr) {
+  clCurrentDeviceGuard guard(device_index_);
   OF_CL_CHECK(clFree(ptr));
 }
 
-Maybe<void> OclDevice::AllocPinned(const AllocationOptions& options, void** ptr, size_t size) {
-  OclCurrentDeviceGuard guard(device_index_);
-  cl_int err = clHostMalloc(ptr, size);
+Maybe<void> clDevice::AllocPinned(const AllocationOptions& options, void** ptr, size_t size) {
+  clCurrentDeviceGuard guard(device_index_);
+  cl_int err = clMallocHost(ptr, size);
   if (err != CL_SUCCESS) {
-    return Error::RuntimeError() << "OclDevice::AllocPinned error";
+    return Error::RuntimeError() << "clDevice::AllocPinned error";
   } else {
     return Maybe<void>::Ok();
   }
 }
 
-void OclDevice::FreePinned(const AllocationOptions& options, void* ptr) {
-  OclCurrentDeviceGuard guard(device_index_);
+void clDevice::FreePinned(const AllocationOptions& options, void* ptr) {
+  clCurrentDeviceGuard guard(device_index_);
   OF_CL_CHECK(clFreeHost(ptr));
 }
 
-const void* OclDevice::GetConstZeros(DataType data_type, size_t n) const {
+const void* clDevice::GetConstZeros(DataType data_type, size_t n) const {
   if (GetSizeOfDataType(data_type) * n
       <= GetSizeOfDataType(DataType::kFloat) * const_buf_elem_cnt_) {
     return const_zeros_buffer_;
@@ -139,7 +137,7 @@ const void* OclDevice::GetConstZeros(DataType data_type, size_t n) const {
   }
 }
 
-const void* OclDevice::GetConstOnes(DataType data_type, size_t n) const {
+const void* clDevice::GetConstOnes(DataType data_type, size_t n) const {
   if (n <= const_buf_elem_cnt_) {
     if (data_type == DataType::kFloat) {
       return const_ones_buffer_fp32_;
