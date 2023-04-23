@@ -44,18 +44,6 @@ class MluCastKernel final : public user_op::OpKernel {
     user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
     const DataType in_data_type = ctx->TensorDesc4ArgNameAndIndex("in", 0)->data_type();
     const DataType out_data_type = ctx->TensorDesc4ArgNameAndIndex("out", 0)->data_type();
-
-    if (in_data_type == out_data_type) {
-      ep::primitive::MemcpyKind kind = ep::primitive::MemcpyKind::kAuto;
-      if (ctx->device_type() != kCPU) { kind = ep::primitive::MemcpyKind::kDtoD; }
-      std::unique_ptr<ep::primitive::Memcpy> cp_primitive =
-          ep::primitive::NewPrimitive<ep::primitive::MemcpyFactory>(ctx->stream()->device_type(),
-                                                                    kind);
-      cp_primitive->Launch(ctx->stream(), out->mut_raw_dptr(), in->raw_dptr(),
-                           in->shape_view().elem_cnt() * GetSizeOfDataType(in_data_type));
-      return;
-    }
-
     CnnlTensorDescriptor in_desc(in), out_decs(out);
 
     if ((in_data_type == kUInt8 && out_data_type == kBool)
