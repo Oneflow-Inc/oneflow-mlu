@@ -13,46 +13,33 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
-#ifndef ONEFLOW_OPENCL_COMMON_CL_CONTEXT_H_
-#define ONEFLOW_OPENCL_COMMON_CL_CONTEXT_H_
+#ifndef ONEFLOW_OPENCL_COMMON_CL_KERNEL_POOL_H_
+#define ONEFLOW_OPENCL_COMMON_CL_KERNEL_POOL_H_
 
 #include <map>
-#include <memory>
 #include <mutex>
-#include <vector>
+#include <string>
 
-#include "oneflow/opencl/common/cl_kernel_pool.h"
 #include "CL/cl.hpp"
 
 namespace oneflow {
 
-typedef struct clContext {
-  int device_id;
-  cl::Device device;
-  cl::Context context;
-  cl::CommandQueue default_queue;
-  clKernelPool kernel_pool;
-} clContext;
+typedef struct clContext clContext;
 
-class clContextPool {
+class clKernelPool {
  public:
-  static clContextPool* Get();
+  clKernelPool() = default;
 
-  cl_int getOrCreateContext(clContext** context, int device_id);
-
-  cl_int getDevices(cl::Device** devices, int* device_count);
-
- private:
-  clContextPool();
+  cl_int buildKernel(clContext* context, const std::string& program_name,
+                     const std::string& kernel_name, cl::Kernel* kernel,
+                     const std::string& build_options = "");
 
  private:
   mutable std::mutex mutex_;
-  cl::Platform platform_;
-  std::vector<cl::Device> devices_;
-
-  std::map<int, std::unique_ptr<clContext>> contexts_;
+  std::map<std::tuple<std::string, std::string>, cl::Program> programs_;
+  std::map<std::tuple<std::string, std::string, std::string>, cl::Kernel> kernels_;
 };
 
 }  // namespace oneflow
 
-#endif  // ONEFLOW_OPENCL_COMMON_CL_CONTEXT_H_
+#endif  // ONEFLOW_OPENCL_COMMON_CL_KERNEL_POOL_H_

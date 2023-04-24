@@ -25,6 +25,13 @@ namespace oneflow {
 
 using ::oneflow::ep::primitive::MemcpyKind;
 
+cl_int clBuildKernel(const std::string& program_name, const std::string& kernel_name,
+                     cl::Kernel* kernel, const std::string& build_options);
+
+cl_int clLaunchKernel(const cl::Kernel& kernel, const cl::NDRange& offset,
+                      const cl::NDRange& global, const cl::NDRange& local = cl::NullRange,
+                      cl::CommandQueue* queue = 0);
+
 cl_int clGetDeviceCount(int* count);
 
 cl_int clGetDevice(int* device_id);

@@ -22,13 +22,6 @@ limitations under the License.
 #include "oneflow/opencl/common/cl_util.h"
 
 namespace oneflow {
-
-#define CL_CHECK_OR_RETURN(expr)           \
-  {                                        \
-    cl_int ret = (expr);                   \
-    if (ret != CL_SUCCESS) { return ret; } \
-  }
-
 namespace {
 
 cl_int clGetContext(clContext** context, int device_id) {
@@ -96,6 +89,25 @@ bool clIsPinnedMem(void* ptr) {
 }
 
 }  // namespace
+
+cl_int clBuildKernel(const std::string& program_name, const std::string& kernel_name,
+                     cl::Kernel* kernel, const std::string& build_options) {
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  return context->kernel_pool.buildKernel(context, program_name, kernel_name, kernel,
+                                          build_options);
+}
+
+cl_int clLaunchKernel(const cl::Kernel& kernel, const cl::NDRange& offset,
+                      const cl::NDRange& global, const cl::NDRange& local,
+                      cl::CommandQueue* queue) {
+  if (!queue) {
+    clContext* context = nullptr;
+    CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+    queue = &(context->default_queue);
+  }
+  return queue->enqueueNDRangeKernel(kernel, offset, global, local);
+}
 
 cl_int clGetDeviceCount(int* count) { return clGetDevices(nullptr, count); }
 
