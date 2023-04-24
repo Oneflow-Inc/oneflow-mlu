@@ -200,7 +200,7 @@ cl_int clEventDestroy(cl::Event* event) {
 }
 
 cl_int clEventRecord(cl::Event* event, cl::CommandQueue* queue) {
-  // TODO: implement
+  CL_CHECK_OR_RETURN(queue->enqueueMarker(event));
   return CL_SUCCESS;
 }
 
