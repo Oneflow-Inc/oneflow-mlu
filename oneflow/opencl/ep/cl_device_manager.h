@@ -36,6 +36,7 @@ class clDeviceManager : public DeviceManager {
   size_t GetActiveDeviceIndex() override;
   void SetActiveDeviceByIndex(size_t device_index) override;
   bool IsDeviceStreamWaitEventSupported() const override { return true; }
+  bool IsSplitMemBlockSupported() const override { return false; }
 
   std::shared_ptr<RandomGenerator> CreateRandomGenerator(uint64_t seed,
                                                          size_t device_index) override;
