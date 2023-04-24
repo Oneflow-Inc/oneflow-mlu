@@ -15,6 +15,8 @@ limitations under the License.
 */
 #include "oneflow/opencl/common/cl_api.h"
 
+#include <map>
+#include <memory>
 #include <mutex>
 #include "oneflow/opencl/common/cl_context.h"
 #include "oneflow/opencl/common/cl_util.h"
@@ -53,6 +55,44 @@ cl_int clSetActiveContext(clContext* context) {
   return CL_SUCCESS;
 }
 
+std::map<uint64_t, cl::Buffer*>* clGetPinnedMemPool() {
+  std::map<uint64_t, cl::Buffer*> cl_buffer_pool;
+  return &cl_buffer_pool;
+}
+
+cl_int clPinnedMemRecord(void* host_ptr, cl::Buffer* buffer) {
+  clGetPinnedMemPool()->emplace(reinterpret_cast<uint64_t>(host_ptr), buffer);
+  return CL_SUCCESS;
+}
+
+cl_int clPinnedMemQuery(void* host_ptr, cl::Buffer** buffer) {
+  const auto& it = clGetPinnedMemPool()->find(reinterpret_cast<uint64_t>(host_ptr));
+  if (it == clGetPinnedMemPool()->end()) {
+    *buffer = nullptr;
+    return CL_INVALID_HOST_PTR;
+  }
+  *buffer = it->second;
+  return CL_SUCCESS;
+}
+
+cl_int clPinnedMemRelease(void* host_ptr) {
+  const auto& it = clGetPinnedMemPool()->find(reinterpret_cast<uint64_t>(host_ptr));
+  if (it != clGetPinnedMemPool()->end()) {
+    clContext* context = nullptr;
+    CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+    CL_CHECK_OR_RETURN(context->default_queue.enqueueUnmapMemObject(
+        *static_cast<cl::Memory*>(it->second), host_ptr, 0, 0));
+    delete it->second;
+    clGetPinnedMemPool()->erase(reinterpret_cast<uint64_t>(host_ptr));
+  }
+  return CL_SUCCESS;
+}
+
+bool clIsPinnedMem(void* ptr) {
+  const auto& it = clGetPinnedMemPool()->find(reinterpret_cast<uint64_t>(ptr));
+  return it != clGetPinnedMemPool()->end();
+}
+
 }  // namespace
 
 cl_int clGetDeviceCount(int* count) { return clGetDevices(nullptr, count); }
@@ -71,29 +111,116 @@ cl_int clSetDevice(int device_id) {
   return CL_SUCCESS;
 }
 
-cl_int clMalloc(void** buf, size_t size) {}
+cl_int clMalloc(void** buf, size_t size) {
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  cl_int ret = CL_SUCCESS;
+  *buf = static_cast<void*>(new cl::Buffer(context->context, CL_MEM_READ_WRITE, size, 0, &ret));
+  if (ret != CL_SUCCESS) { *buf = nullptr; }
+  return ret;
+}
 
-cl_int clFree(void* buf) {}
+cl_int clFree(void* buf) {
+  if (buf) { delete reinterpret_cast<cl::Buffer*>(buf); }
+}
 
-cl_int clMallocHost(void** buf, size_t size) {}
-cl_int clFreeHost(void* buf) {}
+cl_int clMallocHost(void** buf, size_t size) {
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  *buf = nullptr;
+  cl_int ret = CL_SUCCESS;
+  std::unique_ptr<cl::Buffer> cl_buffer(
+      new cl::Buffer(context->context, CL_MEM_READ_WRITE | CL_MEM_ALLOC_HOST_PTR, size, 0, &ret));
+  if (ret != CL_SUCCESS) { return ret; }
+  void* host_ptr = context->default_queue.enqueueMapBuffer(
+      *cl_buffer, CL_BLOCKING, CL_MAP_READ | CL_MAP_WRITE, 0, size, 0, 0, &ret);
+  if (ret != CL_SUCCESS) { return ret; }
+  *buf = host_ptr;
+  ret = clPinnedMemRecord(host_ptr, cl_buffer.release());
+  return ret;
+}
 
-cl_int clMemcpy(void* dst, const void* src, size_t size, MemcpyKind kind) {}
+cl_int clFreeHost(void* buf) { return clPinnedMemRelease(buf); }
+
+cl_int clMemcpy(void* dst, const void* src, size_t size, MemcpyKind kind) {
+  if (size <= 0) { return CL_SUCCESS; }
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  CL_CHECK_OR_RETURN(clMemcpyAsync(dst, src, size, kind, &(context->default_queue)));
+  // blocking
+  context->default_queue.finish();
+  return CL_SUCCESS;
+}
+
 cl_int clMemcpyAsync(void* dst, const void* src, size_t size, MemcpyKind kind,
-                     cl::CommandQueue* queue) {}
+                     cl::CommandQueue* queue) {
+  if (kind == MemcpyKind::kDtoD) {
+    CL_CHECK_OR_RETURN(queue->enqueueCopyBuffer(*reinterpret_cast<const cl::Buffer*>(src),
+                                                *reinterpret_cast<cl::Buffer*>(dst), 0, 0, size, 0,
+                                                0));
+  } else if (kind == MemcpyKind::kHtoD) {
+    CL_CHECK_OR_RETURN(queue->enqueueWriteBuffer(*reinterpret_cast<cl::Buffer*>(dst),
+                                                 CL_NON_BLOCKING, 0, size, src, 0, 0));
+  } else if (kind == MemcpyKind::kDtoH) {
+    CL_CHECK_OR_RETURN(queue->enqueueReadBuffer(*reinterpret_cast<const cl::Buffer*>(src),
+                                                CL_NON_BLOCKING, 0, size, dst, 0, 0));
+  } else {
+    // TODO()
+  }
+  return CL_SUCCESS;
+}
 
-cl_int clMemset(void* ptr, int value, size_t size) {}
-cl_int clMemsetAsync(void* ptr, int value, size_t size, cl::CommandQueue* queue) {}
+cl_int clMemset(void* ptr, int value, size_t size) {
+  // TODO
+  return CL_SUCCESS;
+}
 
-cl_int clEventCreateWithFlags(cl::Event** event, unsigned int flags) {}
-cl_int clEventDestroy(cl::Event* event) {}
-cl_int clEventRecord(cl::Event* event, cl::CommandQueue* queue) {}
-cl_int clEventQuery(cl::Event* event) {}
-cl_int clEventSynchronize(cl::Event* event) {}
+cl_int clMemsetAsync(void* ptr, int value, size_t size, cl::CommandQueue* queue) {
+  // TODO
+  return CL_SUCCESS;
+}
 
-cl_int clQueueCreate(cl::CommandQueue** queue) {}
-cl_int clQueueDestroy(cl::CommandQueue* queue) {}
-cl_int clQueueSynchronize(cl::CommandQueue* queue) {}
-cl_int clQueueWaitEvent(cl::Event* event, cl::CommandQueue* queue, unsigned int flags) {}
+cl_int clEventCreateWithFlags(cl::Event** event, unsigned int flags) {
+  *event = new cl::Event;
+  return CL_SUCCESS;
+}
+
+cl_int clEventDestroy(cl::Event* event) {
+  if (event) { delete event; }
+  return CL_SUCCESS;
+}
+
+cl_int clEventRecord(cl::Event* event, cl::CommandQueue* queue) {
+  // TODO
+  return CL_SUCCESS;
+}
+
+cl_int clEventQuery(cl::Event* event) {
+  cl_int status = CL_COMPLETE;
+  event->getInfo(CL_EVENT_COMMAND_EXECUTION_STATUS, &status);
+  return status;
+}
+
+cl_int clEventSynchronize(cl::Event* event) { return event->wait(); }
+
+cl_int clQueueCreate(cl::CommandQueue** queue) {
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  cl_int ret = CL_SUCCESS;
+  *queue = new cl::CommandQueue(context->context, context->device, 0, &ret);
+  return ret;
+}
+
+cl_int clQueueDestroy(cl::CommandQueue* queue) {
+  if (queue) { delete queue; }
+  return CL_SUCCESS;
+}
+
+cl_int clQueueSynchronize(cl::CommandQueue* queue) { return queue->finish(); }
+
+cl_int clQueueWaitEvent(cl::Event* event, cl::CommandQueue* queue, unsigned int flags) {
+  // TODO
+  return clEventSynchronize(event);
+}
 
 }  // namespace oneflow

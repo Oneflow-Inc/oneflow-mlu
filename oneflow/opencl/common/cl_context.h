@@ -27,8 +27,9 @@ namespace oneflow {
 
 typedef struct clContext {
   int device_id;
-  std::unique_ptr<cl::Context> context;
-  std::unique_ptr<cl::CommandQueue> default_queue;
+  cl::Device device;
+  cl::Context context;
+  cl::CommandQueue default_queue;
 } clContext;
 
 class clContextPool {
@@ -46,6 +47,7 @@ class clContextPool {
   mutable std::mutex mutex_;
   cl::Platform platform_;
   std::vector<cl::Device> devices_;
+
   std::map<int, std::unique_ptr<clContext>> contexts_;
 };
 

@@ -27,10 +27,10 @@ clEvent::clEvent(unsigned int flags) : cl_event_{} {
 clEvent::~clEvent() { OF_CL_CHECK(clEventDestroy(cl_event_)); }
 
 Maybe<bool> clEvent::QueryDone() {
-  cl_int err = clEventQuery(cl_event_);
-  if (err == CL_SUCCESS) {
+  cl_int ret = clEventQuery(cl_event_);
+  if (ret == CL_COMPLETE) {
     return Maybe<bool>(true);
-  } else if (err > 0) {
+  } else if (ret > 0) {
     return Maybe<bool>(false);
   } else {
     return Error::RuntimeError() << "clEvent::QueryDone() error";

@@ -25,14 +25,6 @@ namespace oneflow {
 
 using ::oneflow::ep::primitive::MemcpyKind;
 
-typedef struct clPlatformProperties {
-  std::string platform_name;
-  int device_count;
-} clPlatformProperties;
-
-typedef struct clDeviceProperties {
-} clDeviceProperties;
-
 cl_int clGetDeviceCount(int* count);
 
 cl_int clGetDevice(int* device_id);

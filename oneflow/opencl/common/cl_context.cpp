@@ -40,10 +40,10 @@ cl_int clContextPool::getOrCreateContext(clContext** context, int device_id) {
   if (it != contexts_.end()) {
     std::unique_ptr<clContext> context(new clContext);
     context->device_id = device_id;
-    context->context.reset(new cl::Context(devices_[device_id], 0, 0, 0, &ret));
+    context->device = devices_[device_id];
+    context->context = cl::Context(context->device, 0, 0, 0, &ret);
     if (ret != CL_SUCCESS) { return ret; }
-    context->default_queue.reset(
-        new cl::CommandQueue(*(context->context), devices_[device_id], 0, &ret));
+    context->default_queue = cl::CommandQueue(context->context, devices_[device_id], 0, &ret);
     if (ret != CL_SUCCESS) { return ret; }
     it = contexts_.emplace(device_id, std::move(context)).first;
   }
