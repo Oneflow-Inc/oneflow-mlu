@@ -165,19 +165,25 @@ cl_int clMemcpyAsync(void* dst, const void* src, size_t size, MemcpyKind kind,
     CL_CHECK_OR_RETURN(queue->enqueueReadBuffer(*reinterpret_cast<const cl::Buffer*>(src),
                                                 CL_NON_BLOCKING, 0, size, dst, 0, 0));
   } else {
-    // TODO()
+    return CL_INVALID_VALUE;
   }
   return CL_SUCCESS;
 }
 
 cl_int clMemset(void* ptr, int value, size_t size) {
-  // TODO
+  clContext* context = nullptr;
+  CL_CHECK_OR_RETURN(clGetActiveContext(&context));
+  CL_CHECK_OR_RETURN(clMemsetAsync(ptr, value, size, &(context->default_queue)));
+  // blocking
+  context->default_queue.finish();
   return CL_SUCCESS;
 }
 
 cl_int clMemsetAsync(void* ptr, int value, size_t size, cl::CommandQueue* queue) {
-  // TODO
-  return CL_SUCCESS;
+  // TODO: refactor
+  if (clIsPinnedMem(ptr)) { memset(ptr, value, size); }
+  std::vector<uint8_t> host_data(size, static_cast<uint8_t>(value));
+  return clMemcpyAsync(ptr, host_data.data(), size, MemcpyKind::kHtoD, queue);
 }
 
 cl_int clEventCreateWithFlags(cl::Event** event, unsigned int flags) {
@@ -191,7 +197,7 @@ cl_int clEventDestroy(cl::Event* event) {
 }
 
 cl_int clEventRecord(cl::Event* event, cl::CommandQueue* queue) {
-  // TODO
+  // TODO: implement
   return CL_SUCCESS;
 }
 
@@ -219,7 +225,7 @@ cl_int clQueueDestroy(cl::CommandQueue* queue) {
 cl_int clQueueSynchronize(cl::CommandQueue* queue) { return queue->finish(); }
 
 cl_int clQueueWaitEvent(cl::Event* event, cl::CommandQueue* queue, unsigned int flags) {
-  // TODO
+  // TODO: refactor
   return clEventSynchronize(event);
 }
 
