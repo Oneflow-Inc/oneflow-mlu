@@ -37,7 +37,7 @@ cl_int clContextPool::getOrCreateContext(clContext** context, int device_id) {
   cl_int ret = CL_SUCCESS;
   std::unique_lock<std::mutex> lock(mutex_);
   auto it = contexts_.find(device_id);
-  if (it != contexts_.end()) {
+  if (it == contexts_.end()) {
     std::unique_ptr<clContext> context(new clContext);
     context->device_id = device_id;
     context->device = devices_[device_id];

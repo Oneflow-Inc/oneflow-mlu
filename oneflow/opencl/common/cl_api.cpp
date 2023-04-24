@@ -56,12 +56,14 @@ cl_int clSetActiveContext(clContext* context) {
 }
 
 std::map<uint64_t, cl::Buffer*>* clGetPinnedMemPool() {
-  std::map<uint64_t, cl::Buffer*> cl_buffer_pool;
+  static std::map<uint64_t, cl::Buffer*> cl_buffer_pool;
   return &cl_buffer_pool;
 }
 
 cl_int clPinnedMemRecord(void* host_ptr, cl::Buffer* buffer) {
-  clGetPinnedMemPool()->emplace(reinterpret_cast<uint64_t>(host_ptr), buffer);
+  if (!clGetPinnedMemPool()->emplace(reinterpret_cast<uint64_t>(host_ptr), buffer).second) {
+    return CL_INVALID_HOST_PTR;
+  }
   return CL_SUCCESS;
 }
 
@@ -122,6 +124,7 @@ cl_int clMalloc(void** buf, size_t size) {
 
 cl_int clFree(void* buf) {
   if (buf) { delete reinterpret_cast<cl::Buffer*>(buf); }
+  return CL_SUCCESS;
 }
 
 cl_int clMallocHost(void** buf, size_t size) {
