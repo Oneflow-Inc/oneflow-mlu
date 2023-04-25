@@ -129,7 +129,7 @@ REGISTER_USER_KERNEL("silu")
         const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
         user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
         CnnlActivationDescriptor activation_desc;
-        activation_desc.set(CNNL_ACTIVATION_SILU, /*prefer=*/CNNL_ACTIVATION_FAST,
+        activation_desc.set(CNNL_ACTIVATION_SILU, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
                             /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
         CnnlActivationForward(ctx, in, out, activation_desc);
       });
