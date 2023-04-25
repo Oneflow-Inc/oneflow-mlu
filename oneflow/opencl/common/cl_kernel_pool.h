@@ -20,7 +20,7 @@ limitations under the License.
 #include <mutex>
 #include <string>
 
-#include "CL/cl.hpp"
+#include "oneflow/opencl/common/CL/opencl.hpp"
 
 namespace oneflow {
 

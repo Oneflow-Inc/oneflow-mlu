@@ -22,7 +22,7 @@ limitations under the License.
 #include <vector>
 
 #include "oneflow/opencl/common/cl_kernel_pool.h"
-#include "CL/cl.hpp"
+#include "oneflow/opencl/common/CL/opencl.hpp"
 
 namespace oneflow {
 

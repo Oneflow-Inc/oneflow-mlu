@@ -19,7 +19,7 @@ limitations under the License.
 #include <string>
 #include "oneflow/core/ep/include/primitive/memcpy.h"  // MemcpyKind
 
-#include "CL/cl.hpp"
+#include "oneflow/opencl/common/CL/opencl.hpp"
 
 namespace oneflow {
 
