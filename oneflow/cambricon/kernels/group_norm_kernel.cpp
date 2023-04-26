@@ -62,9 +62,9 @@ class VarKernel final : public user_op::OpKernel {
       beta_ptr = beta->dptr();
     }
 
-    OF_CNNL_CHECK(cnnlGroupNormForward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-      epsilon, num_groups, x_desc.desc(), x->dptr(), gamma_desc_ptr, gamma_ptr, beta_ptr,
-      y_desc.desc(), y->mut_dptr()));
+    OF_CNNL_CHECK(cnnlGroupNormForward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(), epsilon,
+                                       num_groups, x_desc.desc(), x->dptr(), gamma_desc_ptr,
+                                       gamma_ptr, beta_ptr, y_desc.desc(), y->mut_dptr()));
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };

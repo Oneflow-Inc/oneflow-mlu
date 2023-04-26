@@ -54,7 +54,8 @@ class AutoCastMode {
         autocast::set_autocast_gpu_dtype(dtype);
         break;
       default:
-        THROW(RuntimeError) << "User specified autocast device_type must be 'cuda' or 'cpu' or 'mlu'";
+        THROW(RuntimeError)
+            << "User specified autocast device_type must be 'cuda' or 'cpu' or 'mlu'";
     }
   }
 
