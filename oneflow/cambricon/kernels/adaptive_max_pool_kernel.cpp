@@ -23,48 +23,48 @@ namespace {
 
 void PrepareIndexDescAndWorkspace(user_op::KernelComputeContext* ctx,
                                   const std::string& data_format, cnnlDataType_t local_index_dtype,
-                                  CnnlTensorDescriptor& indice_desc,
+                                  CnnlTensorDescriptor& index_desc,
                                   CnnlTensorDescriptor& local_index_desc,
                                   CnnlWorkspace& local_index) {
   // prepare index desc and workspace
-  const user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
+  const user_op::Tensor* index = ctx->Tensor4ArgNameAndIndex("index", 0);
   cnnlTensorLayout_t layout = CNNL_LAYOUT_NHWC;
   // cnnlPoolingForwardWithIndex requires index_desc->dtype == CNNL_DTYPE_INT32 or
   // CNNL_DTYPE_INT16 But in oneflow/user/ops/max_pool_op.cpp its dtype is set as kInt64.
   // cnnlPoolingForwardWithIndex requires index dtype is int32 for float input,
   // and index dtype is int16 for half input
   if (local_index_dtype == CNNL_DTYPE_INT32) {
-    local_index.resize(sizeof(int32_t) * indice->shape_view().elem_cnt());
+    local_index.resize(sizeof(int32_t) * index->shape_view().elem_cnt());
   } else if (local_index_dtype == CNNL_DTYPE_INT16) {
     // elem_cnt * 1 for int16, additional elem_cnt * 2 for casting int16 to int32
-    local_index.resize(sizeof(int16_t) * indice->shape_view().elem_cnt() * 3);
+    local_index.resize(sizeof(int16_t) * index->shape_view().elem_cnt() * 3);
   } else {
     UNIMPLEMENTED() << "invalid CNNL DType " << local_index_dtype;
   }
   if (data_format == "channels_last") {
-    indice_desc.set(indice->shape_view().size(), indice->shape_view().data(),
-                    ConvertToCnnlDataType(indice->data_type()), layout);
-    local_index_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+    index_desc.set(index->shape_view().size(), index->shape_view().data(),
+                   ConvertToCnnlDataType(index->data_type()), layout);
+    local_index_desc.set(index->shape_view().NumAxes(), index->shape_view().data(),
                          local_index_dtype, layout);
   } else {
-    indice_desc.set(indice->shape_view().size(), indice->shape_view().data(),
-                    ConvertToCnnlDataType(indice->data_type()), CNNL_LAYOUT_NCHW);
-    auto shape = mlu::ComputeShapeNchwToNhwc(Shape(indice->shape_view()));
-    local_index_desc.set(indice->shape_view().NumAxes(), shape.data(), local_index_dtype, layout);
+    index_desc.set(index->shape_view().size(), index->shape_view().data(),
+                   ConvertToCnnlDataType(index->data_type()), CNNL_LAYOUT_NCHW);
+    auto shape = mlu::ComputeShapeNchwToNhwc(Shape(index->shape_view()));
+    local_index_desc.set(index->shape_view().NumAxes(), shape.data(), local_index_dtype, layout);
   }
 }
 
 void ConvertShortIndexToLong(user_op::KernelComputeContext* ctx, cnnlDataType_t local_index_dtype,
-                             const CnnlTensorDescriptor& indice_desc,
+                             const CnnlTensorDescriptor& index_desc,
                              const CnnlTensorDescriptor& local_index_desc,
                              CnnlWorkspace& local_index) {
   // cast int32/int16 index to int64 index
   CnnlTensorDescriptor int32_index_desc;
   char* int32_index_dptr = reinterpret_cast<char*>(local_index.dptr());
-  user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
+  user_op::Tensor* index = ctx->Tensor4ArgNameAndIndex("index", 0);
   if (local_index_dtype == CNNL_DTYPE_INT16) {
-    int32_index_dptr += sizeof(int16_t) * indice->shape_view().elem_cnt();
-    int32_index_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+    int32_index_dptr += sizeof(int16_t) * index->shape_view().elem_cnt();
+    int32_index_desc.set(index->shape_view().NumAxes(), index->shape_view().data(),
                          CNNL_DTYPE_INT32, CNNL_LAYOUT_NHWC);
     OF_CNNL_CHECK(cnnlCastDataType(
         ctx->stream()->As<ep::MluStream>()->cnnl_handle(), local_index_desc.desc(),
@@ -73,30 +73,30 @@ void ConvertShortIndexToLong(user_op::KernelComputeContext* ctx, cnnlDataType_t 
   OF_CNNL_CHECK(cnnlCastDataType(
       ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
       (local_index_dtype == CNNL_DTYPE_INT16) ? int32_index_desc.desc() : local_index_desc.desc(),
-      int32_index_dptr, CNNL_CAST_INT32_TO_INT64, indice_desc.desc(), indice->mut_dptr()));
+      int32_index_dptr, CNNL_CAST_INT32_TO_INT64, index_desc.desc(), index->mut_dptr()));
 }
 
 void ConvertLongIndexToShort(user_op::KernelComputeContext* ctx, cnnlDataType_t local_index_dtype,
-                             const CnnlTensorDescriptor& indice_desc,
+                             const CnnlTensorDescriptor& index_desc,
                              const CnnlTensorDescriptor& local_index_desc,
                              CnnlWorkspace& local_index) {
   // cast int32/int16 index to int64 index
   CnnlTensorDescriptor int32_index_desc;
   char* int32_index_dptr = reinterpret_cast<char*>(local_index.dptr());
-  user_op::Tensor* indice = ctx->Tensor4ArgNameAndIndex("index", 0);
+  user_op::Tensor* index = ctx->Tensor4ArgNameAndIndex("index", 0);
   if (local_index_dtype == CNNL_DTYPE_INT16) {
-    int32_index_dptr += sizeof(int16_t) * indice->shape_view().elem_cnt();
-    int32_index_desc.set(indice->shape_view().NumAxes(), indice->shape_view().data(),
+    int32_index_dptr += sizeof(int16_t) * index->shape_view().elem_cnt();
+    int32_index_desc.set(index->shape_view().NumAxes(), index->shape_view().data(),
                          CNNL_DTYPE_INT32, CNNL_LAYOUT_NHWC);
     OF_CNNL_CHECK(cnnlCastDataType(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
-                                   index_desc.desc(), indice.dptr(), CNNL_CAST_INT64_TO_INT32,
+                                   index_desc.desc(), index->dptr(), CNNL_CAST_INT64_TO_INT32,
                                    int32_index_desc.desc(), int32_index_dptr));
   }
   OF_CNNL_CHECK(cnnlCastDataType(
       ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
       (local_index_dtype == CNNL_DTYPE_INT16) ? int32_index_desc.desc() : index_desc.desc(),
-      (local_index_dtype == CNNL_DTYPE_INT16) ? int32_index_dptr : indice->dptr(),
-      CNNL_CAST_INT32_TO_INT16, local_indice_desc.desc(), local_index.dptr()));
+      (local_index_dtype == CNNL_DTYPE_INT16) ? int32_index_dptr : index->dptr(),
+      CNNL_CAST_INT32_TO_INT16, local_index_desc.desc(), local_index.dptr()));
 }
 
 }  // namespace
@@ -113,16 +113,15 @@ class AdaptiveMaxPool2DKernel final : public user_op::OpKernel {
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* in_tensor = ctx->Tensor4ArgNameAndIndex("x", 0);
     user_op::Tensor* out_tensor = ctx->Tensor4ArgNameAndIndex("y", 0);
-    const user_op::Tensor* index_tensor = ctx->Tensor4ArgNameAndIndex("index", 0);
     const std::string& data_format = ctx->Attr<std::string>("data_format");
 
-    CnnlTensorDescriptor in_desc, out_desc, indice_desc, local_index_desc;
+    CnnlTensorDescriptor in_desc, out_desc, index_desc, local_index_desc;
     CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
 
     cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
     cnnlDataType_t local_index_dtype =
         in_tensor->data_type() == DataType::kFloat16 ? CNNL_DTYPE_INT16 : CNNL_DTYPE_INT32;
-    PrepareIndexDescAndWorkspace(ctx, data_format, local_index_dtype, indice_desc, local_index_desc,
+    PrepareIndexDescAndWorkspace(ctx, data_format, local_index_dtype, index_desc, local_index_desc,
                                  local_index);
     if (data_format == "channels_last") {
       in_desc.set(in_tensor->shape_view().NumAxes(), in_tensor->shape_view().data(), dtype,
@@ -131,7 +130,7 @@ class AdaptiveMaxPool2DKernel final : public user_op::OpKernel {
                    CNNL_LAYOUT_NHWC);
       ComputeNHWC(ctx, local_index_desc, local_index, in_desc, in_tensor->dptr(), out_desc,
                   out_tensor->mut_dptr());
-      ConvertShortIndexToLong(ctx, index_dtype, indice_desc, local_index_desc, local_index);
+      ConvertShortIndexToLong(ctx, local_index_dtype, index_desc, local_index_desc, local_index);
       return;
     }
 
@@ -157,7 +156,7 @@ class AdaptiveMaxPool2DKernel final : public user_op::OpKernel {
     ComputeNHWC(ctx, local_index_desc, local_index, in_desc, temp_in_ptr, out_desc, temp_out_ptr);
     mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
                              out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
-    ConvertShortIndexToLong(ctx, index_dtype, indice_desc, local_index_desc, local_index);
+    ConvertShortIndexToLong(ctx, local_index_dtype, index_desc, local_index_desc, local_index);
   }
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& local_index_desc,
@@ -207,27 +206,26 @@ class AdaptiveMaxPool2DGradKernel final : public user_op::OpKernel {
 
   void Compute(user_op::KernelComputeContext* ctx) const override {
     const user_op::Tensor* dy_tensor = ctx->Tensor4ArgNameAndIndex("dy", 0);
-    const user_op::Tensor* index_tensor = ctx->Tensor4ArgNameAndIndex("index", 0);
     user_op::Tensor* dx_tensor = ctx->Tensor4ArgNameAndIndex("dx", 0);
-    CHECK_EQ(x_tensor->shape_view().NumAxes(), 4);
+    CHECK_EQ(dx_tensor->shape_view().NumAxes(), 4);
     const std::string& data_format = ctx->Attr<std::string>("data_format");
 
-    CnnlTensorDescriptor dy_desc, dx_desc, indice_desc, local_index_desc;
+    CnnlTensorDescriptor dy_desc, dx_desc, index_desc, local_index_desc;
     CnnlWorkspace local_index(ctx->stream()->As<ep::MluStream>());
 
-    cnnlDataType_t dtype = ConvertToCnnlDataType(in_tensor->data_type());
+    cnnlDataType_t dtype = ConvertToCnnlDataType(dx_tensor->data_type());
     cnnlDataType_t local_index_dtype =
-        in_tensor->data_type() == DataType::kFloat16 ? CNNL_DTYPE_INT16 : CNNL_DTYPE_INT32;
-    PrepareIndexDescAndWorkspace(ctx, data_format, local_index_dtype, indice_desc, local_index_desc,
+        dx_tensor->data_type() == DataType::kFloat16 ? CNNL_DTYPE_INT16 : CNNL_DTYPE_INT32;
+    PrepareIndexDescAndWorkspace(ctx, data_format, local_index_dtype, index_desc, local_index_desc,
                                  local_index);
-    ConvertLongIndexToShort(ctx, index_dtype, indice_desc, local_index_desc, local_index);
+    ConvertLongIndexToShort(ctx, local_index_dtype, index_desc, local_index_desc, local_index);
 
     if (data_format == "channels_last") {
       dy_desc.set(dy_tensor->shape_view().NumAxes(), dy_tensor->shape_view().data(), dtype,
                   CNNL_LAYOUT_NHWC);
       dx_desc.set(dx_tensor->shape_view().NumAxes(), dx_tensor->shape_view().data(), dtype,
                   CNNL_LAYOUT_NHWC);
-      ComputeNHWC(ctx, local_index_desc, local_index.dptr(), dy_desc, dy_tensor->dptr(), dx_desc,
+      ComputeNHWC(ctx, local_index_desc, local_index, dy_desc, dy_tensor->dptr(), dx_desc,
                   dx_tensor->mut_dptr());
       return;
     }
