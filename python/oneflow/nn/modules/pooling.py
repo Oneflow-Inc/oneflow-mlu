@@ -953,6 +953,12 @@ class AdaptiveMaxPool2d(_AdaptiveMaxPoolNd):
         else:
             self.channel_pos = "channels_first"
 
+    def apply_memory_format(self, memory_format) -> None:
+        if memory_format is flow.channels_last:
+            self.channel_pos = "channels_last"
+        elif memory_format is flow.channels_first:
+            self.channel_pos = "channels_first"
+
     def forward(self, input):
         self.output_size = _pair(self.output_size)
         assert (
