@@ -398,7 +398,7 @@ class ConstantPad2d(Module):
 
     def forward(self, x):
         old_device = x.device
-        x = x.to('cpu')
+        x = x.to("cpu")
         y = flow._C.pad(x, pad=self.padding, mode="constant", value=self.value)
         return y.to(old_device)
 
