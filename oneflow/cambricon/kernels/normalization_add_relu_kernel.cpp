@@ -148,20 +148,6 @@ class MluNormalizationAddReluKernel final : public user_op::OpKernel {
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
 };
 
-#define REGISTER_BN_RELU_MLU_KERNEL(dtype, type, training)                            \
-  REGISTER_USER_KERNEL("normalization_relu")                                          \
-      .SetCreateFn<MluNormalizationAddReluKernel<dtype, type>>()                      \
-      .SetIsMatchedHob((user_op::HobDeviceType() == DeviceType::kMLU)                 \
-                       && (user_op::HobDataType("x", 0) == GetDataType<dtype>::value) \
-                       && (user_op::HobAttr<bool>("training") == training));
-
-REGISTER_BN_RELU_MLU_KERNEL(float, BatchNormType::kTraining, true)
-REGISTER_BN_RELU_MLU_KERNEL(float16, BatchNormType::kTraining, true)
-REGISTER_BN_RELU_MLU_KERNEL(float, BatchNormType::kInference, false)
-REGISTER_BN_RELU_MLU_KERNEL(float16, BatchNormType::kInference, false)
-
-#undef REGISTER_BN_RELU_MLU_KERNEL
-
 #define REGISTER_BN_ADD_RELU_MLU_KERNEL(dtype, type, training)                        \
   REGISTER_USER_KERNEL("normalization_add_relu")                                      \
       .SetCreateFn<MluNormalizationAddReluKernel<dtype, type>>()                      \
