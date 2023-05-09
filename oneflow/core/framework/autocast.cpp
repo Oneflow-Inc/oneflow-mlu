@@ -13,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include <set>
+
+#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/throw.h"
 #include "oneflow/core/framework/autocast.h"
 #include "oneflow/core/job_rewriter/auto_mixed_precision.h"
@@ -132,13 +135,15 @@ std::shared_ptr<AutoCastMeta> MakeAutoCastMeta(
   // autocast only supports the following device type(s) and low precision type(s):
   //   - device type: CUDA
   //   - low precision type: half, bfloat16
-  static std::vector<DeviceType> autocast_device_types{kCUDA};
+  static std::set<int> black_device_types{kInvalidDevice, kCPU, kMockDevice};
   static std::vector<Symbol<DType>> autocast_dtypes{DType::Float16(), DType::BFloat16()};
 
   if (autocast_meta->autocast_color() != kBlack) {
-    for (auto device_type : autocast_device_types) {
-      for (auto dtype : autocast_dtypes) {
-        autocast_meta->set_autocast_eligible(device_type, dtype);
+    for (int device_type = DeviceType_MIN; device_type <= DeviceType_MAX; ++device_type) {
+      if (black_device_types.find(device_type) == black_device_types.cend()) {
+        for (auto dtype : autocast_dtypes) {
+          autocast_meta->set_autocast_eligible(static_cast<DeviceType>(device_type), dtype);
+        }
       }
     }
   }

@@ -24,32 +24,36 @@ import oneflow as flow
 import oneflow.unittest
 
 
-def _test_clamp_max(test_case, shape, dtype, device):
+def _test_unsample_nearest_2d(test_case, shape, dtype, device):
     np_arr = np.random.randn(*shape)
-    input = flow.tensor(np_arr, dtype=dtype, device=flow.device(device))
-    mlu_out = flow.clamp_max(input, 0.5)
-    cpu_out = flow.clamp_max(flow.tensor(np_arr, dtype=dtype, device="cpu"), 0.5)
-    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out, 1e-04, 1e-04))
-
-
-def _test_clamp_scalar(test_case, shape, dtype, device):
-    np_arr = np.random.randn(*shape)
-    input = flow.tensor(np_arr, dtype=dtype, device=flow.device(device))
-    mlu_out = flow.clamp(input, 0.2, 0.7)
-    cpu_out = flow.clamp(flow.tensor(np_arr, dtype=dtype, device="cpu"), 0.2, 0.7)
-    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out, 1e-04, 1e-04))
+    mlu_out = flow._C.upsample_nearest_2d(
+        flow.tensor(np_arr, dtype=dtype, device=flow.device(device)),
+        height_scale=2.0,
+        width_scale=1.5,
+    )
+    cpu_out = flow._C.upsample_nearest_2d(
+        flow.tensor(np_arr, dtype=dtype, device="cpu"),
+        height_scale=2.0,
+        width_scale=1.5,
+    )
+    diff = 0.001 if dtype == flow.float16 else 0.0001
+    test_case.assertTrue(np.allclose(mlu_out.numpy(), cpu_out, diff, diff))
 
 
 @flow.unittest.skip_unless_1n1d()
-class TestClampCambriconModule(flow.unittest.TestCase):
-    def test_clamp(test_case):
+class TestUpsampleNearest2DCambriconModule(flow.unittest.TestCase):
+    def test_upsample_nearest_2d(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            _test_clamp_max,
-            _test_clamp_scalar,
+            _test_unsample_nearest_2d,
         ]
-        arg_dict["shape"] = [(2,), (2, 3), (2, 4, 5, 6)]
-        arg_dict["dtype"] = [flow.float32, flow.int32]
+        arg_dict["shape"] = [
+            (2, 3, 4, 5,),
+        ]
+        arg_dict["dtype"] = [
+            flow.float32,
+            # flow.float16,
+        ]
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
             arg[0](test_case, *arg[1:])

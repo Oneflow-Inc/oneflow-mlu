@@ -70,6 +70,21 @@ void CnnlActivationBackwardWithX(user_op::KernelComputeContext* ctx, const user_
                                        /*diff_x*/ out->mut_dptr()));
 }
 
+void CnnlActivationBackwardWithY(user_op::KernelComputeContext* ctx, const user_op::Tensor* dy,
+                                 const user_op::Tensor* y, user_op::Tensor* dx,
+                                 const CnnlActivationDescriptor& activation_desc) {
+  CnnlTensorDescriptor diff_y_desc(dy), y_desc(y), diff_x_desc(dx);
+  OF_CNNL_CHECK(cnnlActivationBackward(ctx->stream()->As<ep::MluStream>()->cnnl_handle(),
+                                       activation_desc.desc(),
+                                       /*alpha*/ nullptr,
+                                       /*y_desc*/ y_desc.desc(),
+                                       /*y*/ y->dptr(), diff_y_desc.desc(),
+                                       /*diff_y*/ dy->dptr(), /*x_desc*/ nullptr,
+                                       /*x*/ nullptr,
+                                       /*beta*/ nullptr, diff_x_desc.desc(),
+                                       /*diff_x*/ dx->mut_dptr()));
+}
+
 inline auto BaseActivationIsMatched(const std::string& input_name) {
   return (user_op::HobDeviceType() == DeviceType::kMLU)
          && ((user_op::HobDataType(input_name, 0) == kFloat)
@@ -107,6 +122,46 @@ REGISTER_USER_KERNEL("relu_grad")
       OF_RETURN_IF_ERROR(AddInplaceArgPairFn("dx", 0, "dy", 0, true));
       return Maybe<void>::Ok();
     });
+
+REGISTER_USER_KERNEL("silu")
+    .SetCreateFn([]() {
+      return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
+        const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("in", 0);
+        user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("out", 0);
+        CnnlActivationDescriptor activation_desc;
+        activation_desc.set(CNNL_ACTIVATION_SILU, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
+                            /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
+        CnnlActivationForward(ctx, in, out, activation_desc);
+      });
+    })
+    .SetIsMatchedHob(BaseActivationIsMatched("in"));
+
+REGISTER_USER_KERNEL("sigmoid")
+    .SetCreateFn([]() {
+      return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
+        const user_op::Tensor* in = ctx->Tensor4ArgNameAndIndex("x", 0);
+        user_op::Tensor* out = ctx->Tensor4ArgNameAndIndex("y", 0);
+        CnnlActivationDescriptor activation_desc;
+        activation_desc.set(CNNL_ACTIVATION_SIGMOID, /*prefer=*/CNNL_ACTIVATION_HIGH_PRECISION,
+                            /*nanProp=*/CNNL_NOT_PROPAGATE_NAN, /*ceof=*/1.0);
+        CnnlActivationForward(ctx, in, out, activation_desc);
+      });
+    })
+    .SetIsMatchedHob(BaseActivationIsMatched("x"));
+
+REGISTER_USER_KERNEL("sigmoid_grad")
+    .SetCreateFn([]() {
+      return user_op::NewOpKernel<MluActivationKernel>([](user_op::KernelComputeContext* ctx) {
+        user_op::Tensor* output = ctx->Tensor4ArgNameAndIndex("dx", 0);
+        const user_op::Tensor* dy = ctx->Tensor4ArgNameAndIndex("dy", 0);
+        const user_op::Tensor* y = ctx->Tensor4ArgNameAndIndex("y", 0);
+        CnnlActivationDescriptor activation_desc;
+        activation_desc.set(CNNL_ACTIVATION_SIGMOID, CNNL_ACTIVATION_HIGH_PRECISION,
+                            CNNL_NOT_PROPAGATE_NAN, /*coef*/ 0.0);
+        CnnlActivationBackwardWithY(ctx, dy, y, output, activation_desc);
+      });
+    })
+    .SetIsMatchedHob(BaseActivationIsMatched("dx"));
 
 REGISTER_USER_KERNEL("gelu")
     .SetCreateFn([]() {

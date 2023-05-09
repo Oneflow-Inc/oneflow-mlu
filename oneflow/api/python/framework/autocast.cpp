@@ -16,7 +16,9 @@ limitations under the License.
 #include <pybind11/pybind11.h>
 #include "oneflow/api/python/of_api_registry.h"
 
+#include "oneflow/core/common/device_type.pb.h"
 #include "oneflow/core/common/throw.h"
+#include "oneflow/core/ep/include/device_manager_registry.h"
 #include "oneflow/core/framework/autocast.h"
 
 namespace py = pybind11;
@@ -27,7 +29,7 @@ class AutoCastMode {
  public:
   OF_DISALLOW_COPY_AND_MOVE(AutoCastMode);
 
-  AutoCastMode(const std::string& device_type, Symbol<DType> dtype, bool enabled,
+  AutoCastMode(const std::string& device_name, Symbol<DType> dtype, bool enabled,
                bool cache_enabled)
       : prev_enabled_(autocast::is_enabled()),
         prev_cache_enabled_(autocast::is_autocast_cache_enabled()),
@@ -38,16 +40,22 @@ class AutoCastMode {
     // update autocast state
     autocast::set_enabled(enabled);
     autocast::set_autocast_cache_enabled(cache_enabled);
-    if (device_type == "cpu") {
-      autocast::set_autocast_device_type(kCPU);
-      autocast::set_autocast_dtype(dtype);
-      autocast::set_autocast_cpu_dtype(dtype);
-    } else if (device_type == "cuda") {
-      autocast::set_autocast_device_type(kCUDA);
-      autocast::set_autocast_dtype(dtype);
-      autocast::set_autocast_gpu_dtype(dtype);
-    } else {
-      THROW(RuntimeError) << "User specified autocast device_type must be 'cuda' or 'cpu'";
+    auto device_type = ep::DeviceManagerRegistry::GetDeviceTypeByDeviceTypeName(device_name);
+    switch (device_type) {
+      case kCPU:
+        autocast::set_autocast_device_type(device_type);
+        autocast::set_autocast_dtype(dtype);
+        autocast::set_autocast_cpu_dtype(dtype);
+        break;
+      case kCUDA:
+      case kMLU:
+        autocast::set_autocast_device_type(device_type);
+        autocast::set_autocast_dtype(dtype);
+        autocast::set_autocast_gpu_dtype(dtype);
+        break;
+      default:
+        THROW(RuntimeError)
+            << "User specified autocast device_type must be 'cuda' or 'cpu' or 'mlu'";
     }
   }
 

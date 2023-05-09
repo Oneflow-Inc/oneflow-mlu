@@ -113,7 +113,7 @@ class GroupNorm(Module):
             input.shape[1] == self.num_channels
         ), "The channels of input tensor must equal num_channels"
 
-        if input.is_cuda:
+        if not input.is_cpu:
             return flow._C.group_norm(
                 input, self.weight, self.bias, self.affine, self.num_groups, self.eps
             )
