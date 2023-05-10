@@ -22,11 +22,11 @@ limitations under the License.
 #include "nlohmann/json.hpp"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/common/shape_view.h"
+#include "oneflow/core/profiler/cnpapi_shim.h"
 
 namespace oneflow {
 
 namespace profiler {
-
 class ProfileManager;
 
 enum class EventType {
@@ -34,9 +34,10 @@ enum class EventType {
   kOneflowKernel  // OneFlow cpu/cuda kernel
 };
 enum class CustomEventType {
-  kDefault,     // for record_function
-  kCudaKernel,  // cuda kernel
-  kCudaRuntime  // something like cudaLaunchKernel
+  kDefault,      // for record_function
+  kCudaKernel,   // cuda kernel
+  kCudaRuntime,  // something like cudaLaunchKernel
+  kMluKernel
 };
 enum class EventTimeUnit { kNS, kUS };
 
@@ -116,6 +117,8 @@ class CustomEvent final : public IEvent {
  public:
   friend class ProfileManager;
 
+  friend void ::oneflow::bufferCompleted(uint64_t* buffer, size_t size, size_t validSize);
+
   nlohmann::json ToJson() override;
 
   static std::shared_ptr<CustomEvent> Create(const std::string& name,
@@ -125,7 +128,12 @@ class CustomEvent final : public IEvent {
   CustomEventType type_;
   CustomEvent(const std::string& custom_name, CustomEventType type)
       : IEvent(custom_name,
-               type == CustomEventType::kDefault ? EventTimeUnit::kNS : EventTimeUnit::kUS),
+               [type]() {
+                 if (type == CustomEventType::kDefault || type == CustomEventType::kMluKernel) {
+                   return EventTimeUnit::kNS;
+                 }
+                 return EventTimeUnit::kUS;
+               }()),
         type_(type) {}
 };
 
@@ -138,8 +146,11 @@ class KernelEvent final : public IEvent {
   static std::shared_ptr<KernelEvent> Create(const std::string& name,
                                              const Description& description);
 
-#if defined(WITH_CUDA)
+#if defined(WITH_CUDA) || defined(WITH_MLU)
+#ifdef WITH_CUDA
   void SetMemorySize(int64_t memory_size) { memory_size_ = memory_size; }
+#endif
+
   void AddChildEvent(const std::shared_ptr<IEvent>& e) { children_.emplace(e); }
   bool AddChildEventIfSo(const std::shared_ptr<IEvent>& e) {
     if (e->IsChildOf(dynamic_cast<IEvent*>(this))) {
@@ -158,8 +169,10 @@ class KernelEvent final : public IEvent {
   KernelEvent(const std::string& kernel_name, const Description& description)
       : IEvent(kernel_name, EventTimeUnit::kNS), description_(description) {}
 
-#if defined(WITH_CUDA)
+#if defined(WITH_CUDA) || defined(WITH_MLU)
+#ifdef WITH_CUDA
   int64_t memory_size_ = -1;
+#endif
   std::set<std::shared_ptr<IEvent>> children_;
 #endif  // WITH_CUDA
 

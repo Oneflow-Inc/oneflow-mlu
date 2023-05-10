@@ -20,6 +20,8 @@ limitations under the License.
 #include <queue>
 #include <set>
 #include <unordered_map>
+#include <vector>
+#include "oneflow/core/profiler/cnpapi_shim.h"
 #include "oneflow/core/profiler/kineto_shim.h"
 
 namespace oneflow {
@@ -31,6 +33,7 @@ class EventRecorder;
 class ProfileManager {
  public:
   friend class EventRecorder;
+  friend void ::oneflow::bufferCompleted(uint64_t* buffer, size_t size, size_t validSize);
 
   ProfileManager(bool use_cpu, bool use_cuda, bool record_shapes, bool record_attrs,
                  bool record_bandwidth)
@@ -46,6 +49,9 @@ class ProfileManager {
     PrepareTrace(/*cpuOnly*/ false, activities);
     StartTrace();
 #endif  // WITH_CUDA
+#if defined(WITH_MLU)
+    CnpPrepareTrace();
+#endif
   }
 
   std::string RegisterEventRecorder(const std::shared_ptr<EventRecorder>& event_recorder,
@@ -61,12 +67,13 @@ class ProfileManager {
   bool record_bandwidth_;
 
   std::queue<std::shared_ptr<IEvent>> events_;
+  std::vector<std::shared_ptr<IEvent>> events_result_;
   std::unordered_map<std::string, std::shared_ptr<EventRecorder>> event_recorders_;
   // To prevent releasing EventRecorders of the same name.
   std::unordered_map<std::string, int64_t> event_recorders_last_id_;
 
   std::string GetNextEventRecorderKey(const std::string& name);
-  std::vector<std::shared_ptr<IEvent>> ExportEvents();
+  void ProcessRawEvents();
 };
 
 }  // namespace profiler

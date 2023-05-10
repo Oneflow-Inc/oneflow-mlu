@@ -19,6 +19,7 @@ limitations under the License.
 #include "oneflow/core/common/util.h"
 #include "cnrt.h"
 #include "cnnl.h"
+#include "cnpapi.h"
 
 #define OF_MLU_CHECK(condition)                                                        \
   for (cnrtRet_t _cnrt_check_status = (condition); _cnrt_check_status != cnrtSuccess;) \
@@ -30,5 +31,17 @@ limitations under the License.
   THROW(RuntimeError) << "CNNL check failed: " #condition " : "                                   \
                       << " (error code:" << _cnnl_check_status                                    \
                       << " " + std::string(cnnlGetErrorString(_cnnl_check_status)) + ") "
+
+#define OF_CNPAPI_CHECK(condition)                                    \
+  do {                                                                \
+    cnpapiResult _cnpapi_check_status = (condition);                  \
+    if (_cnpapi_check_status != CNPAPI_SUCCESS) {                     \
+      const char* errstr;                                             \
+      cnpapiGetResultString(_cnpapi_check_status, &errstr);           \
+      THROW(RuntimeError) << "CNPAPI check failed: " #condition " : " \
+                          << " (error code:" << _cnpapi_check_status  \
+                          << " " + std::string(errstr) + ") ";        \
+    }                                                                 \
+  } while (0)
 
 #endif  // ONEFLOW_CAMBRICON_COMMON_MLU_UTIL_H_
