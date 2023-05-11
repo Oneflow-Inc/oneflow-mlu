@@ -3,6 +3,8 @@ cmake_minimum_required(VERSION 3.18.0)
 project(oneflow-cambricon CXX)
 option(BUILD_PYTHON "Option to build python module" ON)
 
+set(THIRD_PARTY_MIRROR "" CACHE STRING "")
+
 include(cmake/third_party.cmake)
 include(cmake/oneflow.cmake)
 if(BUILD_PYTHON)
