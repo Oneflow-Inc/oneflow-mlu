@@ -18,13 +18,14 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/framework/user_op_tensor.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/user/kernels/convert_memory_format_util.h"
+#include "oneflow/user/ops/convert_memory_format_op.h"
 
 namespace oneflow {
 
@@ -182,24 +183,26 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       size_t element_size = GetSizeOfDataType(data_type);
-      shape = mlu::ComputeShapeNchwToNhwc(shape);
-      indice_shape = mlu::ComputeShapeNchwToNhwc(indice_shape);
-      dy_shape = mlu::ComputeShapeNchwToNhwc(dy_shape);
+      shape = ComputeShapeContiguousToChannelsLast(shape);
+      indice_shape = ComputeShapeContiguousToChannelsLast(indice_shape);
+      dy_shape = ComputeShapeContiguousToChannelsLast(dy_shape);
       temp_x_workspace.resize(shape.elem_cnt() * element_size);
       temp_indice_workspace.resize(indice_shape.elem_cnt()
                                    * GetSizeOfDataType(indice->data_type()));
       temp_dy_workspace.resize(dy_shape.elem_cnt() * element_size);
       temp_dx_workspace.resize(shape.elem_cnt() * element_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
-                               temp_x_workspace.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
+                          temp_x_workspace.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
-                               temp_dy_workspace.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                          temp_dy_workspace.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       // convert indice to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), indice->shape_view(), indice->data_type(),
-                               indice->dptr(), temp_indice_workspace.dptr(), MemoryFormat::kNCHW,
-                               MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), indice->shape_view(), indice->data_type(), indice->dptr(),
+                          temp_indice_workspace.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       temp_x = temp_x_workspace.dptr();
       temp_indice = temp_indice_workspace.dptr();
       temp_dy = temp_dy_workspace.dptr();
@@ -275,8 +278,8 @@ class MluMaxPoolGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       // convert dx to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, temp_dx, dx->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), shape, data_type, temp_dx, dx->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
 

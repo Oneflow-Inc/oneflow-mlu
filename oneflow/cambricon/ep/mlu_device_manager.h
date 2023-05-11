@@ -35,7 +35,7 @@ class MluDeviceManager : public DeviceManager {
   size_t GetDeviceCount() override;
   size_t GetActiveDeviceIndex() override;
   void SetActiveDeviceByIndex(size_t device_index) override;
-  bool IsDeviceStreamWaitEventSupported() const override { return true; }
+  bool IsStreamWaitEventSupported() const override { return true; }
 
   std::shared_ptr<RandomGenerator> CreateRandomGenerator(uint64_t seed,
                                                          size_t device_index) override;

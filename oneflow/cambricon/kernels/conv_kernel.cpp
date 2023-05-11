@@ -18,12 +18,13 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/data_type.pb.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/user/kernels/convert_memory_format_util.h"
+#include "oneflow/user/ops/convert_memory_format_op.h"
 
 namespace oneflow {
 
@@ -95,18 +96,19 @@ class Conv2DKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       size_t element_size = GetSizeOfDataType(data_type);
-      in_shape = mlu::ComputeShapeNchwToNhwc(in_shape);
-      weight_shape = mlu::ComputeShapeNchwToNhwc(weight_shape);
-      out_shape = mlu::ComputeShapeNchwToNhwc(out_shape);
+      in_shape = ComputeShapeContiguousToChannelsLast(in_shape);
+      weight_shape = ComputeShapeContiguousToChannelsLast(weight_shape);
+      out_shape = ComputeShapeContiguousToChannelsLast(out_shape);
       temp_input.resize(in_shape.elem_cnt() * element_size);
       temp_weight.resize(weight_shape.elem_cnt() * element_size);
       temp_output.resize(out_shape.elem_cnt() * element_size);
       // convert input to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), in->shape_view(), data_type, in->dptr(),
-                               temp_input.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), in->shape_view(), data_type, in->dptr(), temp_input.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       // convert weight to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), weight->shape_view(), data_type, weight->dptr(),
-                               temp_weight.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), weight->shape_view(), data_type, weight->dptr(),
+                          temp_weight.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       input_ptr = temp_input.dptr();
       weight_ptr = temp_weight.dptr();
       output_ptr = temp_output.dptr();
@@ -139,8 +141,8 @@ class Conv2DKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       // convert output to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), out_shape, data_type, output_ptr, out->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), out_shape, data_type, output_ptr, out->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
 
@@ -201,18 +203,19 @@ class ConvDataGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       size_t element_size = GetSizeOfDataType(dx->data_type());
-      dy_shape = mlu::ComputeShapeNchwToNhwc(dy_shape);
-      filter_shape = mlu::ComputeShapeNchwToNhwc(filter_shape);
-      dx_shape = mlu::ComputeShapeNchwToNhwc(dx_shape);
+      dy_shape = ComputeShapeContiguousToChannelsLast(dy_shape);
+      filter_shape = ComputeShapeContiguousToChannelsLast(filter_shape);
+      dx_shape = ComputeShapeContiguousToChannelsLast(dx_shape);
       temp_dy.resize(dy_shape.elem_cnt() * element_size);
       temp_filter.resize(filter_shape.elem_cnt() * element_size);
       temp_dx.resize(dx_shape.elem_cnt() * element_size);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
-                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(), temp_dy.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       // convert filter to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), filter->shape_view(), data_type, filter->dptr(),
-                               temp_filter.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), filter->shape_view(), data_type, filter->dptr(),
+                          temp_filter.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       dy_ptr = temp_dy.dptr();
       filter_ptr = temp_filter.dptr();
       dx_ptr = temp_dx.dptr();
@@ -239,8 +242,8 @@ class ConvDataGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       // convert dx to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), dx_shape, data_type, dx_ptr, dx->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), dx_shape, data_type, dx_ptr, dx->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
 
@@ -307,18 +310,18 @@ class ConvFilterGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       size_t element_size = GetSizeOfDataType(data_type);
-      dy_shape = mlu::ComputeShapeNchwToNhwc(dy_shape);
-      x_shape = mlu::ComputeShapeNchwToNhwc(x_shape);
-      filter_diff_shape = mlu::ComputeShapeNchwToNhwc(filter_diff_shape);
+      dy_shape = ComputeShapeContiguousToChannelsLast(dy_shape);
+      x_shape = ComputeShapeContiguousToChannelsLast(x_shape);
+      filter_diff_shape = ComputeShapeContiguousToChannelsLast(filter_diff_shape);
       temp_dy.resize(dy_shape.elem_cnt() * element_size);
       temp_x.resize(x_shape.elem_cnt() * element_size);
       temp_filter_diff.resize(filter_diff_shape.elem_cnt() * element_size);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
-                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(), temp_dy.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       dy_ptr = temp_dy.dptr();
       x_ptr = temp_x.dptr();
       filter_diff_ptr = temp_filter_diff.dptr();
@@ -346,8 +349,9 @@ class ConvFilterGradKernel final : public user_op::OpKernel {
 
     if (data_format != "channels_last") {
       // convert filter_diff to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), filter_diff_shape, data_type, filter_diff_ptr,
-                               filter_diff->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), filter_diff_shape, data_type, filter_diff_ptr,
+                          filter_diff->mut_dptr(), MemoryFormat::kChannelsLast,
+                          MemoryFormat::kContiguous);
     }
   }
 

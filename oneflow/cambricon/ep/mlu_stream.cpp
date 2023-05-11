@@ -19,7 +19,7 @@ limitations under the License.
 #include "oneflow/cambricon/common/mlu_guard.h"
 #include "oneflow/cambricon/ep/mlu_device.h"
 #include "oneflow/cambricon/ep/mlu_event.h"
-#include "oneflow/core/hardware/node_device_descriptor_manager.h"
+// #include "oneflow/core/hardware/node_device_descriptor_manager.h"
 #include "oneflow/core/vm/bin_allocator.h"
 #include "oneflow/core/vm/ep_backend_allocator.h"
 #include "oneflow/core/vm/ep_backend_host_allocator.h"

@@ -195,8 +195,9 @@ Maybe<SubTskGphBuilderStatus> MluHierarchicalSubTskGphBuilder::Build(
   return Error::BoxingNotSupportedError();
 }
 
-REGISTER_CREATE_SUB_TASK_GRAPH_BUILDER_FN([]() -> std::unique_ptr<HierarchicalSubTskGphBuilder> {
-  return std::make_unique<MluHierarchicalSubTskGphBuilder>();
-});
+REGISTER_CREATE_SUB_TASK_GRAPH_BUILDER_FN(
+    DeviceType::kMLU, []() -> std::unique_ptr<HierarchicalSubTskGphBuilder> {
+      return std::make_unique<MluHierarchicalSubTskGphBuilder>();
+    });
 
 }  // namespace oneflow
