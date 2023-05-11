@@ -115,11 +115,11 @@ class TestWhereCambriconModule(flow.unittest.TestCase):
     def test_where(test_case):
         arg_dict = OrderedDict()
         arg_dict["test_fun"] = [
-            #_test_where,
-            #_test_where_broadcast,
-            #_test_where_dim4,
+            _test_where,
+            _test_where_broadcast,
+            _test_where_dim4,
             _test_where_scalar,
-            #_test_where_scalar_tensor,
+            _test_where_scalar_tensor,
         ]
         arg_dict["device"] = ["mlu"]
         for arg in GenArgList(arg_dict):
