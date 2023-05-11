@@ -15,6 +15,7 @@ limitations under the License.
 */
 #include <iomanip>
 #include <string>
+#include "oneflow/core/rpc/include/base.h"
 #include "oneflow/core/control/ctrl_client.h"
 #include "oneflow/core/control/global_process_ctx.h"
 #include "oneflow/core/job/env_global_objects_scope.h"
@@ -69,9 +70,9 @@ void CreateCnclComm(cnclComm_t* comm, const int dev, const std::string& key,
   int rank = std::distance(device_vec.cbegin(), it);
   if (rank == 0) {
     OF_CNCL_CHECK(cnclGetCliqueId(&cncl_unique_id));
-    Singleton<CtrlClient>::Get()->PushKV(key, CnclCliqueIdToString(cncl_unique_id));
+    Singleton<::oneflow::CtrlClient>::Get()->PushKV(key, CnclCliqueIdToString(cncl_unique_id));
   } else {
-    Singleton<CtrlClient>::Get()->PullKV(key, [&cncl_unique_id](const std::string& val) {
+    Singleton<::oneflow::CtrlClient>::Get()->PullKV(key, [&cncl_unique_id](const std::string& val) {
       CnclCliqueIdFromString(val, &cncl_unique_id);
     });
   }

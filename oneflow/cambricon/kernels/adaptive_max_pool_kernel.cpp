@@ -15,7 +15,8 @@ limitations under the License.
 */
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
-#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
+#include "oneflow/user/kernels/convert_memory_format_util.h"
+#include "oneflow/user/ops/convert_memory_format_op.h"
 
 namespace oneflow {
 
@@ -47,7 +48,7 @@ void PrepareIndexDescAndWorkspace(user_op::KernelComputeContext* ctx,
     local_index_desc.set(index->shape_view().NumAxes(), index->shape_view().data(),
                          local_index_dtype, layout);
   } else {
-    auto shape = mlu::ComputeShapeNchwToNhwc(Shape(index->shape_view()));
+    auto shape = ComputeShapeContiguousToChannelsLast(Shape(index->shape_view()));
     index_desc.set(index->shape_view().size(), shape.data(),
                    ConvertToCnnlDataType(index->data_type()), CNNL_LAYOUT_NHWC);
     local_index_desc.set(index->shape_view().NumAxes(), shape.data(), local_index_dtype, layout);
@@ -141,22 +142,23 @@ class AdaptiveMaxPool2DKernel final : public user_op::OpKernel {
     CnnlWorkspace tmp_in_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_in_workspace_size);
     CnnlWorkspace tmp_out_cnnl_workspace(ctx->stream()->As<ep::MluStream>(),
                                          tmp_out_workspace_size);
-    mlu::ConvertMemoryFormat(ctx->stream(), in_tensor->shape_view(), in_tensor->data_type(),
-                             in_tensor->dptr(), tmp_in_cnnl_workspace.dptr(), MemoryFormat::kNCHW,
-                             MemoryFormat::kNHWC);
+    ConvertMemoryFormat(ctx->stream(), in_tensor->shape_view(), in_tensor->data_type(),
+                        in_tensor->dptr(), tmp_in_cnnl_workspace.dptr(), MemoryFormat::kContiguous,
+                        MemoryFormat::kChannelsLast);
     void* temp_in_ptr = tmp_in_cnnl_workspace.dptr();
     void* temp_out_ptr = tmp_out_cnnl_workspace.dptr();
     auto in_shape = Shape(in_tensor->shape_view());
     auto out_shape = Shape(out_tensor->shape_view());
-    in_shape = mlu::ComputeShapeNchwToNhwc(in_shape);
-    out_shape = mlu::ComputeShapeNchwToNhwc(out_shape);
+    in_shape = ComputeShapeContiguousToChannelsLast(in_shape);
+    out_shape = ComputeShapeContiguousToChannelsLast(out_shape);
     in_desc.set(in_tensor->shape_view().NumAxes(), in_shape.data(), dtype, CNNL_LAYOUT_NHWC);
     out_desc.set(out_tensor->shape_view().NumAxes(), out_shape.data(), dtype, CNNL_LAYOUT_NHWC);
 
     ComputeNHWC(ctx, local_index_desc, local_index, in_desc, temp_in_ptr, out_desc, temp_out_ptr);
-    mlu::ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
-                             out_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
-    auto index_shape = mlu::ComputeShapeNchwToNhwc(Shape(index_tensor->shape_view()));
+    ConvertMemoryFormat(ctx->stream(), out_shape, out_tensor->data_type(), temp_out_ptr,
+                        out_tensor->mut_dptr(), MemoryFormat::kChannelsLast,
+                        MemoryFormat::kContiguous);
+    auto index_shape = ComputeShapeContiguousToChannelsLast(Shape(index_tensor->shape_view()));
     ConvertShortIndexToLong(ctx->stream(), local_index_dtype, index_shape, index_desc,
                             index_tensor->mut_dptr(), local_index_desc, local_index);
     // TODO(): convert nhwc index to nchw
@@ -236,7 +238,7 @@ class AdaptiveMaxPool2DGradKernel final : public user_op::OpKernel {
       return;
     }
 
-    auto index_shape = mlu::ComputeShapeNchwToNhwc(Shape(index_tensor->shape_view()));
+    auto index_shape = ComputeShapeContiguousToChannelsLast(Shape(index_tensor->shape_view()));
     ConvertLongIndexToShort(ctx->stream(), local_index_dtype, index_shape, index_desc,
                             index_tensor->dptr(), local_index_desc, local_index);
 
@@ -246,21 +248,22 @@ class AdaptiveMaxPool2DGradKernel final : public user_op::OpKernel {
         dx_tensor->shape_view().elem_cnt() * GetSizeOfDataType(dx_tensor->data_type());
     CnnlWorkspace tmp_dy_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dy_workspace_size);
     CnnlWorkspace tmp_dx_cnnl_workspace(ctx->stream()->As<ep::MluStream>(), tmp_dx_workspace_size);
-    mlu::ConvertMemoryFormat(ctx->stream(), dy_tensor->shape_view(), dy_tensor->data_type(),
-                             dy_tensor->dptr(), tmp_dy_cnnl_workspace.dptr(), MemoryFormat::kNCHW,
-                             MemoryFormat::kNHWC);
+    ConvertMemoryFormat(ctx->stream(), dy_tensor->shape_view(), dy_tensor->data_type(),
+                        dy_tensor->dptr(), tmp_dy_cnnl_workspace.dptr(), MemoryFormat::kContiguous,
+                        MemoryFormat::kChannelsLast);
     void* temp_dy_ptr = tmp_dy_cnnl_workspace.dptr();
     void* temp_dx_ptr = tmp_dx_cnnl_workspace.dptr();
     auto dy_shape = Shape(dy_tensor->shape_view());
     auto dx_shape = Shape(dx_tensor->shape_view());
-    dy_shape = mlu::ComputeShapeNchwToNhwc(dy_shape);
-    dx_shape = mlu::ComputeShapeNchwToNhwc(dx_shape);
+    dy_shape = ComputeShapeContiguousToChannelsLast(dy_shape);
+    dx_shape = ComputeShapeContiguousToChannelsLast(dx_shape);
     dy_desc.set(dy_tensor->shape_view().NumAxes(), dy_shape.data(), dtype, CNNL_LAYOUT_NHWC);
     dx_desc.set(dx_tensor->shape_view().NumAxes(), dx_shape.data(), dtype, CNNL_LAYOUT_NHWC);
 
     ComputeNHWC(ctx, local_index_desc, local_index, dy_desc, temp_dy_ptr, dx_desc, temp_dx_ptr);
-    mlu::ConvertMemoryFormat(ctx->stream(), dx_shape, dx_tensor->data_type(), temp_dx_ptr,
-                             dx_tensor->mut_dptr(), MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+    ConvertMemoryFormat(ctx->stream(), dx_shape, dx_tensor->data_type(), temp_dx_ptr,
+                        dx_tensor->mut_dptr(), MemoryFormat::kChannelsLast,
+                        MemoryFormat::kContiguous);
   }
 
   void ComputeNHWC(user_op::KernelComputeContext* ctx, const CnnlTensorDescriptor& local_index_desc,

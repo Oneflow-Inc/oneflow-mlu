@@ -29,7 +29,7 @@ class MluDevice : public Device {
   ~MluDevice() override;
 
   void SetAsActiveDevice() override;
-  void TryReset() override;
+  void Reset() override;
 
   DeviceType device_type() const override { return DeviceType::kMLU; }
   size_t device_index() const override { return device_index_; }

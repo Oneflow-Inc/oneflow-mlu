@@ -17,11 +17,12 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_tensor_descriptor.h"
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
-#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
+#include "oneflow/user/kernels/convert_memory_format_util.h"
+#include "oneflow/user/ops/convert_memory_format_op.h"
 
 namespace oneflow {
 
@@ -78,13 +79,13 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     const auto stream = ctx->stream()->As<ep::MluStream>();
     CnnlWorkspace workspace_x(stream, 0), workspace_y(stream, 0);
     if (axis == 1) {
-      shape = mlu::ComputeShapeNchwToNhwc(shape);
+      shape = ComputeShapeContiguousToChannelsLast(shape);
       size_t workspace_size = shape.elem_cnt() * GetSizeOfDataType(data_type);
       workspace_x.resize(workspace_size);
       workspace_y.resize(workspace_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
-                               workspace_x.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), workspace_x.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       x_ptr = workspace_x.dptr();
       y_ptr = workspace_y.dptr();
     }
@@ -115,8 +116,8 @@ class MluNormalizationKernel final : public user_op::OpKernel {
     }
     if (axis == 1) {
       // convert y to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, y_ptr, y->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), shape, data_type, y_ptr, y->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }
@@ -173,17 +174,18 @@ class MluNormalizationGradKernel final : public user_op::OpKernel {
     const auto stream = ctx->stream()->As<ep::MluStream>();
     CnnlWorkspace workspace_x(stream, 0), workspace_dy(stream, 0), workspace_dx(stream, 0);
     if (axis == 1) {
-      shape = mlu::ComputeShapeNchwToNhwc(shape);
+      shape = ComputeShapeContiguousToChannelsLast(shape);
       size_t workspace_size = shape.elem_cnt() * GetSizeOfDataType(data_type);
       workspace_x.resize(workspace_size);
       workspace_dy.resize(workspace_size);
       workspace_dx.resize(workspace_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(),
-                               workspace_x.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), workspace_x.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
-                               workspace_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
+                          workspace_dy.dptr(), MemoryFormat::kContiguous,
+                          MemoryFormat::kChannelsLast);
       x_ptr = workspace_x.dptr();
       dy_ptr = workspace_dy.dptr();
       dx_ptr = workspace_dx.dptr();
@@ -199,8 +201,8 @@ class MluNormalizationGradKernel final : public user_op::OpKernel {
                           beta_diff->mut_dptr());
     if (axis == 1) {
       // convert dx to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, dx_ptr, dx->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), shape, data_type, dx_ptr, dx->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
   bool AlwaysComputeWhenAllOutputsEmpty() const override { return false; }

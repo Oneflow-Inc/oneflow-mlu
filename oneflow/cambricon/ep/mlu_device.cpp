@@ -66,7 +66,7 @@ MluDevice::~MluDevice() {
 
 void MluDevice::SetAsActiveDevice() { OF_MLU_CHECK(cnrtSetDevice(device_index_)); }
 
-void MluDevice::TryReset() {
+void MluDevice::Reset() {
   SetAsActiveDevice();
   OF_MLU_CHECK(cnrtDeviceReset());
 }

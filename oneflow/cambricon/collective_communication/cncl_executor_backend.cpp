@@ -13,6 +13,8 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+#include "oneflow/core/common/data_type.h"
+#include "oneflow/core/rpc/include/base.h"
 #include "oneflow/core/job/collective_boxing/executor_backend_manager.h"
 #include "oneflow/core/job/collective_boxing/request_store.h"
 #include "oneflow/cambricon/collective_communication/cncl_util.h"

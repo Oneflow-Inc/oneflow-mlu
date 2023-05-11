@@ -1,7 +1,0 @@
-syntax = "proto2";
-package oneflow;
-
-message ModuleConf {
-  required string name = 1;
-  repeated string ops = 2;
-}

@@ -31,7 +31,9 @@ function(install_py_dev_deps)
   endif()
   message(STATUS "Python packages are installed.")
 endfunction(install_py_dev_deps)
-install_py_dev_deps(${Python_EXECUTABLE})
+if(AUTO_INSTALL_ONEFLOW)
+  install_py_dev_deps(${Python_EXECUTABLE})
+endif()
 
 find_package(Python3 COMPONENTS Development NumPy)
 if(Python3_Development_FOUND AND Python3_INCLUDE_DIRS)
@@ -70,10 +72,6 @@ if(NOT Python_NumPy_INCLUDE_DIRS)
   message(FATAL_ERROR "Cannot find numpy include directory")
 endif()
 message(STATUS "Found numpy include directory ${Python_NumPy_INCLUDE_DIRS}")
-
-# PYTHON_EXECUTABLE will be used by pybind11
-set(PYTHON_EXECUTABLE ${Python_EXECUTABLE})
-include(pybind11)
 
 set(CODEGEN_PYTHON_EXECUTABLE ${Python_EXECUTABLE}
     CACHE STRING "Python executable to generate .cpp/.h files")

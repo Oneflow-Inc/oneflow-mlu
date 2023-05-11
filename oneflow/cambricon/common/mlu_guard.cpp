@@ -21,8 +21,13 @@ limitations under the License.
 
 namespace oneflow {
 
+static const char* MluNotSupportInForkedSubProcess =
+    "Cannot re-initialize MLU in forked subprocess. To use MLU with multiprocessing, you "
+    "must add 'multiprocessing.set_start_method(\"spawn\")' in '__main__' if you are using "
+    "Python's multiprocessing";
+
 MluCurrentDeviceGuard::MluCurrentDeviceGuard(int32_t dev_id) {
-  CHECK(!pthread_fork::IsForkedSubProcess()) << pthread_fork::kOfDeviceNotSupportInForkedSubProcess;
+  CHECK(!pthread_fork::IsForkedSubProcess()) << MluNotSupportInForkedSubProcess;
   OF_MLU_CHECK(cnrtGetDevice(&saved_dev_id_));
   OF_MLU_CHECK(cnrtSetDevice(dev_id));
 }

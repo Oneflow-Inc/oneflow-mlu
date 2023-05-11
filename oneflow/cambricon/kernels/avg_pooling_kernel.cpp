@@ -18,13 +18,14 @@ limitations under the License.
 #include "oneflow/cambricon/cnnl/cnnl_workspace.h"
 #include "oneflow/cambricon/common/mlu_util.h"
 #include "oneflow/cambricon/ep/mlu_stream.h"
-#include "oneflow/cambricon/kernels/convert_memory_format_util.h"
 #include "oneflow/core/common/data_type.h"
 #include "oneflow/core/common/util.h"
 #include "oneflow/core/framework/framework.h"
 #include "oneflow/core/framework/user_op_tensor.h"
 #include "oneflow/core/kernel/new_kernel_util.h"
 #include "oneflow/user/kernels/avg_pool_kernel_util.h"
+#include "oneflow/user/kernels/convert_memory_format_util.h"
+#include "oneflow/user/ops/convert_memory_format_op.h"
 
 namespace oneflow {
 
@@ -244,17 +245,17 @@ class MluAvgPoolGradKernel final : public user_op::OpKernel {
 
     if (params_3d.data_format() != "channels_last") {
       size_t element_size = GetSizeOfDataType(data_type);
-      shape = mlu::ComputeShapeNchwToNhwc(shape);
-      dy_shape = mlu::ComputeShapeNchwToNhwc(dy_shape);
+      shape = ComputeShapeContiguousToChannelsLast(shape);
+      dy_shape = ComputeShapeContiguousToChannelsLast(dy_shape);
       temp_x.resize(shape.elem_cnt() * element_size);
       temp_dy.resize(dy_shape.elem_cnt() * element_size);
       temp_dx.resize(shape.elem_cnt() * element_size);
       // convert x to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
-                               MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), x->shape_view(), data_type, x->dptr(), temp_x.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       // convert dy to NHWC
-      mlu::ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(),
-                               temp_dy.dptr(), MemoryFormat::kNCHW, MemoryFormat::kNHWC);
+      ConvertMemoryFormat(ctx->stream(), dy->shape_view(), data_type, dy->dptr(), temp_dy.dptr(),
+                          MemoryFormat::kContiguous, MemoryFormat::kChannelsLast);
       x_ptr = temp_x.dptr();
       dy_ptr = temp_dy.dptr();
       dx_ptr = temp_dx.dptr();
@@ -270,8 +271,8 @@ class MluAvgPoolGradKernel final : public user_op::OpKernel {
 
     if (params_3d.data_format() != "channels_last") {
       // convert dx to NCHW
-      mlu::ConvertMemoryFormat(ctx->stream(), shape, data_type, dx_ptr, dx->mut_dptr(),
-                               MemoryFormat::kNHWC, MemoryFormat::kNCHW);
+      ConvertMemoryFormat(ctx->stream(), shape, data_type, dx_ptr, dx->mut_dptr(),
+                          MemoryFormat::kChannelsLast, MemoryFormat::kContiguous);
     }
   }
 };
