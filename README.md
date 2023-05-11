@@ -1,14 +1,12 @@
 # oneflow-mlu
 
-OneFlow-MLU is an OneFlow extension that enables oneflow to run on the Cambrian MLU chips. Currently it supports all chips of the MLU 370 series.
-
+OneFlow-MLU is an OneFlow extension that enables oneflow to run on the Cambrian MLU chips. Currently it only supports the MLU 370 series.
 
 ## Installation
 
 ### pip
 
 TODO
-
 
 ### Building From Source
 
@@ -25,12 +23,11 @@ git clone https://github.com/Oneflow-Inc/oneflow-mlu
 
 #### building
 
-Inside OneFlow-MLU source directory, then run the following command to install `oneflow_mlu`:
+Inside OneFlow-MLU source directory, then run the following command to install `oneflow_mlu`,
 
 ```shell
 python3 setup.py install
 ```
-
 
 ## Run A Toy Program
 
