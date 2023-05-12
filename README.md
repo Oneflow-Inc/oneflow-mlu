@@ -13,7 +13,7 @@ TODO
 #### Prerequisites
 
 - install cmake
-- building oneflow with cpu only from source and install it
+- build oneflow with cpu only from source and install it
 
 #### Get the OneFlow-MLU Source
 
@@ -21,7 +21,7 @@ TODO
 git clone https://github.com/Oneflow-Inc/oneflow-mlu
 ```
 
-#### building
+#### Building
 
 Inside OneFlow-MLU source directory, then run the following command to install `oneflow_mlu`,
 
@@ -34,8 +34,8 @@ python3 setup.py install
 ```python
 # python3
 
->>> import oneflow as flow
 >>> import oneflow_mlu
+>>> import oneflow as flow
 >>>
 >>> m = flow.nn.Linear(3, 4).to("mlu")
 >>> x = flow.randn(4, 3, device="mlu")

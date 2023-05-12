@@ -20,9 +20,9 @@ import os
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 def do_test_dropout_numpy_p0(test_case, shape, device, dtype):

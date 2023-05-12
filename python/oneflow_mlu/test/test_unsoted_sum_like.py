@@ -20,9 +20,9 @@ from collections import OrderedDict
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 def _test_unsorted_segment_sum_like(test_case, shape, indes, device, dtype):

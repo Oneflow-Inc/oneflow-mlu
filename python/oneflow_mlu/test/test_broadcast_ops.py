@@ -15,8 +15,8 @@ limitations under the License.
 """
 import itertools
 import numpy as np
-import oneflow as flow
 import oneflow_mlu
+import oneflow as flow
 
 
 def _test_broadcast_forward(op, shape1, shape2, dtype):

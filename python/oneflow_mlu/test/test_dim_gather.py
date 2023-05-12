@@ -15,8 +15,8 @@ limitations under the License.
 """
 import itertools
 import numpy as np
-import oneflow as flow
 import oneflow_mlu
+import oneflow as flow
 
 
 def __test_dim_gather(x_array, index_array, dim, index_dtype):

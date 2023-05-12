@@ -23,10 +23,10 @@ os.environ["ONEFLOW_KERNEL_ENABLE_FUSED_CONV_BIAS"] = "1"
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
 from packaging import version
-import oneflow_mlu
 
 test_conv2d_weight = np.array(
     [

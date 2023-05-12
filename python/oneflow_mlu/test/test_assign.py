@@ -20,8 +20,8 @@ from collections import OrderedDict
 
 import numpy as np
 import oneflow.unittest
-import oneflow as flow
 import oneflow_mlu
+import oneflow as flow
 
 
 def _test_assign(test_case, dtype):

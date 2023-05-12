@@ -14,8 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 """
 import numpy as np
-import oneflow as flow
 import oneflow_mlu
+import oneflow as flow
 
 
 def _layer_norm(x, normalized_shape, weight=None, bias=None, eps=1e-6):

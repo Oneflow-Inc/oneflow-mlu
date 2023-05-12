@@ -20,9 +20,9 @@ from collections import OrderedDict
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 def _test_rsqrt_forward(test_case, shape, device, dtype):

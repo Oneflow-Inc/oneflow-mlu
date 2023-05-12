@@ -15,10 +15,10 @@ limitations under the License.
 """
 
 import unittest
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
 import numpy as np
-import oneflow_mlu
 
 
 def _test_add(test_case, mlu_placement, cpu_placement, shape, x_sbp, y_sbp):

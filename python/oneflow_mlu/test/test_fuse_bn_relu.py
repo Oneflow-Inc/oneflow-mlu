@@ -25,10 +25,10 @@ os.environ["ONEFLOW_MLIR_ENABLE_ROUND_TRIP"] = "1"
 os.environ["ONEFLOW_MLIR_FUSE_NORMALIZATION_OPS"] = "1"
 os.environ["ONEFLOW_MLIR_PRINT_STATS"] = "1"
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
 import oneflow.sysconfig
-import oneflow_mlu
 
 
 def do_normalization_relu_graph(test_case):
