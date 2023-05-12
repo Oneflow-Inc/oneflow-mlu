@@ -29,6 +29,8 @@ class EagerCnclCommMgr final : public EagerCclCommMgr {
   static const std::string kDefaultStreamName;
 
   OF_DISALLOW_COPY_AND_MOVE(EagerCnclCommMgr);
+  // NOTE: default async launch cncl logical kernel is true for better performence.
+  EagerCnclCommMgr() : EagerCclCommMgr(), async_launch_cncl_logical_kernel_(true) {}
   ~EagerCnclCommMgr() override;
 
   cnclComm_t GetCommForDevice(const std::set<std::pair<int64_t, int64_t>>& device_set);
@@ -42,10 +44,6 @@ class EagerCnclCommMgr final : public EagerCclCommMgr {
   }
 
  private:
-  friend class EagerCclCommMgrBuilder;
-  // NOTE: default async launch cncl logical kernel is true for better performence.
-  EagerCnclCommMgr() : EagerCclCommMgr(), async_launch_cncl_logical_kernel_(true) {}
-
   std::map<std::set<std::pair<int64_t, int64_t>>, HashMap<int64_t, cnclComm_t>>
       device_set2device_id2comm_;
   std::map<std::string, HashMap<int64_t, cnclComm_t>> device7stream2device_id2comm_;

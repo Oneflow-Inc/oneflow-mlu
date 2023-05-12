@@ -15,4 +15,16 @@ limitations under the License.
 */
 #include <pybind11/pybind11.h>
 
-PYBIND11_MODULE(_oneflow_mlu_internal, m) {}
+#include "oneflow_mlu/collective_communication/eager_cncl_comm_manager.h"
+
+namespace oneflow {
+
+void InitEnv() {
+  if (!Singleton<EagerCclCommMgr>::Get()) {
+    Singleton<EagerCclCommMgr>::SetAllocated(new EagerCnclCommMgr);
+  }
+}
+
+}  // namespace oneflow
+
+PYBIND11_MODULE(_oneflow_mlu_internal, m) { oneflow::InitEnv(); }

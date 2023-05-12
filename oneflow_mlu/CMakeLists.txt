@@ -12,14 +12,15 @@ if(ONEFLOW_MLU_BANG_SRCS)
   list(APPEND ONEFLOW_MLU_LIBS custom_bangc)
 endif()
 
-file(GLOB_RECURSE ONEFLOW_MLU_SRCS
+file(
+  GLOB_RECURSE
+  ONEFLOW_MLU_SRCS
   cnnl/*.cpp
   collective_communication/*.cpp
   common/*.cpp
   ep/*.cpp
   graph/*.cpp
-  kernels/*.cpp
-)
+  kernels/*.cpp)
 add_library(oneflow_mlu SHARED ${ONEFLOW_MLU_SRCS})
 add_dependencies(oneflow_mlu ${ONEFLOW_THIRD_PARTY_LIBRARIES})
 target_include_directories(oneflow_mlu PRIVATE ${ONEFLOW_MLU_INCLUDE_DIRS} ${ONEFLOW_INCLUDE_DIR})
@@ -39,7 +40,8 @@ install(
   ARCHIVE DESTINATION lib
   RUNTIME DESTINATION bin)
 
-add_custom_target(install_oneflow_mlu ALL
+add_custom_target(
+  install_oneflow_mlu ALL
   COMMAND "${CMAKE_COMMAND}" -DCMAKE_INSTALL_COMPONENT=oneflow_mlu_libs
           -DCMAKE_INSTALL_PREFIX="${INSTALL_DIR}" -P "${CMAKE_BINARY_DIR}/cmake_install.cmake"
   DEPENDS ${ONEFLOW_MLU_INSTALL_TARGETS})
