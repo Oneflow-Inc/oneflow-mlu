@@ -46,3 +46,7 @@ tensor([[ 0.4239, -0.4689, -0.1660,  0.0718],
         [ 0.4226, -0.0207,  0.1006,  0.2234],
         [ 0.4054, -0.2816, -0.4405,  0.1099]], device='mlu:0', dtype=oneflow.float32, grad_fn=<broadcast_addBackward>)
 ```
+
+## Models
+- [ResNet50](https://github.com/Oneflow-Inc/oneflow-mlu-models#resnet50)
+- [GPT2](https://github.com/Oneflow-Inc/oneflow-mlu-models#libai_gpt2)
