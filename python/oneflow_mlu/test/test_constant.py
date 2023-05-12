@@ -18,11 +18,11 @@ import unittest
 from collections import OrderedDict
 
 import numpy as np
+import oneflow_mlu
 import oneflow as flow
 
 import oneflow.unittest
 from oneflow.test_utils.test_util import GenArgList
-import oneflow_mlu
 
 
 def _test_different_dtype(test_case, shape, dtype):

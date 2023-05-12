@@ -18,9 +18,9 @@ import unittest
 
 import numpy as np
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 @flow.unittest.skip_unless_1n1d()

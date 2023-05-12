@@ -21,9 +21,9 @@ import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 from scipy.stats import norm
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 def gelu_ref(X):

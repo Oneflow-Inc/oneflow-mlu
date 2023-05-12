@@ -20,10 +20,10 @@ from collections import OrderedDict
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.nn as nn
 import oneflow.unittest
-import oneflow_mlu
 
 
 def _test_l1_l2_regularize_gradient(test_case, shape, device, dtype, optimizer):

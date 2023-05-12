@@ -22,9 +22,9 @@ import random as random_util
 import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 
+import oneflow_mlu
 import oneflow as flow
 from oneflow.nn.parameter import Parameter
-import oneflow_mlu
 
 
 def compare_with_numpy_adam(

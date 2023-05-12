@@ -20,6 +20,7 @@ from collections import OrderedDict
 
 import numpy as np
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
 from oneflow.test_utils.test_util import (
@@ -27,7 +28,6 @@ from oneflow.test_utils.test_util import (
     type_name_to_flow_type,
     type_name_to_np_type,
 )
-import oneflow_mlu
 
 
 def _test_sparse_softmax_cross_entropy(

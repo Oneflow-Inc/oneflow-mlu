@@ -21,9 +21,9 @@ import numpy as np
 from oneflow.test_utils.test_util import GenArgList
 import numpy as np
 
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
-import oneflow_mlu
 
 
 def layernorm_ref(X, gamma, beta, normalized_shape, eps):

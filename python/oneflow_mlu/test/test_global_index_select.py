@@ -15,10 +15,10 @@ limitations under the License.
 """
 
 import unittest
+import oneflow_mlu
 import oneflow as flow
 import oneflow.unittest
 import numpy as np
-import oneflow_mlu
 
 
 def _test_index_select(test_case, mlu_placement, cpu_placement, x_sbp, index_sbp):
