@@ -1,6 +1,6 @@
 # oneflow-mlu
 
-OneFlow-MLU is an OneFlow extension that enables oneflow to run on the Cambrian MLU chips. Currently it only supports the MLU 370 series.
+OneFlow-MLU is an OneFlow extension that enables oneflow to run on the Cambricon MLU chips. Currently it only supports the MLU 370 series.
 
 ## Installation
 
