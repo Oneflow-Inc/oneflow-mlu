@@ -13,6 +13,7 @@ TODO
 #### Prerequisites
 
 - install cmake
+- install Cambricon MLU driver (https://sdk.cambricon.com/download?sdk_version=V1.11.0&component_name=Driver )，CNToolKit，CNNL and CNCL (https://sdk.cambricon.com/download?sdk_version=V1.11.0&component_name=Basis ).
 - build oneflow with cpu only from source and install it
 
 #### Get the OneFlow-MLU Source
@@ -23,7 +24,7 @@ git clone https://github.com/Oneflow-Inc/oneflow-mlu
 
 #### Building
 
-Inside OneFlow-MLU source directory, then run the following command to install `oneflow_mlu`,
+Inside OneFlow-MLU source directory, then run the following command to build and install `oneflow_mlu`,
 
 ```shell
 python3 setup.py install
@@ -34,8 +35,8 @@ python3 setup.py install
 ```python
 # python3
 
->>> import oneflow_mlu
 >>> import oneflow as flow
+>>> import oneflow_mlu
 >>>
 >>> m = flow.nn.Linear(3, 4).to("mlu")
 >>> x = flow.randn(4, 3, device="mlu")
