@@ -81,6 +81,7 @@ class WhereImpl : public Where {
       max_element_count *= max_dim;
     }
 
+#if CNNL_MAJOR <= 1 && CNNL_MINOR < 18
     // expand inputs to same shape since cnnlSelectV2 broadcasting may lead to incorrect result when
     // the calculation scale is large
     Shape z_shape(DimVector(z_dims, z_dims + max_dims));
@@ -112,6 +113,13 @@ class WhereImpl : public Where {
     x_desc.set(max_dims, z_dims, cnnl_xy_data_type);
     y_desc.set(max_dims, z_dims, cnnl_xy_data_type);
     z_desc.set(max_dims, z_dims, cnnl_xy_data_type);
+#else
+    CnnlTensorDescriptor condition_desc, x_desc, y_desc, z_desc;
+    condition_desc.set(num_cond_dims, cond_dims, cnnl_cond_data_type);
+    x_desc.set(num_x_dims, x_dims, cnnl_xy_data_type);
+    y_desc.set(num_y_dims, y_dims, cnnl_xy_data_type);
+    z_desc.set(max_dims, z_dims, cnnl_xy_data_type);
+#endif
     size_t workspace_size = 0;
     OF_CNNL_CHECK(cnnlGetSelectV2WorkspaceSize(stream->As<ep::MluStream>()->cnnl_handle(),
                                                condition_desc.desc(), x_desc.desc(), y_desc.desc(),
